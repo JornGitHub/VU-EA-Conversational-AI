@@ -4,6 +4,12 @@ De scriptlogica blijft bewust dependency-free: de retrieval gebruikt alleen simp
 tekstnormalisatie, handmatige scorebonussen en heuristische groepering. Dat maakt
 het bestand makkelijk te begrijpen, aan te passen en op iedere Python-installatie
 uit te voeren.
+
+Voorbeelden:
+    python zoek_definities_voorbeeld.py "wat is een internationale student?"
+    python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?"
+    python zoek_definities_voorbeeld.py "wat telt als student?" --debug
+    python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?" --json
 """
 
 from __future__ import annotations
@@ -111,6 +117,37 @@ def unique_preserve_order(values: list[Any]) -> list[Any]:
     return unique
 
 
+def split_dataset_names(values: list[Any]) -> list[str]:
+    """Split combined dataset labels such as "A.csv / B.csv" and deduplicate."""
+    parts: list[str] = []
+    for value in values:
+        for part in str(value).split(" / "):
+            part = part.strip()
+            if part:
+                parts.append(part)
+    return unique_preserve_order(parts)
+
+
+def detect_query_intent(query: str) -> str:
+    """Classify the user's intent so the answer can lead with definition or location."""
+    normalized = normalize_text(query)
+    location_phrases = ("waar vind ik", "welk bestand", "welke dataset", "waar staat")
+    definition_phrases = ("wat is", "wat betekent", "definitie")
+    if any(phrase in normalized for phrase in location_phrases):
+        return "location"
+    if any(normalized.startswith(phrase) or phrase in normalized for phrase in definition_phrases):
+        return "definition"
+    return "general"
+
+
+def query_topic(query: str) -> str:
+    """Extract a readable topic from location questions when possible."""
+    match = re.search(r"\bover\s+(.+?)(?:\?|$)", query, flags=re.IGNORECASE)
+    if match:
+        return match.group(1).strip(" .?!")
+    return "dit onderwerp"
+
+
 def entry_search_text(entry: Entry) -> str:
     searchable_fields = [
         "term",
@@ -195,17 +232,23 @@ def score_entry(query: str, entry: Entry, source: str) -> float:
     haystack = normalize_text(entry_search_text(entry))
     term_tokens = set(tokenize(entry.get("term", "")))
 
-    score = conceptual_bonus(entry, source) + title_match_score(query, entry)
+    title_score = title_match_score(query, entry)
+    token_score = 0.0
 
     # Token scoring keeps broad search behavior intact: definitions, tags and
     # dataset names still matter, but term/title hits are weighted more heavily.
     for token in query_tokens:
         if token in haystack:
-            score += 1.5 if source == "curated" else 1.0
+            token_score += 1.5 if source == "curated" else 1.0
         if token in term_tokens:
-            score += 3.0 if source == "curated" else 2.0
+            token_score += 3.0 if source == "curated" else 2.0
 
-    return score
+    # Conceptual bonuses should reorder matching rows, not make every curated
+    # definition match every query. This keeps the index fallback meaningful.
+    if title_score == 0 and token_score == 0:
+        return 0.0
+
+    return conceptual_bonus(entry, source) + title_score + token_score
 
 
 def search_definitions(query: str, entries: list[tuple[str, list[Entry]]] | None = None, limit: int = 30) -> list[Result]:
@@ -312,7 +355,7 @@ def group_related_results(results: list[Result]) -> list[Result]:
             + as_list(entry.get("related_field_names"))
             + as_list(entry.get("field_name"))
         )
-        target["datasets"] = unique_preserve_order(
+        target["datasets"] = split_dataset_names(
             target["datasets"]
             + as_list(entry.get("available_in_datasets"))
             + as_list(entry.get("dataset_or_file"))
@@ -321,6 +364,10 @@ def group_related_results(results: list[Result]) -> list[Result]:
 
     groups.sort(key=lambda group: group["score"], reverse=True)
     return groups
+
+
+def curated_definition_found(group: Result) -> bool:
+    return any(result["source"] == "curated" and result["entry"].get("definition") for result in group["results"])
 
 
 def best_definition(group: Result) -> str:
@@ -337,7 +384,9 @@ def best_definition(group: Result) -> str:
         for result in group["results"]
         if result["entry"].get("definition")
     ]
-    return str(definitions[0]).strip() if definitions else "Ik heb geen uitgeschreven definitie gevonden, maar wel relevante velden en datasets."
+    if definitions:
+        return str(definitions[0]).strip()
+    return "Ik heb geen uitgeschreven definitie gevonden, maar wel relevante velden en datasets."
 
 
 def notes_for_group(group: Result) -> list[str]:
@@ -355,38 +404,78 @@ def notes_for_group(group: Result) -> list[str]:
     return unique_preserve_order(notes)
 
 
+def short_description(entry: Entry, max_length: int = 140) -> str:
+    """Return a short existing description without inventing extra wording."""
+    definition = str(entry.get("definition", "")).strip().replace("\n", " ")
+    if not definition:
+        return ""
+    first_sentence = re.split(r"(?<=[.!?])\s+", definition, maxsplit=1)[0].strip()
+    if len(first_sentence) <= max_length:
+        return first_sentence
+    return first_sentence[: max_length - 1].rstrip() + "…"
+
+
+def related_term_label(group: Result) -> str:
+    """Format related terms; add existing descriptions for unclear one-word titles."""
+    entry = group["best"]["entry"]
+    term = str(entry.get("term", "Onbekend"))
+    if len(tokenize(term)) <= 1:
+        description = short_description(entry)
+        if description:
+            return f"{term} — {description}"
+    return term
+
+
 def build_answer(grouped_results: list[Result], query: str) -> str:
     """Build a concise conversational answer for the best result group."""
     if not grouped_results:
         return "Antwoord:\nIk heb geen passende definitie of veldbeschrijving gevonden."
 
+    intent = detect_query_intent(query)
     group = grouped_results[0]
     best_entry = group["best"]["entry"]
     title = best_entry.get("term", "Gevonden definitie")
-    lines = ["Antwoord:", best_definition(group), ""]
-
+    definition = best_definition(group)
     fields = [field for field in group["fields"] if normalize_text(field) != normalize_text(title)]
+    datasets = group["datasets"]
+    notes = notes_for_group(group)
+    has_curated_definition = curated_definition_found(group)
+
+    lines = ["Antwoord:"]
+    if not has_curated_definition:
+        lines.extend(
+            [
+                "Ik heb geen opgeschoonde definitie gevonden, maar wel relevante documentatiefragmenten:",
+                "",
+            ]
+        )
+
+    if intent == "location" and datasets:
+        lines.append(f"Je vindt data over {query_topic(query)} vooral in de volgende bestanden:")
+        lines += [f"- {dataset}" for dataset in datasets]
+        lines.extend(["", "Definitie:", definition, ""])
+    else:
+        lines.extend([definition, ""])
+
     if fields:
         lines += ["Relevante velden:"]
         lines += [f"- {field}" for field in fields]
         lines.append("")
 
-    if group["datasets"]:
+    if intent != "location" and datasets:
         lines += ["Te vinden in:"]
-        lines += [f"- {dataset}" for dataset in group["datasets"]]
+        lines += [f"- {dataset}" for dataset in datasets]
         lines.append("")
 
-    notes = notes_for_group(group)
     if notes:
         lines += ["Let op:"]
         lines += [f"- {note}" for note in notes]
         lines.append("")
 
     if len(grouped_results) > 1:
-        lines += ["Andere mogelijke matches:"]
+        lines += ["Andere mogelijke relevante begrippen:"]
         for other in grouped_results[1:4]:
-            other_term = other["best"]["entry"].get("term", "Onbekend")
-            lines.append(f"- {other_term}")
+            lines.append(f"- {related_term_label(other)}")
 
     return "\n".join(lines).rstrip()
 
@@ -399,16 +488,104 @@ def format_debug_results(results: list[Result]) -> str:
         definition = str(entry.get("definition", "")).replace("\n", " ")
         if definition:
             lines.append(definition[:400])
-        datasets = as_list(entry.get("available_in_datasets")) or as_list(entry.get("dataset_or_file"))
-        fields = as_list(entry.get("related_fields")) or as_list(entry.get("related_field_names")) or as_list(entry.get("field_name"))
+        datasets = split_dataset_names(
+            as_list(entry.get("available_in_datasets")) or as_list(entry.get("dataset_or_file"))
+        )
+        fields = (
+            as_list(entry.get("related_fields"))
+            or as_list(entry.get("related_field_names"))
+            or as_list(entry.get("field_name"))
+        )
         lines.append(f"Datasets: {datasets}")
         lines.append(f"Fields: {fields}")
         lines.append("")
     return "\n".join(lines).rstrip()
 
 
+def debug_match_payload(result: Result) -> dict[str, Any]:
+    entry = result["entry"]
+    return {
+        "source": result["source"],
+        "score": round(result["score"], 1),
+        "term": entry.get("term"),
+        "definition": entry.get("definition", ""),
+        "datasets": split_dataset_names(
+            as_list(entry.get("available_in_datasets")) or as_list(entry.get("dataset_or_file"))
+        ),
+        "fields": (
+            as_list(entry.get("related_fields"))
+            or as_list(entry.get("related_field_names"))
+            or as_list(entry.get("field_name"))
+        ),
+    }
+
+
+def build_response_payload(query: str, debug: bool = False) -> dict[str, Any]:
+    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions())]
+    results = search_definitions(query, entries)
+    grouped_results = group_related_results(results)
+    intent = detect_query_intent(query)
+    answer = build_answer(grouped_results, query)
+
+    payload: dict[str, Any] = {
+        "query": query,
+        "intent": intent,
+        "answer": answer,
+        "main_term": None,
+        "definition": "",
+        "fields": [],
+        "datasets": [],
+        "notes": [],
+        "related_terms": [],
+    }
+
+    if grouped_results:
+        group = grouped_results[0]
+        payload.update(
+            {
+                "main_term": group["best"]["entry"].get("term"),
+                "definition": best_definition(group),
+                "fields": [
+                    field
+                    for field in group["fields"]
+                    if normalize_text(field) != normalize_text(group["best"]["entry"].get("term", ""))
+                ],
+                "datasets": group["datasets"],
+                "notes": notes_for_group(group),
+                "related_terms": [other["best"]["entry"].get("term", "Onbekend") for other in grouped_results[1:4]],
+                "curated_definition_found": curated_definition_found(group),
+            }
+        )
+
+    if debug:
+        payload["debug_matches"] = [debug_match_payload(result) for result in results]
+
+    return payload
+
+
+def answer_definition_question(query: str, debug: bool = False) -> str:
+    """Return the final answer string for chatbot, web-app or CLI integration."""
+    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions())]
+    results = search_definitions(query, entries)
+    grouped_results = group_related_results(results)
+    answer = build_answer(grouped_results, query)
+    if debug:
+        return answer + format_debug_results(results)
+    return answer
+
+
 def parse_args() -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Zoek in HO-definities en toon een conversational antwoord.")
+    parser = argparse.ArgumentParser(
+        description="Zoek in HO-definities en toon een conversational antwoord.",
+        epilog=(
+            'Voorbeelden:\n'
+            '  python zoek_definities_voorbeeld.py "wat is een internationale student?"\n'
+            '  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?"\n'
+            '  python zoek_definities_voorbeeld.py "wat telt als student?" --debug\n'
+            '  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?" --json'
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     parser.add_argument(
         "query",
         nargs="?",
@@ -419,17 +596,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument("--debug", action="store_true", help="Toon ook ruwe, gerankte zoekmatches met scores.")
+    parser.add_argument("--json", action="store_true", help="Geef het antwoord terug als gestructureerde JSON.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
-    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions())]
-    results = search_definitions(args.query, entries)
-    grouped_results = group_related_results(results)
-    print(build_answer(grouped_results, args.query))
-    if args.debug:
-        print(format_debug_results(results))
+    if args.json:
+        payload = build_response_payload(args.query, debug=args.debug)
+        print(json.dumps(payload, ensure_ascii=False, indent=2))
+    else:
+        print(answer_definition_question(args.query, debug=args.debug))
 
 
 if __name__ == "__main__":
