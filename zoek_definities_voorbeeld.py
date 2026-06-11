@@ -24,7 +24,17 @@ from typing import Any
 BASE_DIR = Path(__file__).resolve().parent
 CURATED_PATH = BASE_DIR / "ho_definities_curated.json"
 INDEX_PATH = BASE_DIR / "ho_definities_index.jsonl"
-DEFAULT_QUERY = "waar vind ik internationale studenten"
+DEMO_QUERY = "waar vind ik internationale studenten"
+
+USAGE_TEXT = """Gebruik:
+  python zoek_definities_voorbeeld.py "wat is een internationale student?"
+  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?"
+  python zoek_definities_voorbeeld.py "wat telt als student?" --debug
+  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?" --json
+  python zoek_definities_voorbeeld.py --demo
+""".strip()
+
+DATASET_EXTENSIONS = (".csv", ".asc", ".txt", ".xlsx", ".json", ".jsonl", ".pdf")
 
 STOPWORDS = {
     "als",
@@ -117,15 +127,36 @@ def unique_preserve_order(values: list[Any]) -> list[Any]:
     return unique
 
 
+def looks_like_dataset_name(value: str) -> bool:
+    """Return True for concrete dataset filenames or filename-like patterns."""
+    value = value.strip().lower()
+    return any(extension in value for extension in DATASET_EXTENSIONS)
+
+
+def split_dataset_name(dataset: str) -> list[str]:
+    """Split combined dataset filenames, but keep descriptive labels intact.
+
+    Labels such as "EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv"
+    contain two concrete dataset filenames and should become two bullets. Labels
+    such as "VH informatieproducten / 1cijferHO" are descriptive source labels,
+    so they stay as one item.
+    """
+    dataset = str(dataset).strip()
+    if " / " not in dataset:
+        return [dataset] if dataset else []
+
+    parts = [part.strip() for part in dataset.split(" / ") if part.strip()]
+    if len(parts) > 1 and all(looks_like_dataset_name(part) for part in parts):
+        return parts
+    return [dataset] if dataset else []
+
+
 def split_dataset_names(values: list[Any]) -> list[str]:
-    """Split combined dataset labels such as "A.csv / B.csv" and deduplicate."""
-    parts: list[str] = []
+    """Split filename-like combined dataset labels and deduplicate."""
+    datasets: list[str] = []
     for value in values:
-        for part in str(value).split(" / "):
-            part = part.strip()
-            if part:
-                parts.append(part)
-    return unique_preserve_order(parts)
+        datasets.extend(split_dataset_name(str(value)))
+    return unique_preserve_order(datasets)
 
 
 def detect_query_intent(query: str) -> str:
@@ -140,12 +171,33 @@ def detect_query_intent(query: str) -> str:
     return "general"
 
 
-def query_topic(query: str) -> str:
-    """Extract a readable topic from location questions when possible."""
-    match = re.search(r"\bover\s+(.+?)(?:\?|$)", query, flags=re.IGNORECASE)
-    if match:
-        return match.group(1).strip(" .?!")
-    return "dit onderwerp"
+def pluralize_person_phrase(phrase: str) -> str:
+    """Make person-like terms read naturally in location answers."""
+    phrase = phrase.strip().lower()
+    slash_parts = [part.strip() for part in phrase.split("/")]
+    if len(slash_parts) > 1:
+        return "/".join(pluralize_person_phrase(part) for part in slash_parts)
+
+    words = phrase.split()
+    if not words:
+        return phrase
+
+    last_word = words[-1]
+    if last_word == "student" or last_word.endswith("-student"):
+        words[-1] = f"{last_word}en"
+    elif last_word == "ingeschrevene":
+        words[-1] = "ingeschrevenen"
+    return " ".join(words)
+
+
+def topic_label_from_group(group: Result | None) -> str:
+    """Use the best matched term as a readable topic label for location answers."""
+    if not group:
+        return "dit onderwerp"
+    term = str(group["best"]["entry"].get("term", "")).strip()
+    if not term:
+        return "dit onderwerp"
+    return pluralize_person_phrase(term)
 
 
 def entry_search_text(entry: Entry) -> str:
@@ -405,14 +457,22 @@ def notes_for_group(group: Result) -> list[str]:
 
 
 def short_description(entry: Entry, max_length: int = 140) -> str:
-    """Return a short existing description without inventing extra wording."""
-    definition = str(entry.get("definition", "")).strip().replace("\n", " ")
+    """Return a short existing description without cutting off mid-word."""
+    definition = re.sub(r"\s+", " ", str(entry.get("definition", "")).strip())
     if not definition:
         return ""
+
     first_sentence = re.split(r"(?<=[.!?])\s+", definition, maxsplit=1)[0].strip()
     if len(first_sentence) <= max_length:
         return first_sentence
-    return first_sentence[: max_length - 1].rstrip() + "…"
+
+    # Prefer a complete clause over an ugly mid-word ellipsis. If no clause fits,
+    # omit the description rather than showing a broken fragment.
+    for separator in ("; ", ", ", ": ", " - "):
+        boundary = first_sentence.rfind(separator, 0, max_length)
+        if boundary >= 40:
+            return first_sentence[:boundary].rstrip(" ,;:-") + "."
+    return ""
 
 
 def related_term_label(group: Result) -> str:
@@ -424,6 +484,43 @@ def related_term_label(group: Result) -> str:
         if description:
             return f"{term} — {description}"
     return term
+
+
+def is_helpful_related_group(main_group: Result, related_group: Result) -> bool:
+    """Hide weak technical side matches from the normal answer.
+
+    Debug output still shows the raw ranking. The conversational answer should
+    keep nearby concepts such as Student or EER-student, but not generic technical
+    one-word fields such as Voorkomen unless they overlap strongly with the main
+    concept.
+    """
+    entry = related_group["best"]["entry"]
+    term = str(entry.get("term", ""))
+    term_tokens = set(tokenize(term))
+    main_tokens = set(str(main_group["key"]).split())
+
+    if term.lower().startswith("indicatie"):
+        return False
+    if related_group["best"]["source"] != "curated" and entry.get("entry_type") == "field_index":
+        return bool(term_tokens & main_tokens) and related_group["score"] >= main_group["score"] * 0.8
+    if term_tokens & main_tokens:
+        return True
+    if len(term_tokens) <= 1:
+        return False
+    return related_group["score"] >= main_group["score"] * 0.75
+
+
+def related_groups_for_answer(grouped_results: list[Result], limit: int = 3) -> list[Result]:
+    if not grouped_results:
+        return []
+    main_group = grouped_results[0]
+    related: list[Result] = []
+    for group in grouped_results[1:]:
+        if is_helpful_related_group(main_group, group):
+            related.append(group)
+        if len(related) >= limit:
+            break
+    return related
 
 
 def build_answer(grouped_results: list[Result], query: str) -> str:
@@ -451,7 +548,7 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
         )
 
     if intent == "location" and datasets:
-        lines.append(f"Je vindt data over {query_topic(query)} vooral in de volgende bestanden:")
+        lines.append(f"Je vindt data over {topic_label_from_group(group)} vooral in de volgende bestanden:")
         lines += [f"- {dataset}" for dataset in datasets]
         lines.extend(["", "Definitie:", definition, ""])
     else:
@@ -472,9 +569,10 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
         lines += [f"- {note}" for note in notes]
         lines.append("")
 
-    if len(grouped_results) > 1:
+    related_groups = related_groups_for_answer(grouped_results)
+    if related_groups:
         lines += ["Andere mogelijke relevante begrippen:"]
-        for other in grouped_results[1:4]:
+        for other in related_groups:
             lines.append(f"- {related_term_label(other)}")
 
     return "\n".join(lines).rstrip()
@@ -552,7 +650,10 @@ def build_response_payload(query: str, debug: bool = False) -> dict[str, Any]:
                 ],
                 "datasets": group["datasets"],
                 "notes": notes_for_group(group),
-                "related_terms": [other["best"]["entry"].get("term", "Onbekend") for other in grouped_results[1:4]],
+                "related_terms": [
+                    other["best"]["entry"].get("term", "Onbekend")
+                    for other in related_groups_for_answer(grouped_results)
+                ],
                 "curated_definition_found": curated_definition_found(group),
             }
         )
@@ -586,27 +687,25 @@ def parse_args() -> argparse.Namespace:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "query",
-        nargs="?",
-        default=DEFAULT_QUERY,
-        help=(
-            "Vraag of zoekterm. Als je geen query meegeeft, draait het script "
-            f"een voorbeeldzoekopdracht: '{DEFAULT_QUERY}'."
-        ),
-    )
+    parser.add_argument("query", nargs="?", help="Vraag of zoekterm.")
     parser.add_argument("--debug", action="store_true", help="Toon ook ruwe, gerankte zoekmatches met scores.")
     parser.add_argument("--json", action="store_true", help="Geef het antwoord terug als gestructureerde JSON.")
+    parser.add_argument("--demo", action="store_true", help="Draai een expliciete demoquery over internationale studenten.")
     return parser.parse_args()
 
 
 def main() -> None:
     args = parse_args()
+    query = DEMO_QUERY if args.demo else args.query
+    if not query:
+        print(USAGE_TEXT)
+        return
+
     if args.json:
-        payload = build_response_payload(args.query, debug=args.debug)
+        payload = build_response_payload(query, debug=args.debug)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
-        print(answer_definition_question(args.query, debug=args.debug))
+        print(answer_definition_question(query, debug=args.debug))
 
 
 if __name__ == "__main__":
