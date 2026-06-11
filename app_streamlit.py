@@ -40,6 +40,20 @@ def display_topic(main_term: str | None) -> str:
     return special_cases.get(normalized, normalized)
 
 
+def format_definition_topic(main_term: str | None) -> str:
+    """Return a concise singular-ish topic label for definition answers."""
+    if not main_term:
+        return ""
+
+    normalized = " ".join(main_term.strip().lower().split())
+    special_cases = {
+        "internationale student": "internationale student",
+        "student / ingeschrevene": "student/ingeschrevene",
+        "student/ingeschrevene": "student/ingeschrevene",
+    }
+    return special_cases.get(normalized, normalized.replace(" / ", "/"))
+
+
 def render_bullets(values: list[str], *, code: bool = False) -> None:
     """Render a list as Markdown bullets, optionally formatting values as code."""
     for value in values:
@@ -57,14 +71,21 @@ def render_result(result: dict) -> None:
         st.warning("⚠️ Geen opgeschoonde definitie gevonden; antwoord gebaseerd op documentatiefragmenten.")
 
     intent = result.get("intent")
-    definition = result.get("definition")
+    definition = str(result.get("definition") or "").strip()
     datasets = result.get("datasets") or []
     fields = result.get("fields") or []
     notes = result.get("notes") or []
     related_terms = result.get("related_terms") or []
 
     st.subheader("Antwoord")
-    if intent == "location" and datasets:
+    if intent == "definition" and definition:
+        topic = format_definition_topic(result.get("main_term"))
+        if topic:
+            st.markdown(f"**Definitie van {topic}:**")
+        else:
+            st.markdown("**Definitie:**")
+        st.markdown(definition)
+    elif intent == "location" and datasets:
         topic = display_topic(result.get("main_term"))
         st.markdown(f"Je vindt data over {topic} vooral in de volgende bestanden:")
         render_bullets(datasets, code=True)
@@ -77,7 +98,8 @@ def render_result(result: dict) -> None:
         st.subheader("Bestanden")
         render_bullets(datasets, code=True)
 
-    if definition:
+    show_definition_section = bool(definition) and intent != "definition"
+    if show_definition_section:
         st.subheader("Definitie")
         st.markdown(definition)
 
