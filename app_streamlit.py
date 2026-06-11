@@ -113,6 +113,7 @@ def render_result(result: dict) -> None:
     related_terms = result.get("related_terms") or []
 
     st.subheader("Antwoord")
+    datasets_shown_in_answer = False
     if is_definition_like_query(result.get("query"), result) and definition:
         rendered_answer_body = render_definition_answer(
             result.get("main_term"), definition
@@ -124,6 +125,7 @@ def render_result(result: dict) -> None:
         )
         st.markdown(rendered_answer_body)
         render_bullets(datasets, code=True)
+        datasets_shown_in_answer = True
     elif definition:
         rendered_answer_body = definition
         st.markdown(rendered_answer_body)
@@ -133,7 +135,8 @@ def render_result(result: dict) -> None:
         )
         st.markdown(rendered_answer_body)
 
-    if datasets:
+    show_datasets_section = bool(datasets) and not datasets_shown_in_answer
+    if show_datasets_section:
         st.subheader("Bestanden")
         render_bullets(datasets, code=True)
 
