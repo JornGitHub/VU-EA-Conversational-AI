@@ -653,6 +653,7 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
         "datasets": [],
         "notes": [],
         "related_terms": [],
+        "curated_definition_found": False,
     }
 
     if grouped_results:
