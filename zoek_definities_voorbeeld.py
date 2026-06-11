@@ -18,6 +18,7 @@ from typing import Any
 BASE_DIR = Path(__file__).resolve().parent
 CURATED_PATH = BASE_DIR / "ho_definities_curated.json"
 INDEX_PATH = BASE_DIR / "ho_definities_index.jsonl"
+DEFAULT_QUERY = "waar vind ik internationale studenten"
 
 STOPWORDS = {
     "als",
@@ -408,7 +409,15 @@ def format_debug_results(results: list[Result]) -> str:
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Zoek in HO-definities en toon een conversational antwoord.")
-    parser.add_argument("query", help="Vraag of zoekterm, bijvoorbeeld: 'wat is een internationale student?'")
+    parser.add_argument(
+        "query",
+        nargs="?",
+        default=DEFAULT_QUERY,
+        help=(
+            "Vraag of zoekterm. Als je geen query meegeeft, draait het script "
+            f"een voorbeeldzoekopdracht: '{DEFAULT_QUERY}'."
+        ),
+    )
     parser.add_argument("--debug", action="store_true", help="Toon ook ruwe, gerankte zoekmatches met scores.")
     return parser.parse_args()
 
