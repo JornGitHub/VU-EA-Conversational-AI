@@ -45,13 +45,45 @@ def format_definition_topic(main_term: str | None) -> str:
     if not main_term:
         return ""
 
-    normalized = " ".join(main_term.strip().lower().split())
+    normalized = normalize_text(main_term)
     special_cases = {
         "internationale student": "internationale student",
         "student / ingeschrevene": "student/ingeschrevene",
         "student/ingeschrevene": "student/ingeschrevene",
     }
     return special_cases.get(normalized, normalized.replace(" / ", "/"))
+
+
+def normalize_text(text: str | None) -> str:
+    """Normalize text for simple UI-level intent and duplicate checks."""
+    return " ".join(str(text or "").lower().strip().split())
+
+
+def is_definition_like_query(query: str | None, result: dict) -> bool:
+    """Return True when the UI should present the answer as a definition."""
+    normalized_query = normalize_text(query)
+    definition_phrases = (
+        "wat is",
+        "wat betekent",
+        "definitie",
+        "wat telt als",
+        "wanneer telt",
+        "wat wordt geteld als",
+    )
+    return result.get("intent") == "definition" or any(
+        phrase in normalized_query for phrase in definition_phrases
+    )
+
+
+def render_definition_answer(main_term: str | None, definition: str) -> str:
+    """Render and return the definition answer body shown in the UI."""
+    topic = format_definition_topic(main_term)
+    if topic:
+        st.markdown(f"**Definitie van {topic}:**")
+    else:
+        st.markdown("**Definitie:**")
+    st.markdown(definition)
+    return definition
 
 
 def render_bullets(values: list[str], *, code: bool = False) -> None:
@@ -68,7 +100,10 @@ def render_result(result: dict) -> None:
     if result.get("curated_definition_found") is True:
         st.success("✅ Opgeschoonde definitie gevonden")
     else:
-        st.warning("⚠️ Geen opgeschoonde definitie gevonden; antwoord gebaseerd op documentatiefragmenten.")
+        st.warning(
+            "⚠️ Geen opgeschoonde definitie gevonden; antwoord gebaseerd op "
+            "documentatiefragmenten."
+        )
 
     intent = result.get("intent")
     definition = str(result.get("definition") or "").strip()
@@ -78,27 +113,37 @@ def render_result(result: dict) -> None:
     related_terms = result.get("related_terms") or []
 
     st.subheader("Antwoord")
-    if intent == "definition" and definition:
-        topic = format_definition_topic(result.get("main_term"))
-        if topic:
-            st.markdown(f"**Definitie van {topic}:**")
-        else:
-            st.markdown("**Definitie:**")
-        st.markdown(definition)
+    if is_definition_like_query(result.get("query"), result) and definition:
+        rendered_answer_body = render_definition_answer(
+            result.get("main_term"), definition
+        )
     elif intent == "location" and datasets:
         topic = display_topic(result.get("main_term"))
-        st.markdown(f"Je vindt data over {topic} vooral in de volgende bestanden:")
+        rendered_answer_body = (
+            f"Je vindt data over {topic} vooral in de volgende bestanden:"
+        )
+        st.markdown(rendered_answer_body)
         render_bullets(datasets, code=True)
     elif definition:
-        st.markdown(definition)
+        rendered_answer_body = definition
+        st.markdown(rendered_answer_body)
     else:
-        st.markdown(result.get("answer", "Ik heb geen passende definitie of veldbeschrijving gevonden."))
+        rendered_answer_body = result.get(
+            "answer", "Ik heb geen passende definitie of veldbeschrijving gevonden."
+        )
+        st.markdown(rendered_answer_body)
 
     if datasets:
         st.subheader("Bestanden")
         render_bullets(datasets, code=True)
 
-    show_definition_section = bool(definition) and intent != "definition"
+    definition_repeated_in_answer = (
+        bool(definition)
+        and normalize_text(definition) in normalize_text(rendered_answer_body)
+    )
+    show_definition_section = (
+        bool(definition) and intent != "definition" and not definition_repeated_in_answer
+    )
     if show_definition_section:
         st.subheader("Definitie")
         st.markdown(definition)
