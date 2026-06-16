@@ -173,7 +173,7 @@ st.markdown("Stel een vraag over definities, velden of databestanden uit de HO-d
 
 debug = st.sidebar.checkbox("Toon debug-informatie")
 use_llm = st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False)
-model = st.sidebar.text_input("Ollama-model", value="qwen3:30b-instruct")
+model = st.sidebar.text_input("Ollama-model", value="qwen3:8b")
 
 if "query" not in st.session_state:
     st.session_state.query = ""

@@ -43,7 +43,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--debug", action="store_true", help="Toon ook ruwe, gerankte zoekmatches met scores.")
     parser.add_argument("--json", action="store_true", help="Geef het antwoord terug als gestructureerde JSON.")
     parser.add_argument("--llm", action="store_true", help="Formuleer het antwoord met een lokale Ollama-LLM.")
-    parser.add_argument("--model", default="qwen3:30b-instruct", help="Ollama-model voor --llm.")
+    parser.add_argument("--model", default="qwen3:8b", help="Ollama-model voor --llm.")
     parser.add_argument("--demo", action="store_true", help="Draai een expliciete demoquery over internationale studenten.")
     return parser.parse_args()
 
