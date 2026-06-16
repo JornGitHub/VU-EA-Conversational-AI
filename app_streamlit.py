@@ -7,6 +7,7 @@ Install and run manually with:
 
 import streamlit as st
 
+from src.chatbot import answer_with_llm
 from src.definitions.search import answer_definition_question_json
 
 
@@ -171,6 +172,8 @@ st.title("📘 HO Definitiezoeker")
 st.markdown("Stel een vraag over definities, velden of databestanden uit de HO-documentatie.")
 
 debug = st.sidebar.checkbox("Toon debug-informatie")
+use_llm = st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False)
+model = st.sidebar.text_input("Ollama-model", value="qwen3:30b-instruct")
 
 if "query" not in st.session_state:
     st.session_state.query = ""
@@ -185,13 +188,31 @@ query = st.text_input("Stel een vraag over de HO-documentatie:", key="query")
 if not query.strip():
     st.info("Voer een vraag in om te zoeken in de definitiebestanden.")
 else:
-    try:
-        result = answer_definition_question_json(query, debug=debug)
-    except Exception as exc:  # noqa: BLE001 - show useful diagnostics during development.
-        st.error("Er ging iets mis bij het zoeken in de definitiebestanden.")
-        st.exception(exc)
+    if use_llm:
+        with st.spinner("Antwoord formuleren met LLM..."):
+            result = answer_with_llm(query, model=model, debug=debug)
+
+        if result.get("llm_answer"):
+            st.subheader("LLM-antwoord")
+            st.markdown(result["llm_answer"])
+        else:
+            st.error("De LLM kon geen antwoord genereren.")
+            st.write(result.get("error", "Onbekende fout."))
+
+        with st.expander("Gebruikte retrieval-output"):
+            st.json(result["retrieval_result"])
+
+        if debug and result.get("prompt"):
+            with st.expander("Gebruikte prompt"):
+                st.code(result["prompt"])
     else:
-        render_result(result)
-        if debug:
-            with st.expander("Debug JSON"):
-                st.json(result)
+        try:
+            result = answer_definition_question_json(query, debug=debug)
+        except Exception as exc:  # noqa: BLE001 - show useful diagnostics during development.
+            st.error("Er ging iets mis bij het zoeken in de definitiebestanden.")
+            st.exception(exc)
+        else:
+            render_result(result)
+            if debug:
+                with st.expander("Debug JSON"):
+                    st.json(result)

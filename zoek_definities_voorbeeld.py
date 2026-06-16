@@ -21,6 +21,7 @@ USAGE_TEXT = """Gebruik:
   python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?"
   python zoek_definities_voorbeeld.py "wat telt als student?" --debug
   python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?" --json
+  python zoek_definities_voorbeeld.py "wat is een internationale student?" --llm
   python zoek_definities_voorbeeld.py --demo
 """.strip()
 
@@ -33,13 +34,16 @@ def parse_args() -> argparse.Namespace:
             '  python zoek_definities_voorbeeld.py "wat is een internationale student?"\n'
             '  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?"\n'
             '  python zoek_definities_voorbeeld.py "wat telt als student?" --debug\n'
-            '  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?" --json'
+            '  python zoek_definities_voorbeeld.py "waar vind ik data over internationale studenten?" --json\n'
+            '  python zoek_definities_voorbeeld.py "wat is een internationale student?" --llm'
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("query", nargs="?", help="Vraag of zoekterm.")
     parser.add_argument("--debug", action="store_true", help="Toon ook ruwe, gerankte zoekmatches met scores.")
     parser.add_argument("--json", action="store_true", help="Geef het antwoord terug als gestructureerde JSON.")
+    parser.add_argument("--llm", action="store_true", help="Formuleer het antwoord met een lokale Ollama-LLM.")
+    parser.add_argument("--model", default="qwen3:30b-instruct", help="Ollama-model voor --llm.")
     parser.add_argument("--demo", action="store_true", help="Draai een expliciete demoquery over internationale studenten.")
     return parser.parse_args()
 
@@ -51,7 +55,18 @@ def main() -> None:
         print(USAGE_TEXT)
         return
 
-    if args.json:
+    if args.llm:
+        from src.chatbot import answer_with_llm
+
+        payload = answer_with_llm(query, model=args.model, debug=args.debug)
+        if payload.get("llm_answer"):
+            print(payload["llm_answer"])
+        else:
+            print("De LLM kon geen antwoord genereren.")
+            print(payload.get("error", "Onbekende fout."))
+            print("\nTerugval naar het normale retrieval-antwoord:\n")
+            print(answer_definition_question(query, debug=args.debug))
+    elif args.json:
         payload = answer_definition_question_json(query, debug=args.debug)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
