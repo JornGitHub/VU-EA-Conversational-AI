@@ -4,8 +4,10 @@ from collections import defaultdict
 from docx import Document
 import fitz
 
-BASE = Path('/mnt/data/1cho_docs/1cHO Documentatie')
-OUT = Path('/mnt/data')
+PROJECT_ROOT = Path(__file__).resolve().parent
+BASE = PROJECT_ROOT / 'sources' / '1cHO Documentatie'
+OUT = PROJECT_ROOT / 'data'
+OUT.mkdir(parents=True, exist_ok=True)
 
 def clean(s):
     s = s.replace('\xa0', ' ')
@@ -452,12 +454,12 @@ with index_path.open('w',encoding='utf-8') as f:
     for e in entries:
         f.write(json.dumps(e,ensure_ascii=False)+'\n')
 curated_path=OUT/'ho_definities_curated.json'
-curated_path.write_text(json.dumps({'schema_version':'1.0','purpose':'Curated glossary voor conversational AI over 1cHO/HO-documentatie','entries':curated},ensure_ascii=False,indent=2),encoding='utf-8')
+curated_path.write_text(json.dumps({'schema_version':'1.0','purpose':'Automatically cleaned/high-confidence glossary voor conversational AI over 1cHO/HO-documentatie','entries':curated},ensure_ascii=False,indent=2),encoding='utf-8')
 
 # Markdown overview
 md=[]
 md.append('# HO definities - overzicht voor conversational AI\n')
-md.append('Dit bestand is gegenereerd uit de aangeleverde documentatie rond 1cHO/UNL/VH/DUO. Gebruik het als menselijke leeslaag naast de machineleesbare JSON-bestanden.\n')
+md.append('Dit bestand is gegenereerd uit de aangeleverde documentatie rond 1cHO/UNL/VH/DUO. Gebruik het als menselijke leeslaag naast de machineleesbare JSON-bestanden. Curated betekent hier automatisch opgeschoonde/high-confidence definities, niet noodzakelijk handmatig goedgekeurde definities.\n')
 md.append('## Aanbevolen gebruik in een chatbot\n')
 md.append('1. Gebruik `ho_definities_curated.json` voor antwoorden op begripsvragen zoals “wat is een internationale student?”.\n')
 md.append('2. Gebruik `ho_definities_index.jsonl` als ruwe RAG-index met veldbeschrijvingen, databestanden en indicator-definities.\n')
@@ -491,8 +493,8 @@ helper = r'''# Voorbeeld: simpele zoekfunctie voor het definitiebestand
 import json
 from pathlib import Path
 
-CURATED = json.loads(Path("ho_definities_curated.json").read_text(encoding="utf-8"))["entries"]
-INDEX = [json.loads(line) for line in Path("ho_definities_index.jsonl").read_text(encoding="utf-8").splitlines()]
+CURATED = json.loads(Path("data/ho_definities_curated.json").read_text(encoding="utf-8"))["entries"]
+INDEX = [json.loads(line) for line in Path("data/ho_definities_index.jsonl").read_text(encoding="utf-8").splitlines()]
 
 def search_definitions(query, limit=10):
     q = query.lower()

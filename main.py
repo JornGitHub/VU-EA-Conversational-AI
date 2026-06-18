@@ -8,6 +8,8 @@ Examples:
     python main.py --query "wat is een internationale student?"
     python main.py --query "waar vind ik data over internationale studenten?" --json
     python main.py --streamlit
+    python main.py --archive-root-leftovers
+    python main.py --check-hygiene
 
 By default this runner installs/updates packages from requirements.txt first, so a
 fresh environment can run the selected checks without a separate setup step. Use
@@ -22,6 +24,12 @@ import json
 import subprocess
 import sys
 from pathlib import Path
+
+from src.ingestion.archive import (
+    archive_root_generated_artifacts,
+    check_project_hygiene,
+    format_archive_summary,
+)
 
 ROOT = Path(__file__).resolve().parent
 REQUIREMENTS = ROOT / "requirements.txt"
@@ -77,6 +85,26 @@ def run_query(query: str, *, as_json: bool = False, llm: bool = False, model: st
     return run_command(command, "Definition query")
 
 
+def run_archive_root_leftovers() -> int:
+    """Archive known generated artifacts left in the project root."""
+    result = archive_root_generated_artifacts(ROOT)
+    print(format_archive_summary(result))
+    return 0
+
+
+def run_hygiene_check() -> int:
+    """Print warnings for root-level generated artifacts without failing."""
+    warnings = check_project_hygiene(ROOT)
+    print("Project hygiene check:")
+    if not warnings:
+        print("- OK: no root-level generated artifacts found")
+    else:
+        for warning in warnings:
+            print(f"- {warning}")
+        print("\nRun:\n  python main.py --archive-root-leftovers")
+    return 0
+
+
 def run_streamlit() -> int:
     """Start the Streamlit app for manual browser testing."""
     return run_command(
@@ -94,6 +122,8 @@ def print_test_guide() -> None:
         "retrieval_query_text": f'python main.py --query "{DEFAULT_QUERY}"',
         "retrieval_query_json": f'python main.py --query "{DEFAULT_QUERY}" --json',
         "streamlit_ui_manual_test": "python main.py --streamlit",
+        "archive_root_leftovers": "python main.py --archive-root-leftovers",
+        "project_hygiene_check": "python main.py --check-hygiene",
         "skip_dependency_install": "add --skip-install to any command",
     }
     print(json.dumps(guide, ensure_ascii=False, indent=2))
@@ -113,6 +143,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--llm", action="store_true", help="Use the local Ollama LLM layer for --query.")
     parser.add_argument("--model", default="qwen3:8b", help="Ollama model name for --llm queries.")
     parser.add_argument("--streamlit", action="store_true", help="Start app_streamlit.py for manual UI testing.")
+    parser.add_argument("--archive-root-leftovers", action="store_true", help="Archive generated artifacts left in the project root.")
+    parser.add_argument("--check-hygiene", action="store_true", help="Warn about generated artifacts left in the project root.")
     parser.add_argument("--guide", action="store_true", help="Print a JSON guide with common run/test commands.")
     return parser.parse_args()
 
@@ -133,6 +165,8 @@ def main() -> int:
     if args.all:
         statuses.append(run_unit_tests())
         statuses.append(run_dry_build())
+        if args.archive_root_leftovers:
+            statuses.append(run_archive_root_leftovers())
         statuses.append(run_query(DEFAULT_QUERY))
     else:
         if args.tests:
@@ -143,6 +177,10 @@ def main() -> int:
             statuses.append(run_query(args.query, as_json=args.json, llm=args.llm, model=args.model))
         if args.streamlit:
             statuses.append(run_streamlit())
+        if args.archive_root_leftovers:
+            statuses.append(run_archive_root_leftovers())
+        if args.check_hygiene:
+            statuses.append(run_hygiene_check())
 
     if not statuses:
         print_test_guide()

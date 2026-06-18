@@ -43,6 +43,11 @@ def _entry(term,definition,c,datasets,fields,category,confidence,timestamp):
     return {'term':term,'category':category,'definition':definition,'datasets':_uniq(datasets),'fields':_uniq(fields),'source_documents':[c['source_document']],'source_fragments':[definition[:500]],'source_document':c['source_document'],'source_path':c['source_path'],'page':c.get('page'),'chunk_id':c['chunk_id'],'source_type':'field_definition' if category=='important_field' else 'concept_definition','confidence':round(confidence,2),'generated_by':'automatic_ingestion','last_updated':timestamp}
 
 def select_curated(entries, threshold=0.78):
+    """Select automatically cleaned/high-confidence definitions for conversational use.
+
+    "Curated" here does not imply manual approval; it means generated entries
+    passed confidence and quality filters.
+    """
     by={}
     for e in entries:
         if not(e.get('term') and e.get('definition') and e.get('source_documents') and e.get('confidence',0)>=threshold): continue
