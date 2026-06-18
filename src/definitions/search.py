@@ -23,6 +23,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 CURATED_PATH = DATA_DIR / "ho_definities_curated.json"
 INDEX_PATH = DATA_DIR / "ho_definities_index.jsonl"
+CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
 DEMO_QUERY = "waar vind ik internationale studenten"
 
 DATASET_EXTENSIONS = (".csv", ".asc", ".txt", ".xlsx", ".json", ".jsonl", ".pdf")
@@ -66,6 +67,8 @@ Entry = dict[str, Any]
 def load_curated_definitions(path: Path = CURATED_PATH) -> list[Entry]:
     """Load curated conversational definitions from JSON."""
     data = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(data, list):
+        return data
     return data.get("entries", [])
 
 
@@ -77,6 +80,29 @@ def load_index_definitions(path: Path = INDEX_PATH) -> list[Entry]:
             entries.append(json.loads(line))
     return entries
 
+
+
+def load_chunks(path: Path = CHUNKS_PATH) -> list[Entry]:
+    """Load offline-generated chunks for optional low-priority fallback search."""
+    if not path.exists():
+        return []
+    entries: list[Entry] = []
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            chunk = json.loads(line)
+            entries.append(
+                {
+                    "term": chunk.get("source_document", "Documentfragment"),
+                    "definition": str(chunk.get("text", ""))[:500],
+                    "source_document": chunk.get("source_document"),
+                    "source_path": chunk.get("source_path"),
+                    "page": chunk.get("page"),
+                    "chunk_id": chunk.get("chunk_id"),
+                    "entry_type": "chunk",
+                    "text": chunk.get("text", ""),
+                }
+            )
+    return entries
 
 def normalize_text(text: Any) -> str:
     """Normalize text for matching while preserving Dutch accented letters."""
@@ -208,6 +234,8 @@ def entry_search_text(entry: Entry) -> str:
         "source_terms",
         "field_name",
         "dataset_or_file",
+        "text",
+        "source_document",
     ]
     return " ".join(str(entry.get(field, "")) for field in searchable_fields)
 
@@ -228,14 +256,16 @@ def conceptual_bonus(entry: Entry, source: str) -> float:
         if entry.get("definition"):
             score += 2.0
         if not term.lower().startswith("indicatie"):
-            score += 3.0
+            score += 6.0
     elif entry_type == "field_definition":
         score += 1.5
     elif entry_type == "field_index":
         score -= 1.0
+    elif entry_type == "chunk":
+        score -= 3.0
 
     if term.lower().startswith("indicatie"):
-        score -= 2.0
+        score -= 5.0
 
     return score
 
@@ -316,6 +346,7 @@ def search_definitions(
         grouped_entries: list[tuple[str, list[Entry]]] = [
             ("curated", load_curated_definitions()),
             ("index", load_index_definitions()),
+            ("chunk", load_chunks()),
         ]
     elif entries and isinstance(entries[0], tuple):
         grouped_entries = entries  # type: ignore[assignment]
@@ -637,7 +668,7 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
     A future LLM should treat this payload as source material and avoid adding
     unsupported definitions from its own prior knowledge.
     """
-    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions())]
+    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions()), ("chunk", load_chunks())]
     results = search_definitions(query, entries)
     grouped_results = group_related_results(results)
     intent = detect_intent(query)
@@ -654,6 +685,7 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
         "notes": [],
         "related_terms": [],
         "curated_definition_found": False,
+        "supporting_chunks": [],
     }
 
     if grouped_results:
@@ -674,6 +706,16 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
                     for other in related_groups_for_answer(grouped_results)
                 ],
                 "curated_definition_found": curated_definition_found(group),
+                "supporting_chunks": [
+                    {
+                        "chunk_id": r["entry"].get("chunk_id"),
+                        "source_document": r["entry"].get("source_document"),
+                        "page": r["entry"].get("page"),
+                        "text": str(r["entry"].get("text") or r["entry"].get("definition", ""))[:500],
+                    }
+                    for r in group["results"]
+                    if r["source"] == "chunk"
+                ][:3],
             }
         )
 
@@ -690,7 +732,7 @@ def build_response_payload(query: str, debug: bool = False) -> dict[str, Any]:
 
 def answer_definition_question(query: str, debug: bool = False) -> str:
     """Return the final answer string for chatbot, web-app or CLI integration."""
-    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions())]
+    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions()), ("chunk", load_chunks())]
     results = search_definitions(query, entries)
     grouped_results = group_related_results(results)
     answer = build_answer(grouped_results, query)

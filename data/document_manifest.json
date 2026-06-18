@@ -1,0 +1,50 @@
+{
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Aggregaatbestand diploma's_1cHO2025.docx": {
+    "chunks": 11,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "50c537084f4abd9222f1dd683bed15583f865711c65c71e46e43e56a8bb4f7bd",
+    "source_type": "docx"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx": {
+    "chunks": 36,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "3bc69ed6f468eb92f8cad1c09040e3130466b36ae3e50cf57670b6cf393ed368",
+    "source_type": "docx"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Bestandsbeschrijving EOIcohort_UNL _1cH2025.docx": {
+    "chunks": 37,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "8271cd4b6a081e451b612cd09bd32ced927cb12828b82868b777de277c702c12",
+    "source_type": "docx"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Bestandsbeschrijving EOIcohort_aggr_UNL_1cHO2025.docx": {
+    "chunks": 12,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "618ec940140aa967a7da8a2320e56982fe89752d887a998e9cf328302b48022e",
+    "source_type": "docx"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Bestandsbeschrijving Examencohort (aggr)_UNL-1cH2025.docx": {
+    "chunks": 10,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "248f76fddef63b53b739f0b265d7c1a2a4c0dc69946a8edeec92cb1dfe456fe9",
+    "source_type": "docx"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Bestandsbeschrijving Examencohort_UNL_1cHO2025.docx": {
+    "chunks": 21,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "549f19d429605e1d1ccea05654d7b85dc4f352696af685477b099f10396e15af",
+    "source_type": "docx"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Bestandsbeschrijving_1cyferho_2025_v1.0.txt": {
+    "chunks": 97,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "0610d980d5fad035545e5478aecbb3970780a5869ed49c434225e8f0d9184c35",
+    "source_type": "txt"
+  },
+  "/workspace/VU-EA-Conversational-AI/1cHO Documentatie/Bestandsbeschrijving_Vakkenbestanden.txt": {
+    "chunks": 2,
+    "last_processed": "2026-06-18T13:58:07+00:00",
+    "sha256": "2a7f21ddb617d2ea804a61b7c4aad7eb8d06cdc64044ad1dc78a76d848bb5ad9",
+    "source_type": "txt"
+  }
+}
