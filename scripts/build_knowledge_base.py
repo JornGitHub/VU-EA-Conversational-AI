@@ -7,7 +7,7 @@ ROOT=Path(__file__).resolve().parents[1]; sys.path.insert(0,str(ROOT))
 from src.ingestion.hashing import compute_sha256, iter_source_documents, find_changed_documents, load_manifest, save_manifest
 from src.ingestion.extract_text import extract_text
 from src.ingestion.chunk_documents import chunk_document, write_chunks
-from src.ingestion.extract_definitions import extract_from_chunks
+from src.ingestion.extract_definitions import extract_from_chunks, get_curated_rejection_stats, curated_quality_reason, PROTECTED_TERMS
 from src.ingestion.build_index import write_json, write_jsonl, build_sqlite
 from src.ingestion.validation import validate_build
 from src.ingestion.changelog import diff_curated, append_changelog
@@ -39,13 +39,15 @@ def main():
             new_manifest[p.as_posix()]={'sha256':compute_sha256(p),'last_processed':timestamp if p in changed or args.full else manifest.get(p.as_posix(),{}).get('last_processed',timestamp),'source_type':p.suffix.lower().lstrip('.'),'chunks':len(chunks)}
         except Exception as exc: warnings.append(f'{p}: {exc}')
     curated,index,all_chunks=extract_from_chunks(all_chunks,timestamp)
+    quality_stats=get_curated_rejection_stats()
     old_curated=load_old_curated()
     curated=merge_existing_curated(old_curated, curated, timestamp)
     changes=diff_curated(old_curated,curated,timestamp)
+    annotate_quality_removals(changes)
     tmp=DATA/'.build_tmp'; shutil.rmtree(tmp,ignore_errors=True); tmp.mkdir(parents=True)
     write_json(tmp/'ho_definities_curated.json', curated); write_jsonl(tmp/'ho_definities_index.jsonl', index); write_chunks(tmp/'chunks.jsonl', all_chunks); save_manifest(tmp/'document_manifest.json', new_manifest)
     errors=validate_build(tmp/'ho_definities_curated.json', tmp/'ho_definities_index.jsonl', tmp/'chunks.jsonl', old_curated if old_curated else None)
-    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,errors,args.dry_run,archive_result)
+    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,errors,args.dry_run,archive_result,quality_stats)
     if args.dry_run:
         print(report); return 0 if not errors else 1
     if errors:
@@ -57,8 +59,15 @@ def main():
         (tmp/name).replace(dst)
     append_changelog(DATA/'curated_change_log.jsonl', changes)
     warnings+=build_sqlite(DATA/'ho_knowledge.db', curated,index,all_chunks)
-    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,[],False,archive_result)
+    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,[],False,archive_result,quality_stats)
     (DATA/'last_build_report.md').write_text(report,encoding='utf-8'); print(report); return 0
+
+def annotate_quality_removals(changes):
+    for change in changes:
+        if change.get('change_type') == 'removed':
+            reason = curated_quality_reason(change.get('old_entry') or {})
+            if reason:
+                change['reason'] = f'removed_by_curated_quality_filter: {reason}'
 
 def merge_existing_curated(existing, generated, timestamp):
     """Keep trusted existing curated concepts unless regenerated with same term.
@@ -68,10 +77,19 @@ def merge_existing_curated(existing, generated, timestamp):
     approved definitions. This preserves current user-facing behavior while
     still allowing automatic ingestion to overwrite and add generated entries.
     """
-    by={str(e.get('term','')).strip().lower(): dict(e) for e in existing if e.get('term')}
+    by={}
+    for e in existing:
+        key=str(e.get('term','')).strip().lower()
+        if key and (key in PROTECTED_TERMS or curated_quality_reason(e) is None):
+            by[key]=dict(e)
     for entry in generated:
         key=str(entry.get('term','')).strip().lower()
         if key:
+            by[key]=entry
+    for entry in protected_seed_definitions(timestamp):
+        key=str(entry.get('term','')).strip().lower()
+        current=by.get(key)
+        if current is None or float(current.get('confidence',0) or 0) < float(entry.get('confidence',0) or 0):
             by[key]=entry
     for entry in by.values():
         entry.setdefault('generated_by','automatic_ingestion')
@@ -84,10 +102,47 @@ def merge_existing_curated(existing, generated, timestamp):
         entry.setdefault('source_fragments', [entry.get('definition','')[:500]])
     return sorted(by.values(), key=lambda e: str(e.get('term','')).lower())
 
-def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry,archive_result=None):
+def protected_seed_definitions(timestamp):
+    return [
+        {
+            'term':'Internationale student', 'category':'concept',
+            'definition':'Een student wordt als internationale student beschouwd wanneer de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding heeft. Deze definitie sluit aan op het veld Indicatie internationale student.',
+            'datasets':['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv','Diplomas_aggr_UNL_2025.csv','EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], 'fields':['Indicatie internationale student','Indicatie internationale student op peildatum 1 oktober'],
+            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['Mogelijke waarden: J = internationale student N = niet-internationale student.'],
+            'confidence':0.99, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
+        },
+        {
+            'term':'Student / ingeschrevene', 'category':'concept',
+            'definition':'Een student/ingeschrevene is een persoon met een persoonsgebonden nummer en minimaal één inschrijvingsrecord in het hoger onderwijs.',
+            'datasets':['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv'], 'fields':['Persoonsgebonden nummer'],
+            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['Student / ingeschrevene: persoonsgebonden nummer met inschrijvingsrecord.'],
+            'confidence':0.99, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
+        },
+        {
+            'term':'Onechte neveninschrijving', 'category':'concept',
+            'definition':'Een onechte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling wel voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden.',
+            'datasets':['1cyferho_2025_v1.0.asc'], 'fields':['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'],
+            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['4 = neveninschrijving ... combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student (onechte neveninschrijving).'],
+            'confidence':0.95, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
+        },
+        {
+            'term':'Echte neveninschrijving', 'category':'concept',
+            'definition':'Een echte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling niet voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 2 bij sleutel-domeinvelden en soort-inschrijvingsvelden.',
+            'datasets':['1cyferho_2025_v1.0.asc'], 'fields':['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'],
+            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['2 = neveninschrijving ... combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student (echte neveninschrijving).'],
+            'confidence':0.95, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
+        },
+    ]
+
+def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry,archive_result=None,quality_stats=None):
     counts={t:sum(1 for c in changes if c['change_type']==t) for t in ('added','modified','removed')}
     lines=['# Knowledge base build report','',f'Timestamp: {ts}',f'Dry run: {dry}',f'Source files processed: {len(processed)}',f'Source files skipped because unchanged: {len(skipped)}','','Curated definitions:',f"- added: {counts['added']}",f"- modified: {counts['modified']}",f"- removed: {counts['removed']}",'',f'Index entries: {len(index)}',f'Chunks: {len(chunks)}','','Potential warnings:']
     lines += [f'- {w}' for w in warnings] or ['- none']
+    lines += ['', 'Curated candidates rejected:']
+    if quality_stats:
+        lines += [f'- {reason}: {count}' for reason, count in sorted(quality_stats.items())]
+    else:
+        lines += ['- none']
     if archive_result is not None:
         lines += ['', format_archive_summary(archive_result)]
     lines += ['', 'Curated terminology note:', '- In this project, "curated" means automatically cleaned/high-confidence definitions, not necessarily manually approved definitions.']

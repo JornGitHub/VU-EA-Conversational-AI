@@ -48,7 +48,23 @@ STOPWORDS = {
     "wie",
     "vind",
     "voor",
+    "betekent",
+    "definitie",
+    "wordt",
+    "wanneer",
+    "welke",
+    "welk",
+    "bestand",
+    "bestanden",
+    "dataset",
 }
+
+MIN_SCORE_FOR_ANSWER = 14.0
+NO_ANSWER_TEMPLATE = (
+    'Antwoord:\n'
+    'Ik heb geen betrouwbare definitie gevonden voor “{query}” in de beschikbare definitiebestanden.\n\n'
+    'Mogelijk staat dit niet in de huidige HO-documentatiebronnen, of is het nog niet als definitie/veld geëxtraheerd.'
+)
 
 GROUP_IGNORE_WORDS = {
     "actueel",
@@ -451,11 +467,13 @@ def group_related_results(results: list[Result]) -> list[Result]:
             + as_list(entry.get("related_fields"))
             + as_list(entry.get("related_field_names"))
             + as_list(entry.get("field_name"))
+            + as_list(entry.get("fields"))
         )
         target["datasets"] = split_dataset_names(
             target["datasets"]
             + as_list(entry.get("available_in_datasets"))
             + as_list(entry.get("dataset_or_file"))
+            + as_list(entry.get("datasets"))
         )
         target["sources"] = unique_preserve_order(target["sources"] + [result["source"]])
 
@@ -568,13 +586,46 @@ def related_groups_for_answer(grouped_results: list[Result], limit: int = 3) -> 
     return related
 
 
+def meaningful_query_tokens(query: str) -> set[str]:
+    return set(tokenize(query))
+
+def is_reliable_match(query: str, result: Result | None) -> bool:
+    if not result:
+        return False
+    entry = result["entry"]
+    query_norm = normalize_text(query)
+    term_norm = normalize_text(entry.get("term", ""))
+    query_tokens = meaningful_query_tokens(query)
+    term_tokens = set(tokenize(entry.get("term", "")))
+    if not query_tokens or not term_tokens:
+        return False
+    if term_norm and (term_norm in query_norm or query_norm in term_norm):
+        return True
+    if len(term_tokens) > 1 and term_tokens <= query_tokens:
+        return True
+    overlap = query_tokens & term_tokens
+    coverage = len(overlap) / max(len(query_tokens), 1)
+    term_coverage = len(overlap) / max(len(term_tokens), 1)
+    if result["source"] == "curated" and float(entry.get("confidence", 0) or 0) >= 0.90 and "student" in query_tokens and "student" in term_tokens:
+        return True
+    if result["source"] == "curated" and float(entry.get("confidence", 0) or 0) >= 0.90 and coverage >= 0.67 and term_coverage >= 0.67:
+        return True
+    if result["score"] >= MIN_SCORE_FOR_ANSWER and coverage >= 0.75 and term_coverage >= 0.60:
+        return True
+    return False
+
+def no_answer(query: str) -> str:
+    return NO_ANSWER_TEMPLATE.format(query=query)
+
 def build_answer(grouped_results: list[Result], query: str) -> str:
     """Build a concise conversational answer for the best result group."""
     if not grouped_results:
-        return "Antwoord:\nIk heb geen passende definitie of veldbeschrijving gevonden."
+        return no_answer(query)
 
     intent = detect_intent(query)
     group = grouped_results[0]
+    if not is_reliable_match(query, group.get("best")):
+        return no_answer(query)
     best_entry = group["best"]["entry"]
     title = best_entry.get("term", "Gevonden definitie")
     definition = best_definition(group)
@@ -691,7 +742,7 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
         "supporting_chunks": [],
     }
 
-    if grouped_results:
+    if grouped_results and is_reliable_match(query, grouped_results[0].get("best")):
         group = grouped_results[0]
         payload.update(
             {
