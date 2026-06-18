@@ -65,7 +65,10 @@ Entry = dict[str, Any]
 
 
 def load_curated_definitions(path: Path = CURATED_PATH) -> list[Entry]:
-    """Load curated conversational definitions from JSON."""
+    """Load automatically cleaned/high-confidence conversational definitions from data/.
+
+    "Curated" is a legacy file name and does not imply manual approval.
+    """
     data = json.loads(path.read_text(encoding="utf-8"))
     if isinstance(data, list):
         return data

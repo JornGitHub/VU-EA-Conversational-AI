@@ -11,6 +11,7 @@ from src.ingestion.extract_definitions import extract_from_chunks
 from src.ingestion.build_index import write_json, write_jsonl, build_sqlite
 from src.ingestion.validation import validate_build
 from src.ingestion.changelog import diff_curated, append_changelog
+from src.ingestion.archive import archive_root_generated_artifacts, format_archive_summary
 DATA=ROOT/'data'; SOURCE=ROOT/'sources'/'1cHO Documentatie'; LEGACY=ROOT/'1cHO Documentatie'
 GEN=['ho_definities_curated.json','ho_definities_index.jsonl','chunks.jsonl','document_manifest.json']
 def load_old_curated():
@@ -20,7 +21,7 @@ def load_old_curated():
     return d.get('entries',d) if isinstance(d,dict) else d
 
 def main():
-    ap=argparse.ArgumentParser(); ap.add_argument('--full',action='store_true'); ap.add_argument('--dry-run',action='store_true'); args=ap.parse_args()
+    ap=argparse.ArgumentParser(); ap.add_argument('--full',action='store_true'); ap.add_argument('--dry-run',action='store_true'); ap.add_argument('--archive-root-leftovers',action='store_true'); args=ap.parse_args()
     SOURCE.mkdir(parents=True,exist_ok=True); DATA.mkdir(exist_ok=True); (DATA/'backups').mkdir(exist_ok=True)
     manifest=load_manifest(DATA/'document_manifest.json')
     source_dir=SOURCE
@@ -31,6 +32,7 @@ def main():
     changed=docs if args.full else find_changed_documents(source_dir,manifest)
     skipped=[p for p in docs if p not in changed]
     timestamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat(); warnings=[]; all_chunks=[]; new_manifest={}
+    archive_result=archive_root_generated_artifacts(ROOT, dry_run=args.dry_run) if args.archive_root_leftovers else None
     for p in docs:  # rebuild artifacts from all docs for consistency; changed list controls reporting/incremental detection
         try:
             doc=extract_text(p); chunks=chunk_document(doc); all_chunks.extend(chunks)
@@ -43,7 +45,7 @@ def main():
     tmp=DATA/'.build_tmp'; shutil.rmtree(tmp,ignore_errors=True); tmp.mkdir(parents=True)
     write_json(tmp/'ho_definities_curated.json', curated); write_jsonl(tmp/'ho_definities_index.jsonl', index); write_chunks(tmp/'chunks.jsonl', all_chunks); save_manifest(tmp/'document_manifest.json', new_manifest)
     errors=validate_build(tmp/'ho_definities_curated.json', tmp/'ho_definities_index.jsonl', tmp/'chunks.jsonl', old_curated if old_curated else None)
-    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,errors,args.dry_run)
+    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,errors,args.dry_run,archive_result)
     if args.dry_run:
         print(report); return 0 if not errors else 1
     if errors:
@@ -55,14 +57,16 @@ def main():
         (tmp/name).replace(dst)
     append_changelog(DATA/'curated_change_log.jsonl', changes)
     warnings+=build_sqlite(DATA/'ho_knowledge.db', curated,index,all_chunks)
-    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,[],False)
+    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,[],False,archive_result)
     (DATA/'last_build_report.md').write_text(report,encoding='utf-8'); print(report); return 0
 
 def merge_existing_curated(existing, generated, timestamp):
     """Keep trusted existing curated concepts unless regenerated with same term.
 
-    This preserves current user-facing behavior while still allowing automatic
-    ingestion to overwrite and add generated knowledge-base entries.
+    In this project, "curated" means automatically cleaned/high-confidence
+    definitions prepared for conversational retrieval, not necessarily manually
+    approved definitions. This preserves current user-facing behavior while
+    still allowing automatic ingestion to overwrite and add generated entries.
     """
     by={str(e.get('term','')).strip().lower(): dict(e) for e in existing if e.get('term')}
     for entry in generated:
@@ -80,10 +84,13 @@ def merge_existing_curated(existing, generated, timestamp):
         entry.setdefault('source_fragments', [entry.get('definition','')[:500]])
     return sorted(by.values(), key=lambda e: str(e.get('term','')).lower())
 
-def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry):
+def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry,archive_result=None):
     counts={t:sum(1 for c in changes if c['change_type']==t) for t in ('added','modified','removed')}
     lines=['# Knowledge base build report','',f'Timestamp: {ts}',f'Dry run: {dry}',f'Source files processed: {len(processed)}',f'Source files skipped because unchanged: {len(skipped)}','','Curated definitions:',f"- added: {counts['added']}",f"- modified: {counts['modified']}",f"- removed: {counts['removed']}",'',f'Index entries: {len(index)}',f'Chunks: {len(chunks)}','','Potential warnings:']
     lines += [f'- {w}' for w in warnings] or ['- none']
+    if archive_result is not None:
+        lines += ['', format_archive_summary(archive_result)]
+    lines += ['', 'Curated terminology note:', '- In this project, "curated" means automatically cleaned/high-confidence definitions, not necessarily manually approved definitions.']
     if errors: lines += ['','Validation errors:']+[f'- {e}' for e in errors]
     return '\n'.join(lines)+'\n'
 if __name__=='__main__': raise SystemExit(main())

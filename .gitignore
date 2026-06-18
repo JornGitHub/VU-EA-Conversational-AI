@@ -1,0 +1,13 @@
+# Python/runtime artifacts
+.venv/
+__pycache__/
+*.pyc
+
+# Generated build workspace, backups, and archives.
+# Active knowledge artifacts under data/ remain trackable by policy.
+data/.build_tmp/
+data/backups/
+data/archive/
+
+# Generated local knowledge indexes
+data/*.db

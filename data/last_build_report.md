@@ -16,3 +16,6 @@ Chunks: 226
 Potential warnings:
 - /workspace/VU-EA-Conversational-AI/1cHO Documentatie/DUO-trendrapport-ho-2025.pdf: PDF extraction requires optional dependency pypdf; no OCR is performed.
 - /workspace/VU-EA-Conversational-AI/1cHO Documentatie/Handleiding_studentenaantallen_en_studievoortgang_20210809.pdf: PDF extraction requires optional dependency pypdf; no OCR is performed.
+
+Curated terminology note:
+- In this project, "curated" means automatically cleaned/high-confidence definitions, not necessarily manually approved definitions.
