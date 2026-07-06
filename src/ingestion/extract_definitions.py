@@ -7,17 +7,21 @@ DEF_RE=re.compile(r'^(?P<term>[A-ZÁÉÍÓÚÄËÏÖÜ][\w /()\-]{2,80})\s*(?:[:
 FIELD_RE=re.compile(r'^(?P<term>(?:Indicatie|Code|Naam|Datum|Soort|Type|Aantal|Status)[\w /()\-]{2,100})\s*(?:[:–-]|=)\s*(?P<definition>.{5,})', re.I)
 KNOWN=['Internationale student','Student / ingeschrevene','Instroom','Inschrijvingen','Studiesucces','Uitval','EER-student','EOI-cohort','Gediplomeerdencohort','Onechte neveninschrijving','Echte neveninschrijving']
 
-CURATED_THRESHOLD = 0.90
+MIN_CURATED_CONFIDENCE = 0.90
+CURATED_THRESHOLD = MIN_CURATED_CONFIDENCE
 CURATED_REJECTION_STATS: dict[str, int] = {}
 PROTECTED_TERMS = {t.lower() for t in [
     'Internationale student','Indicatie internationale student','Indicatie internationale student op peildatum 1 oktober',
     'Student / ingeschrevene','EER-student','Instroom','Inschrijvingen','Studiesucces','Uitval',
-    'Doorstuderen','Switch','Diploma','Diploma’s','EOI-cohort','Gediplomeerdencohort',
+    'Doorstuderen','Switch','Studiewissel','Diploma','Diploma’s','EOI-cohort','Gediplomeerdencohort',
     'Onechte neveninschrijving','Echte neveninschrijving'
 ]}
 BAD_START_WORDS = {w.lower() for w in 'Aan Aangezien Als Bij Binnen Daarbij Daarentegen Daarin Daarmee Daarna Daarnaast Daarom Dat De Deze Dit Die Een Er Het'.split()}
 BROKEN_STARTS = ('ctuele','eildatum','eeft','eiding','derwijs')
+GENERIC_BAD_TERMS = {'bronnen', 'mogelijke waarden'}
 GENERIC_BAD_DEFS = ('de uiterste zorg besteed','berekend binnen deze subpopulaties','in het hbo groter dan in het wo','de lijn daar grilliger')
+TECHNICAL_RULE_RE = re.compile(r'\b(?:Ex1\s*=\s*k|Exgf|Ex\[t\+1\]|Her[1-8]\b)', re.I)
+SECTION_NUMBER_RE = re.compile(r'\b\d+(?:\.\d+){2,}\b')
 
 def reset_curated_rejection_stats():
     CURATED_REJECTION_STATS.clear()
@@ -39,7 +43,12 @@ def is_likely_indicator_title(term: str) -> bool:
 def is_bad_sentence_fragment_term(term: str) -> bool:
     t=' '.join(str(term).strip().split())
     if not t: return True
-    if t.lower() in PROTECTED_TERMS: return False
+    low=t.lower()
+    if low in GENERIC_BAD_TERMS or low.startswith('mogelijke waarden'):
+        return True
+    if re.match(r'^masterex\d+\s+geeft\s+aan\s+of\s+de\s+student\b', t, re.I):
+        return True
+    if low in PROTECTED_TERMS: return False
     words=t.split()
     if t.lower().startswith(BROKEN_STARTS): return True
     if t[:1].islower() and not is_likely_field_name(t): return True
@@ -67,7 +76,9 @@ def is_incomplete_definition(definition: str) -> bool:
     if not d: return True
     low=d.lower()
     if any(x in low for x in GENERIC_BAD_DEFS): return True
-    if low.startswith(('dat ', 'de ', 'het ', 'een ', 'en ', 'of ', 'om ', 'waarbij ')) and not re.match(r'^(de|het|een)\s+\w+\s+(is|wordt|geeft|betekent)\b', low): return True
+    if TECHNICAL_RULE_RE.search(d): return True
+    if len(SECTION_NUMBER_RE.findall(d)) >= 3: return True
+    if low.startswith(('dat ', 'de ', 'het ', 'een ', 'en ', 'of ', 'om ', 'waarbij ')) and not re.match(r'^(de|het|een)\s+(?:[\w/-]+\s+){0,3}(is|wordt|geeft|betekent|beschrijft|verwijst|groepeert)\b', low): return True
     if re.match(r'^[,;:)\]-]', d): return True
     if d.endswith((',', ';', ':', ' en', ' of', ' dat', ' waarbij')): return True
     if len(re.findall(r'[A-Za-zÀ-ÿ]+', d)) < 8 and 'mogelijke waarden' not in low: return True
@@ -88,7 +99,7 @@ def is_good_curated_definition(definition: str, entry: dict | None = None) -> bo
 def curated_quality_reason(entry: dict) -> str | None:
     if not entry.get('term') or not entry.get('definition') or not entry.get('source_documents'):
         return 'missing_required_field'
-    if float(entry.get('confidence',0) or 0) < CURATED_THRESHOLD and str(entry.get('term','')).lower() not in PROTECTED_TERMS:
+    if float(entry.get('confidence',0) or 0) < MIN_CURATED_CONFIDENCE:
         return 'low_confidence'
     before=dict(CURATED_REJECTION_STATS)
     if not is_good_curated_term(str(entry.get('term','')), entry):

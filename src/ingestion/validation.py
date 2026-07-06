@@ -1,7 +1,13 @@
 from __future__ import annotations
 import json
 from pathlib import Path
+from src.ingestion.extract_definitions import MIN_CURATED_CONFIDENCE, curated_quality_reason
 REQ={'term','definition','datasets','fields','source_documents','confidence'}
+PROTECTED_CORE_TERMS = {
+    'internationale student','indicatie internationale student','indicatie internationale student op peildatum 1 oktober',
+    'student / ingeschrevene','instroom','inschrijvingen','studiesucces','uitval','eer-student',
+    'eoi-cohort','gediplomeerdencohort','studiewissel','diploma’s','onechte neveninschrijving','echte neveninschrijving',
+}
 def validate_curated_entries(entries, previous_entries=None):
     errors=[]
     if not isinstance(entries,list): return ['curated JSON must be a list']
@@ -14,10 +20,18 @@ def validate_curated_entries(entries, previous_entries=None):
         for f in ('datasets','fields','source_documents'):
             if not isinstance(e.get(f),list): errors.append(f'entry {i} {f} must be list')
         c=e.get('confidence')
-        if not isinstance(c,(int,float)) or not 0<=c<=1: errors.append(f'entry {i} confidence invalid')
+        if not isinstance(c,(int,float)) or not 0<=c<=1:
+            errors.append(f'entry {i} confidence invalid')
+        elif c < MIN_CURATED_CONFIDENCE:
+            errors.append(f'entry {i} confidence below {MIN_CURATED_CONFIDENCE}: {e.get("term")}')
         k=str(e.get('term','')).strip().lower()
         if k in seen: errors.append(f'duplicate term {e.get("term")}')
         seen.add(k)
+        reason=curated_quality_reason(e) if isinstance(e,dict) else 'invalid_entry'
+        if reason:
+            errors.append(f'entry {i} failed curated quality ({reason}): {e.get("term")}')
+        if k in PROTECTED_CORE_TERMS and reason:
+            errors.append(f'protected core term has corrupted definition ({reason}): {e.get("term")}')
     # Stricter quality filters can legitimately remove many weak legacy pseudo-definitions.
     if previous_entries and len(entries) < 3:
         errors.append('curated output is suspiciously empty after quality filtering')

@@ -10,7 +10,7 @@ class IngestionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p=Path(d)/'a.txt'; p.write_text('x',encoding='utf-8'); h1=compute_sha256(p); self.assertEqual(h1, compute_sha256(p)); p.write_text('y',encoding='utf-8'); self.assertNotEqual(h1, compute_sha256(p))
     def valid_entry(self):
-        return {'term':'T','definition':'Definitie','datasets':[],'fields':[],'source_documents':['s.txt'],'confidence':0.9}
+        return {'term':'Testterm','definition':'Dit is een volledige betrouwbare definitie met genoeg inhoud voor validatie.','datasets':[],'fields':[],'source_documents':['s.txt'],'confidence':0.9}
     def test_validation(self):
         self.assertEqual([], validate_curated_entries([self.valid_entry()]))
         e=self.valid_entry(); del e['term']; self.assertTrue(validate_curated_entries([e]))

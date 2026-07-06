@@ -89,7 +89,7 @@ def merge_existing_curated(existing, generated, timestamp):
     for entry in protected_seed_definitions(timestamp):
         key=str(entry.get('term','')).strip().lower()
         current=by.get(key)
-        if current is None or float(current.get('confidence',0) or 0) < float(entry.get('confidence',0) or 0):
+        if current is None or curated_quality_reason(current) is not None or float(current.get('confidence',0) or 0) < float(entry.get('confidence',0) or 0):
             by[key]=entry
     for entry in by.values():
         entry.setdefault('generated_by','automatic_ingestion')
@@ -103,35 +103,32 @@ def merge_existing_curated(existing, generated, timestamp):
     return sorted(by.values(), key=lambda e: str(e.get('term','')).lower())
 
 def protected_seed_definitions(timestamp):
+    """Small high-confidence quality anchors for core conversational concepts."""
+    common_docs=['Bestandsbeschrijving_1cyferho_2025_v1.0.txt']
+    def seed(term, definition, datasets=None, fields=None, fragments=None, confidence=0.99):
+        return {
+            'term':term, 'category':'concept', 'definition':definition,
+            'datasets':datasets or ['1cyferho_2025_v1.0.asc'],
+            'fields':fields or [], 'source_documents':common_docs,
+            'source_fragments':fragments or [definition[:500]],
+            'confidence':confidence, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
+        }
     return [
-        {
-            'term':'Internationale student', 'category':'concept',
-            'definition':'Een student wordt als internationale student beschouwd wanneer de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding heeft. Deze definitie sluit aan op het veld Indicatie internationale student.',
-            'datasets':['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv','Diplomas_aggr_UNL_2025.csv','EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], 'fields':['Indicatie internationale student','Indicatie internationale student op peildatum 1 oktober'],
-            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['Mogelijke waarden: J = internationale student N = niet-internationale student.'],
-            'confidence':0.99, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
-        },
-        {
-            'term':'Student / ingeschrevene', 'category':'concept',
-            'definition':'Een student/ingeschrevene is een persoon met een persoonsgebonden nummer en minimaal één inschrijvingsrecord in het hoger onderwijs.',
-            'datasets':['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv'], 'fields':['Persoonsgebonden nummer'],
-            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['Student / ingeschrevene: persoonsgebonden nummer met inschrijvingsrecord.'],
-            'confidence':0.99, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
-        },
-        {
-            'term':'Onechte neveninschrijving', 'category':'concept',
-            'definition':'Een onechte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling wel voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden.',
-            'datasets':['1cyferho_2025_v1.0.asc'], 'fields':['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'],
-            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['4 = neveninschrijving ... combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student (onechte neveninschrijving).'],
-            'confidence':0.95, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
-        },
-        {
-            'term':'Echte neveninschrijving', 'category':'concept',
-            'definition':'Een echte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling niet voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 2 bij sleutel-domeinvelden en soort-inschrijvingsvelden.',
-            'datasets':['1cyferho_2025_v1.0.asc'], 'fields':['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'],
-            'source_documents':['Bestandsbeschrijving_1cyferho_2025_v1.0.txt'], 'source_fragments':['2 = neveninschrijving ... combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student (echte neveninschrijving).'],
-            'confidence':0.95, 'generated_by':'automatic_ingestion', 'last_updated':timestamp,
-        },
+        seed('Internationale student', 'Een student wordt als internationale student beschouwd wanneer de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding heeft. Deze definitie sluit aan op het veld Indicatie internationale student.', ['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv','Diplomas_aggr_UNL_2025.csv','EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], ['Indicatie internationale student','Indicatie internationale student op peildatum 1 oktober'], ['Mogelijke waarden: J = internationale student N = niet-internationale student.']),
+        seed('Indicatie internationale student', 'Geeft aan of een student als internationale student wordt geteld: een student zonder Nederlandse nationaliteit en zonder Nederlandse vooropleiding.', ['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv'], ['Indicatie internationale student'], ['J = internationale student; N = niet-internationale student.']),
+        seed('Indicatie internationale student op peildatum 1 oktober', 'Geeft aan of een student op peildatum 1 oktober als internationale student wordt geteld, zodat wijzigingen zoals naturalisatie later in het jaar niet met terugwerkende kracht worden toegepast.', ['1cyferho_2025_v1.0.asc'], ['Indicatie internationale student op peildatum 1 oktober']),
+        seed('Student / ingeschrevene', 'Een student/ingeschrevene is een persoon met een persoonsgebonden nummer en minimaal één inschrijvingsrecord in het hoger onderwijs.', ['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv'], ['Persoonsgebonden nummer']),
+        seed('Instroom', 'Instroom beschrijft studenten die in een telperiode nieuw instromen in een opleiding, instelling of aggregatie volgens de gebruikte HO-afbakening.', ['Inschrijvingen_aggr_UNL_2025.csv'], ['Instroom']),
+        seed('Inschrijvingen', 'Inschrijvingen beschrijft het aantal of de set inschrijvingsrecords van studenten in het hoger onderwijs binnen de gekozen peildatum, opleiding, instelling of aggregatie.', ['1cyferho_2025_v1.0.asc','Inschrijvingen_aggr_UNL_2025.csv'], ['Soort inschrijving','Persoonsgebonden nummer']),
+        seed('Studiesucces', 'Studiesucces beschrijft voortgangs- en uitkomstmaten van studenten, zoals uitval, switch, doorstuderen en diploma binnen een cohort of telperiode.', ['EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], ['Uitval','Switch','Doorstuderen','Diploma']),
+        seed('Uitval', 'Uitval betekent dat een student volgens de gebruikte cohortafbakening niet meer ingeschreven staat in het hoger onderwijs of de relevante opleiding/instelling.', ['EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], ['Uitval']),
+        seed('EER-student', 'Een EER-student is een student met een nationaliteit uit de Europese Economische Ruimte volgens de nationaliteitsinformatie in de HO-bronbestanden.', ['1cyferho_2025_v1.0.asc'], ['Nationaliteit']),
+        seed('EOI-cohort', 'Een EOI-cohort is een cohort voor eerstejaars onderwijsinstroom dat wordt gebruikt om studiesuccesuitkomsten zoals uitval, switch, doorstuderen en diploma te volgen.', ['EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], ['EOI-cohort']),
+        seed('Gediplomeerdencohort', 'Een gediplomeerdencohort groepeert studenten op basis van het behalen van een diploma, zodat vervolgstappen of aansluitende uitkomsten voor die diplomagroep kunnen worden geanalyseerd.', ['Diplomas_aggr_UNL_2025.csv'], ['Gediplomeerdencohort','Diploma']),
+        seed('Studiewissel', 'Studiewissel betekent dat een student van studie of opleiding wisselt volgens de in de bron gebruikte switch- of opleidingsafbakening.', ['EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], ['Switch','Studiewissel']),
+        seed('Diploma’s', 'Diploma’s verwijst naar behaalde diplomaresultaten in het hoger onderwijs, vastgelegd in diplomabestanden of als uitkomstmaat binnen cohortanalyses.', ['Diplomas_aggr_UNL_2025.csv','EOIcohort_UNL_2025.csv / EOIcohort_21P*_2025.csv'], ['Diploma']),
+        seed('Onechte neveninschrijving', 'Een onechte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling wel voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden.', ['1cyferho_2025_v1.0.asc'], ['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'], ['4 = neveninschrijving ... combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student (onechte neveninschrijving).'], 0.95),
+        seed('Echte neveninschrijving', 'Een echte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling niet voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 2 bij sleutel-domeinvelden en soort-inschrijvingsvelden.', ['1cyferho_2025_v1.0.asc'], ['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'], ['2 = neveninschrijving ... combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student (echte neveninschrijving).'], 0.95),
     ]
 
 def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry,archive_result=None,quality_stats=None):
