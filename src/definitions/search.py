@@ -36,6 +36,38 @@ CANONICAL_TERM_ALIASES = {
 }
 
 DATASET_EXTENSIONS = (".csv", ".asc", ".txt", ".xlsx", ".json", ".jsonl", ".pdf")
+DATASET_NAME_RE = re.compile(r"\b[\w*().-]+\.(?:csv|asc|txt|xlsx|jsonl?|pdf)\b", re.I)
+DECODER_DATASET_RE = re.compile(r"^(?:dec_|Dec_|DEC_)")
+CLEAN_SOURCE_LABELS = {"VH informatieproducten / 1cijferHO", "Trendrapport HO 2025"}
+BAD_METADATA_PHRASES = (
+    "deze indicatie",
+    "nieuw deze indicatie",
+    "zie bestand",
+    "mogelijke waarden",
+    "nationaliteit is onbekend",
+    "geboorteland is onbekend",
+    "1. inleiding",
+    "het bestand",
+    "m 31 augustus",
+    "overige inschrijvingen",
+)
+CANONICAL_RELATED_TERMS = {
+    "Student / ingeschrevene",
+    "Internationale student",
+    "EER-student",
+    "Echte neveninschrijving",
+    "Onechte neveninschrijving",
+    "Instroom",
+    "Uitval",
+    "Studiesucces",
+    "Studiewissel",
+    "Switch",
+    "Doorstuderen",
+    "Diploma",
+    "Diploma’s",
+    "EOI-cohort",
+    "Gediplomeerdencohort",
+}
 
 STOPWORDS = {
     "als",
@@ -232,6 +264,109 @@ def split_dataset_names(values: list[Any]) -> list[str]:
     for value in values:
         datasets.extend(split_dataset_name(str(value)))
     return unique_preserve_order(datasets)
+
+
+def _contains_bad_metadata_phrase(value: str) -> bool:
+    normalized = normalize_text(value)
+    return any(phrase in normalized for phrase in BAD_METADATA_PHRASES)
+
+
+def sanitize_field_name(value: Any) -> str:
+    field = re.sub(r"\s+", " ", str(value or "").strip())
+    if not field:
+        return ""
+    field = re.sub(r"\s*\(NIEUW\)", "", field, flags=re.I).strip()
+    field = re.split(
+        r"\s+(?:Deze indicatie|Zie bestand|Mogelijke waarden|nationaliteit is onbekend|geboorteland is onbekend|1\.\s*Inleiding|Het bestand)\b",
+        field,
+        maxsplit=1,
+        flags=re.I,
+    )[0].strip(" -–:;,.()")
+    if not field or _contains_bad_metadata_phrase(field):
+        return ""
+    if len(field.split()) > 10 and not field.lower().startswith(("soort inschrijving", "sleutel domein")):
+        return ""
+    if re.search(r"\b\d+(?:\.\d+){1,}\b", field):
+        return ""
+    if not re.match(r"^(Indicatie|Persoonsgebonden|Inschrijvingsvorm|Soort|Sleutel|Uitval|Switch|Doorstuderen|Diploma|Instroom|Studiesucces|EOI|Gediplomeerden|Nationaliteit)\b", field, re.I):
+        return ""
+    return field
+
+
+def sanitize_fields(fields: list[Any]) -> list[str]:
+    return unique_preserve_order([clean for field in fields if (clean := sanitize_field_name(field))])
+
+
+
+def filter_fields_for_main_term(main_term: Any, fields: list[str]) -> list[str]:
+    main_tokens = set(tokenize(main_term))
+    filtered: list[str] = []
+    for field in fields:
+        field_norm = normalize_text(field)
+        if not ({"internationale", "eer"} & main_tokens) and (
+            "internationale student" in field_norm or "indicatie eer" in field_norm
+        ):
+            continue
+        filtered.append(field)
+    return unique_preserve_order(filtered)
+
+def sanitize_dataset_name(value: Any) -> list[str]:
+    raw = re.sub(r"\s+", " ", str(value or "").strip())
+    if not raw:
+        return []
+    if raw in CLEAN_SOURCE_LABELS:
+        return [raw]
+    filenames = [name for name in DATASET_NAME_RE.findall(raw) if not DECODER_DATASET_RE.match(name)]
+    if filenames:
+        return unique_preserve_order(filenames)
+    if _contains_bad_metadata_phrase(raw):
+        return []
+    if raw.startswith("Trendrapport HO") or raw == "VH informatieproducten / 1cijferHO":
+        return [raw]
+    if len(raw.split()) > 4 or re.search(r"[.;:]", raw):
+        return []
+    return []
+
+
+def sanitize_datasets(datasets: list[Any]) -> list[str]:
+    clean: list[str] = []
+    for dataset in datasets:
+        for part in split_dataset_name(str(dataset)):
+            clean.extend(sanitize_dataset_name(part))
+    return unique_preserve_order(clean)
+
+
+def sanitize_related_terms(terms: list[Any], curated_terms: set[str] | None = None) -> list[str]:
+    allowed = {normalize_text(term): term for term in CANONICAL_RELATED_TERMS}
+    if curated_terms:
+        allowed.update({normalize_text(term): term for term in curated_terms})
+    clean: list[str] = []
+    for term in terms:
+        canonical = canonical_term(str(term or "").strip())
+        norm = normalize_text(canonical)
+        if not norm or _contains_bad_metadata_phrase(canonical):
+            continue
+        if re.search(r"\b\d+(?:\.\d+){1,}\b", canonical) or "geeft aan" in canonical.lower():
+            continue
+        if norm in allowed:
+            clean.append(allowed[norm])
+    return unique_preserve_order(clean)
+
+
+def preferred_metadata_entries(group: Result) -> list[Entry]:
+    curated = [
+        result["entry"]
+        for result in group["results"]
+        if result["source"] == "curated" and float(result["entry"].get("confidence", 0) or 0) >= 0.90
+    ]
+    return curated or [result["entry"] for result in group["results"]]
+
+
+def metadata_values(group: Result, field: str) -> list[Any]:
+    values: list[Any] = []
+    for entry in preferred_metadata_entries(group):
+        values += as_list(entry.get(field))
+    return values
 
 
 def detect_intent(query: str) -> str:
@@ -605,6 +740,8 @@ def is_helpful_related_group(main_group: Result, related_group: Result) -> bool:
 
     if term.lower().startswith("indicatie"):
         return False
+    if not curated_definition_found(related_group):
+        return False
     if related_group["best"]["source"] != "curated" and entry.get("entry_type") == "field_index":
         return bool(term_tokens & main_tokens) and related_group["score"] >= main_group["score"] * 0.8
     if term_tokens & main_tokens:
@@ -670,8 +807,8 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
     best_entry = group["best"]["entry"]
     title = best_entry.get("term", "Gevonden definitie")
     definition = best_definition(group)
-    fields = [field for field in group["fields"] if normalize_text(field) != normalize_text(title)]
-    datasets = group["datasets"]
+    fields = filter_fields_for_main_term(title, [field for field in sanitize_fields(metadata_values(group, "fields") + group["fields"]) if normalize_text(field) != normalize_text(title)])
+    datasets = sanitize_datasets(metadata_values(group, "datasets") + group["datasets"])
     notes = notes_for_group(group)
     has_curated_definition = curated_definition_found(group)
 
@@ -707,10 +844,11 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
         lines.append("")
 
     related_groups = related_groups_for_answer(grouped_results)
-    if related_groups:
+    related_labels = sanitize_related_terms([related_term_label(other) for other in related_groups])
+    if related_labels:
         lines += ["Andere mogelijke relevante begrippen:"]
-        for other in related_groups:
-            lines.append(f"- {related_term_label(other)}")
+        for label in related_labels:
+            lines.append(f"- {label}")
 
     return "\n".join(lines).rstrip()
 
@@ -789,17 +927,17 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
             {
                 "main_term": canonical_term(group["best"]["entry"].get("term")),
                 "definition": best_definition(group),
-                "fields": [
+                "fields": filter_fields_for_main_term(group["best"]["entry"].get("term", ""), [
                     field
-                    for field in group["fields"]
+                    for field in sanitize_fields(metadata_values(group, "fields") + group["fields"])
                     if normalize_text(field) != normalize_text(group["best"]["entry"].get("term", ""))
-                ],
-                "datasets": group["datasets"],
+                ]),
+                "datasets": sanitize_datasets(metadata_values(group, "datasets") + group["datasets"]),
                 "notes": notes_for_group(group),
-                "related_terms": [
+                "related_terms": sanitize_related_terms([
                     other["best"]["entry"].get("term", "Onbekend")
                     for other in related_groups_for_answer(grouped_results)
-                ],
+                ]),
                 "curated_definition_found": curated_definition_found(group),
                 "supporting_chunks": [
                     {
