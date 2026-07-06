@@ -16,6 +16,15 @@ NOISY_DATASET_PHRASES = [
 ]
 
 
+
+HELPER_DATASET_NAMES = [
+    "hoacth.csv",
+    "hoacth_vest.csv",
+    "Dec_nationaliteitscode.csv",
+    "Dec_landcode.csv",
+    "Dec_vopl.asc",
+]
+
 class MetadataSanitizationTests(unittest.TestCase):
     def assert_no_noisy_metadata(self, values: list[str], noisy_phrases: list[str] | None = None):
         text = "\n".join(values)
@@ -45,6 +54,33 @@ class MetadataSanitizationTests(unittest.TestCase):
         )
         self.assertNotIn("Indicatie internationale student op peildatum 1 oktober", result["fields"])
         self.assertNotIn("Indicatie EER op peildatum 1 oktober", result["fields"])
+
+
+    def test_instroom_does_not_show_internationalisation_notes(self):
+        result = answer_definition_question_json("wat is instroom?")
+
+        notes = "\n".join(result["notes"])
+        for phrase in ("naturalisatie", "nationaliteit", "peildatumvariant", "internationale student"):
+            self.assertNotIn(phrase, notes.lower())
+
+    def test_international_student_may_keep_relevant_notes(self):
+        result = answer_definition_question_json("wat is een internationale student?")
+
+        self.assertEqual("Internationale student", result["main_term"])
+        self.assertIsInstance(result["notes"], list)
+
+    def test_helper_files_do_not_appear_in_main_datasets(self):
+        for query in ("wat is instroom?", "wat is een gediplomeerdencohort?"):
+            with self.subTest(query=query):
+                datasets = answer_definition_question_json(query)["datasets"]
+                for helper in HELPER_DATASET_NAMES:
+                    self.assertNotIn(helper, datasets)
+
+    def test_old_year_datasets_are_normalized_or_removed(self):
+        datasets = answer_definition_question_json("wat is een onechte neveninschrijving?")["datasets"]
+
+        self.assertNotIn("Inschrijvingen_aggr_UNL_2023.csv", datasets)
+        self.assertIn("Inschrijvingen_aggr_UNL_2025.csv", datasets)
 
     def test_onechte_neveninschrijving_metadata_is_clean(self):
         result = answer_definition_question_json("wat is een onechte neveninschrijving?")

@@ -38,6 +38,8 @@ CANONICAL_TERM_ALIASES = {
 DATASET_EXTENSIONS = (".csv", ".asc", ".txt", ".xlsx", ".json", ".jsonl", ".pdf")
 DATASET_NAME_RE = re.compile(r"\b[\w*().-]+\.(?:csv|asc|txt|xlsx|jsonl?|pdf)\b", re.I)
 DECODER_DATASET_RE = re.compile(r"^(?:dec_|Dec_|DEC_)")
+HELPER_DATASET_NAMES = {"hoacth.csv", "hoacth_vest.csv", "dec_nationaliteitscode.csv", "dec_landcode.csv", "dec_vopl.asc"}
+OLD_YEAR_DATASET_RE = re.compile(r"^(Inschrijvingen_aggr_UNL|Diplomas_aggr_UNL|EOIcohort(?:_aggr)?_UNL|Gediplomeerdencohort(?:_aggr)?_UNL)_(?:20\d{2})(\.[^.]+)$", re.I)
 CLEAN_SOURCE_LABELS = {"VH informatieproducten / 1cijferHO", "Trendrapport HO 2025"}
 BAD_METADATA_PHRASES = (
     "deze indicatie",
@@ -310,13 +312,27 @@ def filter_fields_for_main_term(main_term: Any, fields: list[str]) -> list[str]:
         filtered.append(field)
     return unique_preserve_order(filtered)
 
-def sanitize_dataset_name(value: Any) -> list[str]:
+def normalize_dataset_year(name: str) -> str:
+    match = OLD_YEAR_DATASET_RE.match(name)
+    if match:
+        return f"{match.group(1)}_2025{match.group(2)}"
+    return name
+
+
+def sanitize_dataset_name(value: Any, main_term: Any | None = None) -> list[str]:
     raw = re.sub(r"\s+", " ", str(value or "").strip())
     if not raw:
         return []
     if raw in CLEAN_SOURCE_LABELS:
         return [raw]
-    filenames = [name for name in DATASET_NAME_RE.findall(raw) if not DECODER_DATASET_RE.match(name)]
+    filenames = []
+    for name in DATASET_NAME_RE.findall(raw):
+        normalized_name = normalize_dataset_year(name)
+        if DECODER_DATASET_RE.match(normalized_name) or normalized_name.lower() in HELPER_DATASET_NAMES:
+            continue
+        if re.search(r"_20\d{2}\.", normalized_name) and "_2025." not in normalized_name:
+            continue
+        filenames.append(normalized_name)
     if filenames:
         return unique_preserve_order(filenames)
     if _contains_bad_metadata_phrase(raw):
@@ -328,11 +344,11 @@ def sanitize_dataset_name(value: Any) -> list[str]:
     return []
 
 
-def sanitize_datasets(datasets: list[Any]) -> list[str]:
+def sanitize_datasets(datasets: list[Any], main_term: Any | None = None) -> list[str]:
     clean: list[str] = []
     for dataset in datasets:
         for part in split_dataset_name(str(dataset)):
-            clean.extend(sanitize_dataset_name(part))
+            clean.extend(sanitize_dataset_name(part, main_term))
     return unique_preserve_order(clean)
 
 
@@ -368,6 +384,27 @@ def metadata_values(group: Result, field: str) -> list[Any]:
         values += as_list(entry.get(field))
     return values
 
+
+
+def is_internationalisation_term(main_term: Any) -> bool:
+    tokens = set(tokenize(main_term))
+    text = normalize_text(main_term)
+    return bool({"internationale", "eer", "nationaliteit", "peildatum"} & tokens) or "indicatie internationale student" in text or "indicatie eer" in text
+
+
+def sanitize_notes(notes: list[Any], main_term: Any) -> list[str]:
+    clean: list[str] = []
+    international_note_terms = ("naturalisatie", "nationaliteit", "peildatumvariant", "internationale student", "eer")
+    allow_international_notes = is_internationalisation_term(main_term)
+    for note in notes:
+        text = re.sub(r"\s+", " ", str(note or "").strip())
+        if not text:
+            continue
+        note_norm = normalize_text(text)
+        if any(term in note_norm for term in international_note_terms) and not allow_international_notes:
+            continue
+        clean.append(text)
+    return unique_preserve_order(clean)
 
 def detect_intent(query: str) -> str:
     """Classify the user's intent so the answer can lead with definition or location."""
@@ -808,8 +845,8 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
     title = best_entry.get("term", "Gevonden definitie")
     definition = best_definition(group)
     fields = filter_fields_for_main_term(title, [field for field in sanitize_fields(metadata_values(group, "fields") + group["fields"]) if normalize_text(field) != normalize_text(title)])
-    datasets = sanitize_datasets(metadata_values(group, "datasets") + group["datasets"])
-    notes = notes_for_group(group)
+    datasets = sanitize_datasets(metadata_values(group, "datasets") + group["datasets"], title)
+    notes = sanitize_notes(notes_for_group(group), title)
     has_curated_definition = curated_definition_found(group)
 
     lines = ["Antwoord:"]
@@ -932,8 +969,8 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
                     for field in sanitize_fields(metadata_values(group, "fields") + group["fields"])
                     if normalize_text(field) != normalize_text(group["best"]["entry"].get("term", ""))
                 ]),
-                "datasets": sanitize_datasets(metadata_values(group, "datasets") + group["datasets"]),
-                "notes": notes_for_group(group),
+                "datasets": sanitize_datasets(metadata_values(group, "datasets") + group["datasets"], group["best"]["entry"].get("term", "")),
+                "notes": sanitize_notes(notes_for_group(group), group["best"]["entry"].get("term", "")),
                 "related_terms": sanitize_related_terms([
                     other["best"]["entry"].get("term", "Onbekend")
                     for other in related_groups_for_answer(grouped_results)
