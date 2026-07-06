@@ -26,6 +26,15 @@ INDEX_PATH = DATA_DIR / "ho_definities_index.jsonl"
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
 DEMO_QUERY = "waar vind ik internationale studenten"
 
+CANONICAL_TERM_ALIASES = {
+    "internationale studenten": "Internationale student",
+    "internationale student": "Internationale student",
+    "eer studenten": "EER-student",
+    "eer student": "EER-student",
+    "eer-studenten": "EER-student",
+    "eer-student": "EER-student",
+}
+
 DATASET_EXTENSIONS = (".csv", ".asc", ".txt", ".xlsx", ".json", ".jsonl", ".pdf")
 
 STOPWORDS = {
@@ -144,6 +153,36 @@ def tokenize(text: Any, *, remove_stopwords: bool = True) -> list[str]:
     return tokens
 
 
+
+
+def canonical_term(term: Any) -> str:
+    """Return the protected/canonical display term for known source variants."""
+    raw = str(term or "").strip()
+    return CANONICAL_TERM_ALIASES.get(normalize_text(raw), raw)
+
+
+def canonical_aliases_for(entry: Entry) -> list[str]:
+    """Return configured aliases when an entry is already the canonical term."""
+    term = str(entry.get("term", ""))
+    canonical = canonical_term(term)
+    aliases = list(as_list(entry.get("aliases")))
+    if normalize_text(term) == normalize_text(canonical):
+        aliases.extend(
+            alias
+            for alias, target in CANONICAL_TERM_ALIASES.items()
+            if normalize_text(target) == normalize_text(canonical)
+        )
+    return unique_preserve_order(aliases)
+
+
+def canonical_preference(entry: Entry) -> int:
+    """Prefer protected canonical terms over plural/source variants."""
+    term = str(entry.get("term", ""))
+    canonical = canonical_term(term)
+    if normalize_text(term) == normalize_text(canonical) and canonical:
+        return 1
+    return 0
+
 def as_list(value: Any) -> list[Any]:
     if value is None or value == "":
         return []
@@ -246,6 +285,7 @@ def entry_search_text(entry: Entry) -> str:
         "term",
         "definition",
         "aliases",
+        "source_terms",
         "related_fields",
         "related_field_names",
         "available_in_datasets",
@@ -298,7 +338,7 @@ def title_match_score(query: str, entry: Entry) -> float:
     """
     query_norm = normalize_text(query)
     query_tokens = set(tokenize(query))
-    candidates = [entry.get("term", ""), *as_list(entry.get("aliases"))]
+    candidates = [entry.get("term", ""), *canonical_aliases_for(entry)]
     best = 0.0
 
     for candidate in candidates:
@@ -327,7 +367,7 @@ def title_match_score(query: str, entry: Entry) -> float:
 def score_entry(query: str, entry: Entry, source: str) -> float:
     query_tokens = tokenize(query)
     haystack = normalize_text(entry_search_text(entry))
-    term_tokens = set(tokenize(entry.get("term", "")))
+    term_tokens = set(tokenize(canonical_term(entry.get("term", ""))))
 
     title_score = title_match_score(query, entry)
     token_score = 0.0
@@ -345,7 +385,7 @@ def score_entry(query: str, entry: Entry, source: str) -> float:
     if title_score == 0 and token_score == 0:
         return 0.0
 
-    return conceptual_bonus(entry, source) + title_score + token_score
+    return conceptual_bonus(entry, source) + (4.0 * canonical_preference(entry) if source == "curated" else 0.0) + title_score + token_score
 
 
 def search_definitions(
@@ -385,6 +425,7 @@ def search_definitions(
         key=lambda result: (
             result["score"],
             1 if result["source"] == "curated" else 0,
+            canonical_preference(result["entry"]),
             0 if str(result["entry"].get("term", "")).lower().startswith("indicatie") else 1,
             str(result["entry"].get("term", "")).lower(),
         ),
@@ -401,7 +442,7 @@ def concept_key(entry: Entry) -> str:
     "internationale student". This is intentionally conservative: we remove a
     few common technical qualifiers, but keep the substantive words.
     """
-    term = str(entry.get("term") or entry.get("field_name") or "")
+    term = canonical_term(entry.get("term") or entry.get("field_name") or "")
     tokens = tokenize(term)
     tokens = [token for token in tokens if token not in GROUP_IGNORE_WORDS and not token.isdigit()]
     if tokens and tokens[-1] == "1":
@@ -459,7 +500,7 @@ def group_related_results(results: list[Result]) -> list[Result]:
         entry = result["entry"]
         target["results"].append(result)
         target["score"] = max(target["score"], result["score"])
-        if result["score"] > target["best"]["score"]:
+        if result["score"] > target["best"]["score"] or (result["score"] == target["best"]["score"] and canonical_preference(result["entry"]) > canonical_preference(target["best"]["entry"])):
             target["best"] = result
         target["related_terms"].update(related_terms(entry))
         target["fields"] = unique_preserve_order(
@@ -596,7 +637,7 @@ def is_reliable_match(query: str, result: Result | None) -> bool:
     query_norm = normalize_text(query)
     term_norm = normalize_text(entry.get("term", ""))
     query_tokens = meaningful_query_tokens(query)
-    term_tokens = set(tokenize(entry.get("term", "")))
+    term_tokens = set(tokenize(canonical_term(entry.get("term", ""))))
     if not query_tokens or not term_tokens:
         return False
     if term_norm and (term_norm in query_norm or query_norm in term_norm):
@@ -746,7 +787,7 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
         group = grouped_results[0]
         payload.update(
             {
-                "main_term": group["best"]["entry"].get("term"),
+                "main_term": canonical_term(group["best"]["entry"].get("term")),
                 "definition": best_definition(group),
                 "fields": [
                     field

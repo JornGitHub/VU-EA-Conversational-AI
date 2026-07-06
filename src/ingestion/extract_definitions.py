@@ -22,6 +22,21 @@ GENERIC_BAD_TERMS = {'bronnen', 'mogelijke waarden'}
 GENERIC_BAD_DEFS = ('de uiterste zorg besteed','berekend binnen deze subpopulaties','in het hbo groter dan in het wo','de lijn daar grilliger')
 TECHNICAL_RULE_RE = re.compile(r'\b(?:Ex1\s*=\s*k|Exgf|Ex\[t\+1\]|Her[1-8]\b)', re.I)
 SECTION_NUMBER_RE = re.compile(r'\b\d+(?:\.\d+){2,}\b')
+CANONICAL_TERM_ALIASES = {
+    'internationale studenten': 'Internationale student',
+    'internationale student': 'Internationale student',
+    'eer studenten': 'EER-student',
+    'eer student': 'EER-student',
+    'eer-studenten': 'EER-student',
+    'eer-student': 'EER-student',
+}
+
+def _norm_term(term):
+    return re.sub(r'\s+', ' ', re.sub(r'[^\w]+', ' ', str(term).lower())).strip()
+
+def canonical_term(term):
+    raw=str(term or '').strip()
+    return CANONICAL_TERM_ALIASES.get(_norm_term(raw), raw)
 
 def reset_curated_rejection_stats():
     CURATED_REJECTION_STATS.clear()
@@ -149,7 +164,9 @@ def extract_from_chunks(chunks:list[dict[str,Any]], timestamp:str|None=None)->tu
     return curated, raw, chunks
 
 def _entry(term,definition,c,datasets,fields,category,confidence,timestamp):
-    return {'term':term,'category':category,'definition':definition,'datasets':_uniq(datasets),'fields':_uniq(fields),'source_documents':[c['source_document']],'source_fragments':[definition[:500]],'source_document':c['source_document'],'source_path':c['source_path'],'page':c.get('page'),'chunk_id':c['chunk_id'],'source_type':'field_definition' if category=='important_field' else 'concept_definition','confidence':round(confidence,2),'generated_by':'automatic_ingestion','last_updated':timestamp}
+    canonical=canonical_term(term)
+    aliases=[] if _norm_term(canonical)==_norm_term(term) else [term]
+    return {'term':canonical,'aliases':aliases,'source_terms':_uniq([term]),'category':category,'definition':definition,'datasets':_uniq(datasets),'fields':_uniq(fields),'source_documents':[c['source_document']],'source_fragments':[definition[:500]],'source_document':c['source_document'],'source_path':c['source_path'],'page':c.get('page'),'chunk_id':c['chunk_id'],'source_type':'field_definition' if category=='important_field' else 'concept_definition','confidence':round(confidence,2),'generated_by':'automatic_ingestion','last_updated':timestamp}
 
 def _extract_neveninschrijving_entries(chunks, timestamp):
     support=[c for c in chunks if 'onechte neveninschrijving' in c.get('text','').lower() and 'andere inschrijving' in c.get('text','').lower()]
@@ -172,9 +189,15 @@ def select_curated(entries, threshold=CURATED_THRESHOLD):
             if reason in {'low_confidence', 'missing_required_field'}:
                 CURATED_REJECTION_STATS[reason]=CURATED_REJECTION_STATS.get(reason,0)+1
             continue
+        e=dict(e)
+        canonical=canonical_term(e.get('term',''))
+        if _norm_term(canonical) != _norm_term(e.get('term','')):
+            e['aliases']=_uniq(e.get('aliases',[])+[e.get('term','')])
+            e['source_terms']=_uniq(e.get('source_terms',[])+[e.get('term','')])
+            e['term']=canonical
         k=str(e['term']).strip().lower(); old=by.get(k)
         if not old or e['confidence']>old['confidence'] or len(e['definition'])>len(old['definition']):
             by[k]=dict(e)
         else:
-            old['datasets']=_uniq(old.get('datasets',[])+e.get('datasets',[])); old['fields']=_uniq(old.get('fields',[])+e.get('fields',[])); old['source_documents']=_uniq(old.get('source_documents',[])+e.get('source_documents',[])); old['source_fragments']=_uniq(old.get('source_fragments',[])+e.get('source_fragments',[]))
+            old['datasets']=_uniq(old.get('datasets',[])+e.get('datasets',[])); old['fields']=_uniq(old.get('fields',[])+e.get('fields',[])); old['source_documents']=_uniq(old.get('source_documents',[])+e.get('source_documents',[])); old['source_fragments']=_uniq(old.get('source_fragments',[])+e.get('source_fragments',[])); old['aliases']=_uniq(old.get('aliases',[])+e.get('aliases',[])); old['source_terms']=_uniq(old.get('source_terms',[])+e.get('source_terms',[]))
     return sorted(({k:v for k,v in e.items() if k not in {'source_document','source_path','page','chunk_id','source_type'}} for e in by.values()), key=lambda x:x['term'].lower())

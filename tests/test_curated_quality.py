@@ -57,6 +57,19 @@ class CuratedQualityTests(unittest.TestCase):
         self.assertIn("eerstejaars onderwijsinstroom", eoi["definition"])
         self.assertNotIn("Ex1 = k", eoi["definition"])
 
+    def test_plural_international_student_merges_into_canonical_seed(self):
+        plural = self.valid_entry(
+            term="Internationale studenten",
+            definition="Internationale studenten zijn studenten zonder Nederlandse nationaliteit en zonder Nederlandse vooropleiding.",
+            confidence=0.99,
+        )
+        merged = merge_existing_curated([plural], [], "2026-01-01T00:00:00+00:00")
+        terms = [entry["term"] for entry in merged]
+        self.assertIn("Internationale student", terms)
+        self.assertNotIn("Internationale studenten", terms)
+        canonical = next(entry for entry in merged if entry["term"] == "Internationale student")
+        self.assertIn("Internationale studenten", canonical.get("aliases", []))
+
     def test_onechte_neveninschrijving_seed_is_valid(self):
         seed = next(
             e
