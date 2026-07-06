@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PYTHON = sys.executable
@@ -30,7 +32,8 @@ NOISE = [
     "hoacth_vest.csv",
     "Inschrijvingen_aggr_UNL_2023.csv",
 ]
-INTERNATIONAL_NOTE = "Voor analyses door de tijd heen is de peildatumvariant vaak beter"
+HELPER_DATASET_NOISE = ["hoacth.csv", "hoacth_vest.csv", "dec_nationaliteitscode", "dec_landcode", "dec_vopl"]
+INTERNATIONAL_NOTE_TERMS = ["naturalisatie", "peildatumvariant", "internationale student"]
 
 
 def run_step(title: str, cmd: list[str]) -> str:
@@ -53,11 +56,100 @@ def assert_not_contains(output: str, needle: str, context: str) -> None:
         raise SystemExit(f"Unexpected {needle!r} in {context}.")
 
 
-def verify_query(query: str) -> str:
+def extract_json_object(stdout: str) -> dict[str, Any]:
+    """Parse JSON output, tolerating incidental text before/after the object."""
+    stripped = stdout.strip()
+    try:
+        parsed = json.loads(stripped)
+        if isinstance(parsed, dict):
+            return parsed
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for index, char in enumerate(stdout):
+        if char != "{":
+            continue
+        try:
+            parsed, _end = decoder.raw_decode(stdout[index:])
+        except json.JSONDecodeError:
+            continue
+        if isinstance(parsed, dict):
+            return parsed
+    raise SystemExit("Could not parse a JSON object from --json output.")
+
+
+def verify_formatted_query(query: str) -> str:
     output = run_step(f"Smoke query: {query}", [PYTHON, "zoek_definities_voorbeeld.py", query])
     for noise in NOISE:
         assert_not_contains(output, noise, query)
     return output
+
+
+def run_query_json(query: str) -> dict[str, Any]:
+    stdout = run_step(f"Structured smoke query: {query}", [PYTHON, "zoek_definities_voorbeeld.py", query, "--json"])
+    result = extract_json_object(stdout)
+    assert_no_metadata_noise(result, NOISE)
+    return result
+
+
+def assert_main_term(result: dict[str, Any], expected: str, context: str) -> None:
+    actual = result.get("main_term")
+    if actual != expected:
+        raise SystemExit(f"Expected main_term {expected!r} in {context}, got {actual!r}.")
+
+
+def assert_answer_contains(result: dict[str, Any], expected: str, context: str) -> None:
+    answer = str(result.get("answer", ""))
+    if expected.lower() not in answer.lower():
+        raise SystemExit(f"Expected answer to contain {expected!r} in {context}.")
+
+
+def assert_no_metadata_noise(result: dict[str, Any], forbidden_terms: list[str]) -> None:
+    metadata_text = " ".join(
+        str(value)
+        for key in ("fields", "datasets", "related_terms", "notes")
+        for value in result.get(key, [])
+    )
+    for term in forbidden_terms:
+        if term.lower() in metadata_text.lower():
+            raise SystemExit(f"Unexpected metadata noise {term!r} in JSON result for {result.get('query')!r}.")
+
+
+def assert_dataset_terms_absent(result: dict[str, Any], forbidden_terms: list[str], context: str) -> None:
+    datasets_text = " ".join(result.get("datasets", [])).lower()
+    for term in forbidden_terms:
+        if term.lower() in datasets_text:
+            raise SystemExit(f"Unexpected dataset term {term!r} in {context}.")
+
+
+def run_structured_assertions() -> None:
+    singular = run_query_json("wat is een internationale student?")
+    assert_main_term(singular, "Internationale student", "singular international-student query")
+    assert_answer_contains(singular, "geen Nederlandse nationaliteit", "singular international-student query")
+
+    plural = run_query_json("wat zijn internationale studenten?")
+    assert_main_term(plural, "Internationale student", "plural international-student query")
+
+    collegegeld = run_query_json("wat betekent wettelijk collegegeld (laag)?")
+    if collegegeld.get("curated_definition_found") is not False:
+        raise SystemExit("Expected wettelijk collegegeld query to have curated_definition_found=False.")
+    assert_answer_contains(collegegeld, "geen betrouwbare definitie gevonden", "wettelijk collegegeld no-answer")
+
+    instroom = run_query_json("wat is instroom?")
+    notes_text = " ".join(instroom.get("notes", [])).lower()
+    for term in INTERNATIONAL_NOTE_TERMS:
+        if term in notes_text:
+            raise SystemExit(f"Unexpected internationalisation note term {term!r} in instroom notes.")
+
+    for query in ["wat is instroom?", "wat is een gediplomeerdencohort?"]:
+        result = run_query_json(query)
+        assert_dataset_terms_absent(result, HELPER_DATASET_NOISE, query)
+
+    onecht = run_query_json("wat is een onechte neveninschrijving?")
+    datasets_text = " ".join(onecht.get("datasets", []))
+    assert_not_contains(datasets_text, "Inschrijvingen_aggr_UNL_2023.csv", "onechte neveninschrijving datasets")
+    assert_contains(datasets_text, "Inschrijvingen_aggr_UNL_2025.csv", "onechte neveninschrijving datasets")
 
 
 def main() -> int:
@@ -68,14 +160,11 @@ def main() -> int:
     assert_contains(incremental, "Source files skipped because unchanged: 10", "incremental build report")
     run_step("Unit tests after build", [PYTHON, "-m", "unittest", "discover", "tests"])
 
-    outputs = {query: verify_query(query) for query in QUERIES}
+    for query in QUERIES:
+        verify_formatted_query(query)
+    run_structured_assertions()
 
-    assert_contains(outputs["wat betekent wettelijk collegegeld (laag)?"].lower(), "geen betrouwbare definitie gevonden", "wettelijk collegegeld no-answer")
-    assert_not_contains(outputs["wat is instroom?"], INTERNATIONAL_NOTE, "instroom answer")
-    assert_contains(outputs["wat is een internationale student?"], "Internationale student", "singular international-student answer")
-    assert_contains(outputs["wat zijn internationale studenten?"], "Internationale student", "plural international-student answer")
-
-    print("\n=== Verification completed successfully ===")
+    print("\n=== All verification checks passed. ===")
     return 0
 
 
