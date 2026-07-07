@@ -48,6 +48,11 @@ class DefinitionSearchTests(unittest.TestCase):
         self.assertIsInstance(result, dict)
         self.assertEqual("location", result["intent"])
         self.assertEqual("Internationale student", result["main_term"])
+
+    def test_plural_international_students_resolves_to_canonical_main_term(self):
+        result = answer_definition_question_json("wat zijn internationale studenten?")
+
+        self.assertEqual("Internationale student", result["main_term"])
         self.assertIsInstance(result["datasets"], list)
         self.assertIsInstance(result["fields"], list)
 
