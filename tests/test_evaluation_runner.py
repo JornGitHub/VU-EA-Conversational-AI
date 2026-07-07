@@ -1,5 +1,6 @@
 import tempfile, unittest
 from pathlib import Path
+from unittest.mock import patch
 from scripts.evaluation_utils import write_jsonl
 from scripts.run_evaluation import evaluate_case, run_evaluation
 
@@ -23,7 +24,27 @@ class EvaluationRunnerTests(unittest.TestCase):
             root=Path(td); pseudo=root/"pseudo.jsonl"; overrides=root/"dev.jsonl"
             write_jsonl(pseudo, [{"id":"p1","question":"q","label_status":"pseudo_generated"}])
             write_jsonl(overrides, [{"id":"d1","question":"q","label_status":"developer_corrected","expected_answer_contains":["must"]}])
-            code=run_evaluation(pseudo, overrides, root/"results.jsonl", root/"report.md", answer_func=lambda q:{"answer":"no","fields":[],"datasets":[],"curated_definition_found":True,"definition":"4 = onechte neveninschrijving","related_terms":["Echte neveninschrijving"]})
+            code=run_evaluation(pseudo, overrides, root/"results.jsonl", root/"report.md", dataset="pseudo_gold", answer_func=lambda q:{"answer":"no","fields":[],"datasets":[],"curated_definition_found":True,"definition":"4 = onechte neveninschrijving","related_terms":["Echte neveninschrijving"]})
             self.assertEqual(code, 1)
+    def test_default_does_not_load_candidate_cases(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); pseudo=root/"pseudo.jsonl"; candidates=root/"candidates.jsonl"; overrides=root/"dev.jsonl"
+            write_jsonl(pseudo, [{"id":"p1","question":"gate","label_status":"pseudo_generated"}])
+            write_jsonl(candidates, [{"id":"c1","question":"candidate","label_status":"pseudo_uncertain","expected_answer_contains":["must"]}])
+            with patch("scripts.run_evaluation.DATASET_PATHS", {"pseudo_gold": pseudo, "gold_core": root/"missing.jsonl", "candidates": candidates}), patch("scripts.run_evaluation.DEFAULT_GOLD_CORE", root/"missing.jsonl"):
+                code=run_evaluation(overrides_path=overrides, results_path=root/"results.jsonl", report_path=root/"report.md", answer_func=lambda q:{"answer":"", "fields":[], "datasets":[]})
+                self.assertEqual(code, 0)
+                rows=[__import__('json').loads(line) for line in (root/"results.jsonl").read_text().splitlines()]
+                self.assertEqual([r["question"] for r in rows], ["gate"])
+    def test_include_candidates_loads_but_does_not_fail_by_default(self):
+        with tempfile.TemporaryDirectory() as td:
+            root=Path(td); pseudo=root/"pseudo.jsonl"; candidates=root/"candidates.jsonl"; overrides=root/"dev.jsonl"
+            write_jsonl(pseudo, [{"id":"p1","question":"gate","label_status":"pseudo_generated"}])
+            write_jsonl(candidates, [{"id":"c1","question":"candidate","label_status":"pseudo_uncertain","expected_answer_contains":["must"]}])
+            with patch("scripts.run_evaluation.DATASET_PATHS", {"pseudo_gold": pseudo, "gold_core": root/"missing.jsonl", "candidates": candidates}), patch("scripts.run_evaluation.DEFAULT_GOLD_CORE", root/"missing.jsonl"):
+                code=run_evaluation(overrides_path=overrides, results_path=root/"results.jsonl", report_path=root/"report.md", include_candidates=True, answer_func=lambda q:{"answer":"", "fields":[], "datasets":[]})
+                self.assertEqual(code, 0)
+                rows=[__import__('json').loads(line) for line in (root/"results.jsonl").read_text().splitlines()]
+                self.assertEqual({r["dataset"] for r in rows}, {"pseudo_gold", "candidates"})
 
 if __name__ == "__main__": unittest.main()

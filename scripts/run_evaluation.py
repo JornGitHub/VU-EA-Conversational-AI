@@ -8,13 +8,22 @@ from typing import Any, Callable
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
-from scripts.evaluation_utils import load_cases_with_overrides, normalize_question, read_jsonl, utc_now_iso, write_jsonl
+from scripts.evaluation_utils import load_cases_with_overrides, read_jsonl, utc_now_iso, write_jsonl
 from src.definitions.search import answer_definition_question_json
 
-DEFAULT_PSEUDO = ROOT / "data/evaluation/pseudo_gold_questions.jsonl"
-DEFAULT_OVERRIDES = ROOT / "data/evaluation/developer_feedback_overrides.jsonl"
-DEFAULT_RESULTS = ROOT / "data/evaluation/evaluation_results.jsonl"
-DEFAULT_REPORT = ROOT / "data/evaluation/evaluation_report.md"
+EVAL_DIR = ROOT / "data/evaluation"
+DEFAULT_GOLD_CORE = EVAL_DIR / "gold_core_questions.jsonl"
+DEFAULT_PSEUDO = EVAL_DIR / "pseudo_gold_questions.jsonl"
+DEFAULT_CANDIDATES = EVAL_DIR / "pseudo_candidate_questions.jsonl"
+DEFAULT_OVERRIDES = EVAL_DIR / "developer_feedback_overrides.jsonl"
+DEFAULT_RESULTS = EVAL_DIR / "evaluation_results.jsonl"
+DEFAULT_REPORT = EVAL_DIR / "evaluation_report.md"
+
+DATASET_PATHS = {
+    "gold_core": DEFAULT_GOLD_CORE,
+    "pseudo_gold": DEFAULT_PSEUDO,
+    "candidates": DEFAULT_CANDIDATES,
+}
 
 
 def contains(haystack: Any, needle: str) -> bool:
@@ -57,10 +66,10 @@ def evaluate_case(case: dict[str, Any], actual: dict[str, Any]) -> list[str]:
     return sorted(set(failures))
 
 
-def result_row(run_id: str, case: dict[str, Any], actual: dict[str, Any], failures: list[str], timestamp: str) -> dict[str, Any]:
+def result_row(run_id: str, case: dict[str, Any], actual: dict[str, Any], failures: list[str], timestamp: str, dataset_name: str) -> dict[str, Any]:
     return {
         "run_id": run_id, "case_id": case.get("id"), "question": case.get("question"),
-        "passed": not failures, "failures": failures,
+        "passed": not failures, "failures": failures, "dataset": dataset_name,
         "actual_main_term": actual.get("main_term"), "actual_answer": actual.get("answer"),
         "actual_fields": actual.get("fields", []), "actual_datasets": actual.get("datasets", []),
         "actual_curated_definition_found": actual.get("curated_definition_found"),
@@ -69,36 +78,68 @@ def result_row(run_id: str, case: dict[str, Any], actual: dict[str, Any], failur
     }
 
 
-def write_report(path: Path, cases: list[dict[str, Any]], results: list[dict[str, Any]]) -> None:
+def default_dataset_path() -> tuple[str, Path]:
+    if DEFAULT_GOLD_CORE.exists():
+        return "gold_core", DEFAULT_GOLD_CORE
+    return "pseudo_gold", DEFAULT_PSEUDO
+
+
+def load_dataset_cases(dataset: str, *, include_candidates: bool, overrides_path: Path) -> list[tuple[str, dict[str, Any]]]:
+    dataset_names: list[str]
+    if dataset == "default":
+        name, path = default_dataset_path()
+        dataset_names = [name]
+    elif dataset == "all":
+        dataset_names = ["gold_core" if DEFAULT_GOLD_CORE.exists() else "pseudo_gold", "candidates"]
+    else:
+        dataset_names = [dataset]
+    if include_candidates and "candidates" not in dataset_names:
+        dataset_names.append("candidates")
+
+    rows: list[tuple[str, dict[str, Any]]] = []
+    for name in dataset_names:
+        path = DATASET_PATHS[name]
+        if name == "candidates":
+            cases = read_jsonl(path)
+        else:
+            cases = load_cases_with_overrides(path, overrides_path)
+        rows.extend((name, case) for case in cases)
+    return rows
+
+
+def write_report(path: Path, results: list[dict[str, Any]]) -> None:
     total = len(results); failed = [r for r in results if not r["passed"]]; passed = total - len(failed)
     by_reason = Counter(f for r in failed for f in r["failures"])
     by_type = Counter(r.get("case_type") or "unknown" for r in failed)
-    human_review = [r for r in failed if r.get("label_status") in {"pseudo_generated", "pseudo_uncertain"} or r.get("needs_human_review")][:50]
+    by_dataset = Counter(r.get("dataset") or "unknown" for r in failed)
+    human_review = [r for r in failed if r.get("dataset") == "candidates" or r.get("needs_human_review")][:50]
     dev = [r for r in results if r.get("label_status") == "developer_corrected"]
-    terms = Counter(str(next((c.get("expected_main_term") for c in cases if c.get("id") == r.get("case_id")), "")) for r in failed)
     lines = ["# Evaluation report", "", f"Run timestamp: {utc_now_iso()}", "", f"Total cases: {total}", f"Passed: {passed}", f"Failed: {len(failed)}", f"Pass rate: {(passed/total*100 if total else 0):.1f}%", "", "## Failures by reason"]
     lines += [f"- {k}: {v}" for k,v in by_reason.most_common()] or ["- None"]
     lines += ["", "## Failures by case type"] + ([f"- {k}: {v}" for k,v in by_type.most_common()] or ["- None"])
+    lines += ["", "## Candidate failures by dataset"] + ([f"- {k}: {v}" for k,v in by_dataset.most_common()] or ["- None"])
     lines += ["", "## Cases requiring human review"] + ([f"- {r['case_id']}: {r['question']} ({', '.join(r['failures'])})" for r in human_review] or ["- None"])
     lines += ["", "## Developer-corrected cases", f"- Total: {len(dev)}"]
-    lines += ["", "## Top problematic terms"] + ([f"- {k}: {v}" for k,v in terms.most_common(10) if k] or ["- None"])
+    lines += ["", "## Top problematic terms"] + ([f"- {r.get('actual_main_term')}: {len(r.get('failures', []))}" for r in failed[:10]] or ["- None"])
     path.parent.mkdir(parents=True, exist_ok=True); path.write_text("\n".join(lines)+"\n", encoding="utf-8")
 
 
-def run_evaluation(pseudo_path=DEFAULT_PSEUDO, overrides_path=DEFAULT_OVERRIDES, results_path=DEFAULT_RESULTS, report_path=DEFAULT_REPORT, *, case_type=None, limit=None, report_only=False, fail_on=None, answer_func: Callable[[str], dict[str, Any]]=answer_definition_question_json) -> int:
-    cases = load_cases_with_overrides(Path(pseudo_path), Path(overrides_path))
-    if case_type: cases = [c for c in cases if c.get("case_type") == case_type]
-    if limit is not None: cases = cases[:limit]
+def run_evaluation(pseudo_path=DEFAULT_PSEUDO, overrides_path=DEFAULT_OVERRIDES, results_path=DEFAULT_RESULTS, report_path=DEFAULT_REPORT, *, case_type=None, limit=None, report_only=False, fail_on=None, dataset="default", include_candidates=False, answer_func: Callable[[str], dict[str, Any]]=answer_definition_question_json) -> int:
+    if pseudo_path != DEFAULT_PSEUDO:
+        DATASET_PATHS["pseudo_gold"] = Path(pseudo_path)
+    rows = load_dataset_cases(dataset, include_candidates=include_candidates, overrides_path=Path(overrides_path))
+    if case_type: rows = [(name, c) for name, c in rows if c.get("case_type") == case_type]
+    if limit is not None: rows = rows[:limit]
     if report_only:
-        results = read_jsonl(Path(results_path)); write_report(Path(report_path), cases, results); return 0
+        write_report(Path(report_path), read_jsonl(Path(results_path))); return 0
     run_id = utc_now_iso().replace(":", ""); ts = utc_now_iso(); results=[]
-    for case in cases:
+    for dataset_name, case in rows:
         actual = answer_func(str(case.get("question", "")))
         failures = evaluate_case(case, actual)
-        results.append(result_row(run_id, case, actual, failures, ts))
-    write_jsonl(Path(results_path), results); write_report(Path(report_path), cases, results)
+        results.append(result_row(run_id, case, actual, failures, ts, dataset_name))
+    write_jsonl(Path(results_path), results); write_report(Path(report_path), results)
     fail_on = set(fail_on or ["developer_corrected"])
-    required_failures = [r for r in results if not r["passed"] and r.get("label_status") in fail_on]
+    required_failures = [r for r in results if not r["passed"] and r.get("label_status") in fail_on and (r.get("dataset") != "candidates" or "pseudo_uncertain" in fail_on)]
     return 1 if required_failures else 0
 
 
@@ -106,9 +147,11 @@ def main(argv=None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--fail-on", action="append", choices=["pseudo_generated", "developer_corrected", "pseudo_uncertain"], default=[])
     p.add_argument("--case-type"); p.add_argument("--limit", type=int); p.add_argument("--report-only", action="store_true")
+    p.add_argument("--include-candidates", action="store_true")
+    p.add_argument("--dataset", choices=["default", "gold_core", "pseudo_gold", "candidates", "all"], default="default")
     args = p.parse_args(argv)
     fail_on = args.fail_on or ["developer_corrected"]
-    code = run_evaluation(case_type=args.case_type, limit=args.limit, report_only=args.report_only, fail_on=fail_on)
+    code = run_evaluation(case_type=args.case_type, limit=args.limit, report_only=args.report_only, fail_on=fail_on, dataset=args.dataset, include_candidates=args.include_candidates)
     print(f"Evaluation {'failed' if code else 'completed'}; report: {DEFAULT_REPORT}")
     return code
 
