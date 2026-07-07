@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse, sys
-from collections import Counter, defaultdict
+from collections import Counter
 from pathlib import Path
 from typing import Any, Callable
 
@@ -46,6 +46,14 @@ def evaluate_case(case: dict[str, Any], actual: dict[str, Any]) -> list[str]:
         if list_contains(actual.get("fields", []) or [], field): failures.append("forbidden_fields")
     for dataset in case.get("forbidden_datasets", []) or []:
         if list_contains(actual.get("datasets", []) or [], dataset): failures.append("forbidden_datasets")
+    answer_plus_definition = f"{actual.get('answer', '')} {actual.get('definition', '')}"
+    for expected in case.get("expected_values", []) or []:
+        value = str(expected.get("value", ""))
+        meaning = str(expected.get("meaning_contains", ""))
+        if value and not contains(answer_plus_definition, value): failures.append("expected_values")
+        if meaning and not contains(answer_plus_definition, meaning): failures.append("expected_values")
+    for related in case.get("expected_related_terms", []) or []:
+        if not list_contains(actual.get("related_terms", []) or [], related): failures.append("expected_related_terms")
     return sorted(set(failures))
 
 
@@ -57,7 +65,7 @@ def result_row(run_id: str, case: dict[str, Any], actual: dict[str, Any], failur
         "actual_fields": actual.get("fields", []), "actual_datasets": actual.get("datasets", []),
         "actual_curated_definition_found": actual.get("curated_definition_found"),
         "label_status": case.get("label_status"), "timestamp": timestamp,
-        "case_type": case.get("case_type"), "confidence": case.get("confidence"),
+        "case_type": case.get("case_type"), "confidence": case.get("confidence"), "needs_human_review": case.get("needs_human_review", False),
     }
 
 
@@ -65,7 +73,7 @@ def write_report(path: Path, cases: list[dict[str, Any]], results: list[dict[str
     total = len(results); failed = [r for r in results if not r["passed"]]; passed = total - len(failed)
     by_reason = Counter(f for r in failed for f in r["failures"])
     by_type = Counter(r.get("case_type") or "unknown" for r in failed)
-    human_review = [r for r in failed if r.get("label_status") == "pseudo_generated"][:50]
+    human_review = [r for r in failed if r.get("label_status") in {"pseudo_generated", "pseudo_uncertain"} or r.get("needs_human_review")][:50]
     dev = [r for r in results if r.get("label_status") == "developer_corrected"]
     terms = Counter(str(next((c.get("expected_main_term") for c in cases if c.get("id") == r.get("case_id")), "")) for r in failed)
     lines = ["# Evaluation report", "", f"Run timestamp: {utc_now_iso()}", "", f"Total cases: {total}", f"Passed: {passed}", f"Failed: {len(failed)}", f"Pass rate: {(passed/total*100 if total else 0):.1f}%", "", "## Failures by reason"]
@@ -96,7 +104,7 @@ def run_evaluation(pseudo_path=DEFAULT_PSEUDO, overrides_path=DEFAULT_OVERRIDES,
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--fail-on", action="append", choices=["pseudo_generated", "developer_corrected"], default=[])
+    p.add_argument("--fail-on", action="append", choices=["pseudo_generated", "developer_corrected", "pseudo_uncertain"], default=[])
     p.add_argument("--case-type"); p.add_argument("--limit", type=int); p.add_argument("--report-only", action="store_true")
     args = p.parse_args(argv)
     fail_on = args.fail_on or ["developer_corrected"]

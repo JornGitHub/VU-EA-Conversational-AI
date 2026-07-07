@@ -8,7 +8,7 @@ This repository uses a **pseudo-gold** evaluation dataset for broad local covera
 python scripts/generate_pseudo_gold.py
 ```
 
-The generator reads `data/ho_definities_curated.json`, `data/ho_definities_index.jsonl`, and `data/chunks.jsonl`, then writes `data/evaluation/pseudo_gold_questions.jsonl`. It only creates cases when source fragments support the expectations.
+The generator reads `data/ho_definities_curated.json`, `data/ho_definities_index.jsonl`, and `data/chunks.jsonl`, then writes `data/evaluation/pseudo_gold_questions.jsonl`. It only creates cases when source fragments and source-document evidence support the expectations. Clean high-confidence rows become `pseudo_generated`; broader medium-confidence index/chunk-derived rows become `pseudo_uncertain` and require human review.
 
 ## Run evaluation
 
@@ -24,7 +24,7 @@ The runner calls `answer_definition_question_json(question)` and writes:
 - `data/evaluation/evaluation_results.jsonl`
 - `data/evaluation/evaluation_report.md`
 
-By default, `developer_corrected` failures fail hard. Pseudo-generated failures are reported; use `--fail-on pseudo_generated` when you want high-confidence pseudo cases to gate a run.
+By default, `developer_corrected` failures fail hard. High-confidence `pseudo_generated` failures are reported; use `--fail-on pseudo_generated` when you want them to gate a run. Broader `pseudo_uncertain` cases are marked `needs_human_review: true` and report only unless explicitly requested with `--fail-on pseudo_uncertain`.
 
 ## Record developer feedback
 
