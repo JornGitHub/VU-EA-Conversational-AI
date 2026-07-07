@@ -160,6 +160,12 @@ def main() -> int:
     assert_contains(incremental, "Source files skipped because unchanged: 10", "incremental build report")
     run_step("Unit tests after build", [PYTHON, "-m", "unittest", "discover", "tests"])
 
+    pseudo_gold_path = ROOT / "data" / "evaluation" / "pseudo_gold_questions.jsonl"
+    if pseudo_gold_path.exists():
+        run_step("Evaluation suite", [PYTHON, "scripts/run_evaluation.py", "--fail-on", "developer_corrected"])
+    else:
+        print("Skipping evaluation suite: pseudo_gold_questions.jsonl not found.")
+
     for query in QUERIES:
         verify_formatted_query(query)
     run_structured_assertions()
