@@ -20,6 +20,14 @@ python scripts/generate_pseudo_gold.py
 
 The generator reads `data/ho_definities_curated.json`, `data/ho_definities_index.jsonl`, and `data/chunks.jsonl`, then writes the split tier files under `data/evaluation/`. It only creates gateable pseudo-gold cases when source fragments, source-document evidence, clean term shape, clean dataset expectations, and clean expected snippets support the expectations. Broader medium-confidence index/chunk-derived rows are written to `pseudo_candidate_questions.jsonl` for review.
 
+## Audit label quality
+
+```bash
+python scripts/audit_label_quality.py
+```
+
+The audit reads all evaluation tiers plus developer feedback files, writes `data/evaluation/label_quality_report.md` and `data/evaluation/rejected_label_candidates.jsonl`, and fails if any `gold_core` label is noisy or fails executable expectations. Candidate warnings are reported but do not fail the audit by default.
+
 ## Run evaluation
 
 ```bash
@@ -70,6 +78,7 @@ During gate/core evaluation, `developer_feedback_overrides.jsonl` is loaded afte
 ## Full local verification
 
 ```bash
+python scripts/audit_label_quality.py
 python scripts/verify_all.py
 ```
 

@@ -163,7 +163,8 @@ def main() -> int:
     evaluation_dir = ROOT / "data" / "evaluation"
     gate_paths = [evaluation_dir / "gold_core_questions.jsonl", evaluation_dir / "pseudo_gold_questions.jsonl"]
     if any(path.exists() for path in gate_paths):
-        run_step("Evaluation suite", [PYTHON, "scripts/run_evaluation.py", "--fail-on", "developer_corrected"])
+        run_step("Label quality audit", [PYTHON, "scripts/audit_label_quality.py"])
+        run_step("Evaluation suite", [PYTHON, "scripts/run_evaluation.py", "--dataset", "gold_core", "--fail-on", "developer_corrected"])
     else:
         print("Skipping evaluation suite: no gold_core_questions.jsonl or pseudo_gold_questions.jsonl found.")
 
