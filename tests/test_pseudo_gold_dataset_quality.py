@@ -1,6 +1,8 @@
 import json, re, unittest
 from pathlib import Path
 
+from scripts.evaluation_utils import ALLOWED_EXTRACTION_REASONS
+
 PSEUDO_GOLD = Path("data/evaluation/pseudo_gold_questions.jsonl")
 PSEUDO_CANDIDATES = Path("data/evaluation/pseudo_candidate_questions.jsonl")
 GOLD_CORE = Path("data/evaluation/gold_core_questions.jsonl")
@@ -21,7 +23,18 @@ class PseudoGoldDatasetQualityTests(unittest.TestCase):
         self.assertTrue(self.candidates)
         self.assertTrue(all(row.get("label_status") == "pseudo_uncertain" for row in self.candidates))
         self.assertTrue(all(row.get("needs_human_review") is True for row in self.candidates))
-        self.assertTrue(all(row.get("extraction_reason") in {"index_row", "chunk", "curated_medium", "curated_enriched"} for row in self.candidates))
+        self.assertTrue(all(row.get("extraction_reason") for row in self.candidates))
+        self.assertTrue(all(row.get("extraction_reason") in ALLOWED_EXTRACTION_REASONS for row in self.candidates))
+        self.assertTrue(all(isinstance(row.get("candidate_quality_warnings"), list) for row in self.candidates))
+        demoted = [row for row in self.candidates if row.get("extraction_reason") == "demoted_executable"]
+        self.assertTrue(all("executable_expectation_failed" in row.get("candidate_quality_warnings", []) for row in demoted))
+    def test_demoted_executable_rows_are_not_gateable(self):
+        for rows in (self.gold, self.core):
+            self.assertFalse(any(row.get("extraction_reason") == "demoted_executable" for row in rows))
+        demoted_ids = {row.get("id") for row in self.candidates if row.get("extraction_reason") == "demoted_executable"}
+        gate_ids = {row.get("id") for row in self.gold + self.core}
+        self.assertFalse(demoted_ids & gate_ids)
+
     def test_no_bad_main_terms_in_gateable_data(self):
         for row in self.gold + self.core:
             term=str(row.get("expected_main_term", ""))

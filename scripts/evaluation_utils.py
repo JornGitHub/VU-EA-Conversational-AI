@@ -6,6 +6,14 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
+ALLOWED_EXTRACTION_REASONS = {
+    "index_row",
+    "chunk",
+    "curated_medium",
+    "curated_enriched",
+    "demoted_executable",
+}
+
 NOISE_PHRASES = [
     "1. Inleiding", "Het bestand", "nationaliteit is onbekend", "geboorteland is onbekend",
     "hoacth.csv", "hoacth_vest.csv", "Inschrijvingen_aggr_UNL_2023.csv", "Mogelijke waarden",

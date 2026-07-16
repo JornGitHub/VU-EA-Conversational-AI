@@ -49,6 +49,7 @@ class PseudoGoldGenerationTests(unittest.TestCase):
         self.assertFalse(any(c["case_type"] == "fields" for c in gold))
         demoted=[c for c in candidates if c["case_type"] == "fields"]
         self.assertTrue(demoted)
+        self.assertEqual(demoted[0]["extraction_reason"], "demoted_executable")
         self.assertIn("executable_expectation_failed", demoted[0]["candidate_quality_warnings"])
         self.assertTrue(demoted[0]["needs_human_review"])
 
