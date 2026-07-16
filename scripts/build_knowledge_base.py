@@ -12,6 +12,7 @@ from src.ingestion.build_index import write_json, write_jsonl, build_sqlite
 from src.ingestion.validation import validate_build
 from src.ingestion.changelog import diff_curated, append_changelog
 from src.ingestion.archive import archive_root_generated_artifacts, format_archive_summary
+from src.definitions.inschrijvingen_catalog import write_catalog_and_gold
 DATA=ROOT/'data'; SOURCE=ROOT/'sources'/'1cHO Documentatie'; LEGACY=ROOT/'1cHO Documentatie'
 GEN=['ho_definities_curated.json','ho_definities_index.jsonl','chunks.jsonl','document_manifest.json']
 def load_old_curated():
@@ -33,6 +34,7 @@ def main():
     skipped=[p for p in docs if p not in changed]
     timestamp=datetime.now(timezone.utc).replace(microsecond=0).isoformat(); warnings=[]; all_chunks=[]; new_manifest={}
     archive_result=archive_root_generated_artifacts(ROOT, dry_run=args.dry_run) if args.archive_root_leftovers else None
+    inschrijvingen_report = write_catalog_and_gold(dry_run=args.dry_run)
     for p in docs:  # rebuild artifacts from all docs for consistency; changed list controls reporting/incremental detection
         try:
             doc=extract_text(p); chunks=chunk_document(doc); all_chunks.extend(chunks)
@@ -47,7 +49,7 @@ def main():
     tmp=DATA/'.build_tmp'; shutil.rmtree(tmp,ignore_errors=True); tmp.mkdir(parents=True)
     write_json(tmp/'ho_definities_curated.json', curated); write_jsonl(tmp/'ho_definities_index.jsonl', index); write_chunks(tmp/'chunks.jsonl', all_chunks); save_manifest(tmp/'document_manifest.json', new_manifest)
     errors=validate_build(tmp/'ho_definities_curated.json', tmp/'ho_definities_index.jsonl', tmp/'chunks.jsonl', old_curated if old_curated else None)
-    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,errors,args.dry_run,archive_result,quality_stats)
+    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,errors,args.dry_run,archive_result,quality_stats,inschrijvingen_report)
     if args.dry_run:
         print(report); return 0 if not errors else 1
     if errors:
@@ -59,7 +61,7 @@ def main():
         (tmp/name).replace(dst)
     append_changelog(DATA/'curated_change_log.jsonl', changes)
     warnings+=build_sqlite(DATA/'ho_knowledge.db', curated,index,all_chunks)
-    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,[],False,archive_result,quality_stats)
+    report=render_report(timestamp,changed,skipped,curated,index,all_chunks,changes,warnings,[],False,archive_result,quality_stats,inschrijvingen_report)
     (DATA/'last_build_report.md').write_text(report,encoding='utf-8'); print(report); return 0
 
 def annotate_quality_removals(changes):
@@ -168,7 +170,7 @@ def protected_seed_definitions(timestamp):
         seed('Echte neveninschrijving', 'Een echte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling niet voorkomt bij een andere inschrijving van dezelfde student binnen het betreffende domein of teldomein. De bron gebruikt hiervoor onder meer waarde 2 bij sleutel-domeinvelden en soort-inschrijvingsvelden.', ['1cyferho_2025_v1.0.asc'], ['Soort inschrijving type ho binnen soort ho','Soort inschrijving actuele opleiding-instelling','Sleutel domein hoger onderwijs','Sleutel domein type hoger onderwijs binnen soort hoger onderwijs','Sleutel domein actuele opleiding-instelling'], ['2 = neveninschrijving ... combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student (echte neveninschrijving).'], 0.95),
     ]
 
-def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry,archive_result=None,quality_stats=None):
+def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,errors,dry,archive_result=None,quality_stats=None,inschrijvingen_report=None):
     counts={t:sum(1 for c in changes if c['change_type']==t) for t in ('added','modified','removed')}
     lines=['# Knowledge base build report','',f'Timestamp: {ts}',f'Dry run: {dry}',f'Source files processed: {len(processed)}',f'Source files skipped because unchanged: {len(skipped)}','','Curated definitions:',f"- added: {counts['added']}",f"- modified: {counts['modified']}",f"- removed: {counts['removed']}",'',f'Index entries: {len(index)}',f'Chunks: {len(chunks)}','','Potential warnings:']
     lines += [f'- {w}' for w in warnings] or ['- none']
@@ -177,6 +179,9 @@ def render_report(ts,processed,skipped,curated,index,chunks,changes,warnings,err
         lines += [f'- {reason}: {count}' for reason, count in sorted(quality_stats.items())]
     else:
         lines += ['- none']
+    if inschrijvingen_report is not None:
+        lines += ['', 'Primary inschrijvingen field catalog:']
+        lines += [f'- {k}: {v}' for k, v in inschrijvingen_report.items()]
     if archive_result is not None:
         lines += ['', format_archive_summary(archive_result)]
     lines += ['', 'Curated terminology note:', '- In this project, "curated" means automatically cleaned/high-confidence definitions, not necessarily manually approved definitions.']

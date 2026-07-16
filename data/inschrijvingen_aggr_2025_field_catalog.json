@@ -1,0 +1,2972 @@
+[
+  {
+    "field_number": 1,
+    "field_name": "Inschrijvingsjaar",
+    "normalized_field_name": "inschrijvingsjaar",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Het kalenderjaar waarin het inschrijvingsjaar begint waarin een student bij de instelling is ingeschreven. Een academisch jaar loopt van 1 september t/m 31 augustus.",
+    "possible_values": [],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "jaar"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Inschrijvingsjaar?",
+      "Wat is de definitie van Inschrijvingsjaar?",
+      "Welke mogelijke waarden heeft Inschrijvingsjaar?",
+      "In welk bestand staat Inschrijvingsjaar?",
+      "Wat is de bron en type veld van Inschrijvingsjaar?",
+      "Wat zijn de aandachtspunten/NB's bij Inschrijvingsjaar?",
+      "Toon alles over veld Inschrijvingsjaar."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 1
+    }
+  },
+  {
+    "field_number": 2,
+    "field_name": "Opleidingsvorm",
+    "normalized_field_name": "opleidingsvorm",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Een code, welke aangeeft in welke studievorm de ingeschrevene staat geregistreerd.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "voltijd"
+      },
+      {
+        "code": "2",
+        "meaning": "deeltijd"
+      },
+      {
+        "code": "3",
+        "meaning": "duaal onderwijs"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Opleidingsvorm?",
+      "Wat is de definitie van Opleidingsvorm?",
+      "Welke mogelijke waarden heeft Opleidingsvorm?",
+      "In welk bestand staat Opleidingsvorm?",
+      "Wat is de bron en type veld van Opleidingsvorm?",
+      "Wat zijn de aandachtspunten/NB's bij Opleidingsvorm?",
+      "Toon alles over veld Opleidingsvorm."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 2
+    }
+  },
+  {
+    "field_number": 3,
+    "field_name": "Maand vanaf",
+    "normalized_field_name": "maand vanaf",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "De maand van het inschrijvingsjaar vanaf wanneer een ingeschrevene staat ingeschreven voor een opleiding.",
+    "possible_values": [
+      {
+        "code": "01 t/m 12",
+        "meaning": "toegestane maandwaarden"
+      }
+    ],
+    "notes": [
+      "NB: een enkele keer komt de waarde 00 voor. Deze inschrijvingen worden altijd als niet actief op peildatum beschouwd. (1=januari, 2=februari,…)"
+    ],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "startmaand"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Maand vanaf?",
+      "Wat is de definitie van Maand vanaf?",
+      "Welke mogelijke waarden heeft Maand vanaf?",
+      "In welk bestand staat Maand vanaf?",
+      "Wat is de bron en type veld van Maand vanaf?",
+      "Wat zijn de aandachtspunten/NB's bij Maand vanaf?",
+      "Toon alles over veld Maand vanaf."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 3
+    }
+  },
+  {
+    "field_number": 4,
+    "field_name": "Inschrijvingsvorm",
+    "normalized_field_name": "inschrijvingsvorm",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of een ingeschrevene zich inschrijft als student, auditor of extraneus.",
+    "possible_values": [
+      {
+        "code": "S",
+        "meaning": "student"
+      },
+      {
+        "code": "A",
+        "meaning": "auditor"
+      },
+      {
+        "code": "E",
+        "meaning": "extraneus"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Inschrijvingsvorm?",
+      "Wat is de definitie van Inschrijvingsvorm?",
+      "Welke mogelijke waarden heeft Inschrijvingsvorm?",
+      "In welk bestand staat Inschrijvingsvorm?",
+      "Wat is de bron en type veld van Inschrijvingsvorm?",
+      "Wat zijn de aandachtspunten/NB's bij Inschrijvingsvorm?",
+      "Toon alles over veld Inschrijvingsvorm."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 4
+    }
+  },
+  {
+    "field_number": 5,
+    "field_name": "Actuele instelling",
+    "normalized_field_name": "actuele instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Administratienummer (brinnummer) zoals dat geldig is in het laatst beschikbare inschrijvingsjaar.",
+    "possible_values": [],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Croho-onderdeel actuele opleiding",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar aan deze opleiding-instelling",
+      "Eerstejaars aan deze instelling",
+      "Soort inschrijving continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Actuele instelling?",
+      "Wat is de definitie van Actuele instelling?",
+      "Welke mogelijke waarden heeft Actuele instelling?",
+      "In welk bestand staat Actuele instelling?",
+      "Wat is de bron en type veld van Actuele instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Actuele instelling?",
+      "Toon alles over veld Actuele instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 5
+    }
+  },
+  {
+    "field_number": 6,
+    "field_name": "Opleiding actueel equivalent",
+    "normalized_field_name": "opleiding actueel equivalent",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Zie Bestandsbeschrijving hoacth.csv/ hoacth_vest.csv. .",
+    "possible_values": [],
+    "notes": [],
+    "references": [
+      "hoacth.csv",
+      "hoacth_vest.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Opleidingsvorm",
+      "Opleiding historisch equivalent",
+      "Croho-onderdeel actuele opleiding",
+      "Opleidingsfase actueel",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele opleiding-instelling",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Eerste jaar aan deze opleiding-instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Opleiding actueel equivalent?",
+      "Wat is de definitie van Opleiding actueel equivalent?",
+      "Welke mogelijke waarden heeft Opleiding actueel equivalent?",
+      "In welk bestand staat Opleiding actueel equivalent?",
+      "Wat is de bron en type veld van Opleiding actueel equivalent?",
+      "Wat zijn de aandachtspunten/NB's bij Opleiding actueel equivalent?",
+      "Toon alles over veld Opleiding actueel equivalent."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 6
+    }
+  },
+  {
+    "field_number": 7,
+    "field_name": "Iscedf2013rubriek",
+    "normalized_field_name": "iscedf2013rubriek",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "CBS",
+    "type_field": "Tekst",
+    "description": "Een CBS-detaillering van de internationale onderwijsindeling van UNESCO naar richting van de opleidingen. De UNESCO-indeling kent drie detailniveaus (een 2-, een 3- en een 4-cijferige code). De CBS-indeling, die bestaat uit 6 cijfers is een verdere detaillering van de 4-cijferige UNESCO-indeling. De eerste 4 cijfers van de CBS-indeling komen overeen met de 4-cijferige UNESCO-indeling. Iscedf2013rubriek is aan 1cHO op basis van Opleiding actueel equivalent. Zie bestand Iscedf2013.txt voor decodering.",
+    "possible_values": [],
+    "notes": [],
+    "references": [
+      "Iscedf2013.txt"
+    ],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Iscedf2013rubriek?",
+      "Wat is de definitie van Iscedf2013rubriek?",
+      "Welke mogelijke waarden heeft Iscedf2013rubriek?",
+      "In welk bestand staat Iscedf2013rubriek?",
+      "Wat is de bron en type veld van Iscedf2013rubriek?",
+      "Wat zijn de aandachtspunten/NB's bij Iscedf2013rubriek?",
+      "Toon alles over veld Iscedf2013rubriek."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 7
+    }
+  },
+  {
+    "field_number": 8,
+    "field_name": "Opleiding historisch equivalent",
+    "normalized_field_name": "opleiding historisch equivalent",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Zie Bestandsbeschrijving hoacth.csv/ hoacth_vest.csv.",
+    "possible_values": [],
+    "notes": [],
+    "references": [
+      "hoacth.csv",
+      "hoacth_vest.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Opleidingsvorm",
+      "Opleiding actueel equivalent",
+      "Croho-onderdeel actuele opleiding",
+      "Opleidingsfase actueel",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele opleiding-instelling",
+      "Eerste jaar aan deze opleiding-instelling",
+      "Hoogste vooropleiding voor het HO"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Opleiding historisch equivalent?",
+      "Wat is de definitie van Opleiding historisch equivalent?",
+      "Welke mogelijke waarden heeft Opleiding historisch equivalent?",
+      "In welk bestand staat Opleiding historisch equivalent?",
+      "Wat is de bron en type veld van Opleiding historisch equivalent?",
+      "Wat zijn de aandachtspunten/NB's bij Opleiding historisch equivalent?",
+      "Toon alles over veld Opleiding historisch equivalent."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 8
+    }
+  },
+  {
+    "field_number": 9,
+    "field_name": "Croho-onderdeel actuele opleiding",
+    "normalized_field_name": "croho onderdeel actuele opleiding",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Het croho-onderdeel waartoe de geregistreerde combinatie administratienummer / opleiding behoort.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "onderwijs"
+      },
+      {
+        "code": "2",
+        "meaning": "landbouw en natuurlijke omgeving"
+      },
+      {
+        "code": "3",
+        "meaning": "natuur"
+      },
+      {
+        "code": "4",
+        "meaning": "techniek"
+      },
+      {
+        "code": "5",
+        "meaning": "gezondheidszorg"
+      },
+      {
+        "code": "6",
+        "meaning": "economie"
+      },
+      {
+        "code": "7",
+        "meaning": "recht"
+      },
+      {
+        "code": "8",
+        "meaning": "gedrag en maatschappij"
+      },
+      {
+        "code": "9",
+        "meaning": "taal en cultuur"
+      },
+      {
+        "code": "0",
+        "meaning": "sectoroverstijgend"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Croho-onderdeel actuele opleiding?",
+      "Wat is de definitie van Croho-onderdeel actuele opleiding?",
+      "Welke mogelijke waarden heeft Croho-onderdeel actuele opleiding?",
+      "In welk bestand staat Croho-onderdeel actuele opleiding?",
+      "Wat is de bron en type veld van Croho-onderdeel actuele opleiding?",
+      "Wat zijn de aandachtspunten/NB's bij Croho-onderdeel actuele opleiding?",
+      "Toon alles over veld Croho-onderdeel actuele opleiding."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 9
+    }
+  },
+  {
+    "field_number": 10,
+    "field_name": "Type hoger onderwijs binnen soort hoger onderwijs",
+    "normalized_field_name": "type hoger onderwijs binnen soort hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Het type hoger onderwijs binnen het soort hoger onderwijs van de betreffende inschrijving.",
+    "possible_values": [
+      {
+        "code": "on",
+        "meaning": "ongedeelde opleiding"
+      },
+      {
+        "code": "ba",
+        "meaning": "bachelor-opleiding"
+      },
+      {
+        "code": "ma",
+        "meaning": "master-opleiding"
+      },
+      {
+        "code": "pm",
+        "meaning": "postmaster-opleiding"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving type ho binnen soort ho",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Eerste jaar in het hoger onderwijs",
+      "Eerste jaar aan deze soort hoger onderwijs",
+      "Soort inschrijving act. inst - type ho binnen soort ho",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Type hoger onderwijs binnen soort hoger onderwijs?",
+      "Wat is de definitie van Type hoger onderwijs binnen soort hoger onderwijs?",
+      "Welke mogelijke waarden heeft Type hoger onderwijs binnen soort hoger onderwijs?",
+      "In welk bestand staat Type hoger onderwijs binnen soort hoger onderwijs?",
+      "Wat is de bron en type veld van Type hoger onderwijs binnen soort hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Type hoger onderwijs binnen soort hoger onderwijs?",
+      "Toon alles over veld Type hoger onderwijs binnen soort hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 10
+    }
+  },
+  {
+    "field_number": 11,
+    "field_name": "Opleidingsfase actueel",
+    "normalized_field_name": "opleidingsfase actueel",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "De opleidingsfase van de betreffende opleiding zoals dat in het laatst beschikbare jaar is.",
+    "possible_values": [
+      {
+        "code": "B",
+        "meaning": "bachelor"
+      },
+      {
+        "code": "D",
+        "meaning": "propedeuse bachelor"
+      },
+      {
+        "code": "I",
+        "meaning": "initiële opleiding"
+      },
+      {
+        "code": "K",
+        "meaning": "kandidaatsfase"
+      },
+      {
+        "code": "M",
+        "meaning": "master"
+      },
+      {
+        "code": "O",
+        "meaning": "oude stijl"
+      },
+      {
+        "code": "P",
+        "meaning": "propedeuse (voornamelijk betreft dit ongedeelde opleidingen)"
+      },
+      {
+        "code": "Z",
+        "meaning": "beroepsfase artsen-, tandartsen-, dierenartsen- en apothekersopleidingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Opleiding actueel equivalent",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie EER actueel"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Opleidingsfase actueel?",
+      "Wat is de definitie van Opleidingsfase actueel?",
+      "Welke mogelijke waarden heeft Opleidingsfase actueel?",
+      "In welk bestand staat Opleidingsfase actueel?",
+      "Wat is de bron en type veld van Opleidingsfase actueel?",
+      "Wat zijn de aandachtspunten/NB's bij Opleidingsfase actueel?",
+      "Toon alles over veld Opleidingsfase actueel."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 11
+    }
+  },
+  {
+    "field_number": 12,
+    "field_name": "Indicatie actief op peildatum",
+    "normalized_field_name": "indicatie actief op peildatum",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving actief is op 1 oktober van het betreffende inschrijvingsjaar.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "actief op peildatum 1 oktober (inschrijving)"
+      },
+      {
+        "code": "2",
+        "meaning": "inschrijving beëindigd voor peildatum (uitschrijving)"
+      },
+      {
+        "code": "3",
+        "meaning": "inschrijving nog niet begonnen op peildatum en combinatie opleiding-instelling (*) komt NIET voor"
+      },
+      {
+        "code": "4",
+        "meaning": "inschrijving nog niet begonnen op peildatum en combinatie opleiding-instelling (*) komt WEL voor"
+      }
+    ],
+    "notes": [
+      "(*) Deze combinatie betreft de velden Administratienummer OWI en Opleidingscode"
+    ],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling",
+      "Indicatie eerstejaars continu type ho binnen ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "actief op peildatum",
+      "peildatum 1 oktober"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie actief op peildatum?",
+      "Wat is de definitie van Indicatie actief op peildatum?",
+      "Welke mogelijke waarden heeft Indicatie actief op peildatum?",
+      "In welk bestand staat Indicatie actief op peildatum?",
+      "Wat is de bron en type veld van Indicatie actief op peildatum?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie actief op peildatum?",
+      "Toon alles over veld Indicatie actief op peildatum."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 12
+    }
+  },
+  {
+    "field_number": 13,
+    "field_name": "Soort inschrijving hoger onderwijs",
+    "normalized_field_name": "soort inschrijving hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving hoger onderwijs?",
+      "Wat is de definitie van Soort inschrijving hoger onderwijs?",
+      "Welke mogelijke waarden heeft Soort inschrijving hoger onderwijs?",
+      "In welk bestand staat Soort inschrijving hoger onderwijs?",
+      "Wat is de bron en type veld van Soort inschrijving hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving hoger onderwijs?",
+      "Toon alles over veld Soort inschrijving hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 13
+    }
+  },
+  {
+    "field_number": 14,
+    "field_name": "Soort inschrijving soort ho",
+    "normalized_field_name": "soort inschrijving soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein soort hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving soort ho?",
+      "Wat is de definitie van Soort inschrijving soort ho?",
+      "Welke mogelijke waarden heeft Soort inschrijving soort ho?",
+      "In welk bestand staat Soort inschrijving soort ho?",
+      "Wat is de bron en type veld van Soort inschrijving soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving soort ho?",
+      "Toon alles over veld Soort inschrijving soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 14
+    }
+  },
+  {
+    "field_number": 15,
+    "field_name": "Soort inschrijving type ho binnen soort ho",
+    "normalized_field_name": "soort inschrijving type ho binnen soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein type hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving type ho binnen soort ho?",
+      "Wat is de definitie van Soort inschrijving type ho binnen soort ho?",
+      "Welke mogelijke waarden heeft Soort inschrijving type ho binnen soort ho?",
+      "In welk bestand staat Soort inschrijving type ho binnen soort ho?",
+      "Wat is de bron en type veld van Soort inschrijving type ho binnen soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving type ho binnen soort ho?",
+      "Toon alles over veld Soort inschrijving type ho binnen soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 15
+    }
+  },
+  {
+    "field_number": 16,
+    "field_name": "Soort inschrijving opleiding actueel equivalent",
+    "normalized_field_name": "soort inschrijving opleiding actueel equivalent",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein actuele opleiding is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving opleiding actueel equivalent?",
+      "Wat is de definitie van Soort inschrijving opleiding actueel equivalent?",
+      "Welke mogelijke waarden heeft Soort inschrijving opleiding actueel equivalent?",
+      "In welk bestand staat Soort inschrijving opleiding actueel equivalent?",
+      "Wat is de bron en type veld van Soort inschrijving opleiding actueel equivalent?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving opleiding actueel equivalent?",
+      "Toon alles over veld Soort inschrijving opleiding actueel equivalent."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 16
+    }
+  },
+  {
+    "field_number": 17,
+    "field_name": "Soort inschrijving actuele instelling",
+    "normalized_field_name": "soort inschrijving actuele instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein actuele instelling is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele opleiding-instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving actuele instelling?",
+      "Wat is de definitie van Soort inschrijving actuele instelling?",
+      "Welke mogelijke waarden heeft Soort inschrijving actuele instelling?",
+      "In welk bestand staat Soort inschrijving actuele instelling?",
+      "Wat is de bron en type veld van Soort inschrijving actuele instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving actuele instelling?",
+      "Toon alles over veld Soort inschrijving actuele instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 17
+    }
+  },
+  {
+    "field_number": 18,
+    "field_name": "Soort inschrijving actuele opleiding-instelling",
+    "normalized_field_name": "soort inschrijving actuele opleiding instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "Tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein actuele opleiding-instelling is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving actuele opleiding-instelling?",
+      "Wat is de definitie van Soort inschrijving actuele opleiding-instelling?",
+      "Welke mogelijke waarden heeft Soort inschrijving actuele opleiding-instelling?",
+      "In welk bestand staat Soort inschrijving actuele opleiding-instelling?",
+      "Wat is de bron en type veld van Soort inschrijving actuele opleiding-instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving actuele opleiding-instelling?",
+      "Toon alles over veld Soort inschrijving actuele opleiding-instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 18
+    }
+  },
+  {
+    "field_number": 19,
+    "field_name": "Verblijfsjaar hoger onderwijs",
+    "normalized_field_name": "verblijfsjaar hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Het aantal keren dat de student een actieve inschrijving heeft op 1 oktober tot met het betreffende inschrijvingsjaar in het domein hoger onderwijs. Dit attribuut is bepaald voor inschrijvingen waarvoor geldt: “Soort inschrijving ho” = 1, 2 of 4",
+    "possible_values": [
+      {
+        "code": "00",
+        "meaning": "inschrijving heeft soort inschrijving hoger onderwijs van 3 of 5 (of 8 of C)"
+      },
+      {
+        "code": ">",
+        "meaning": "00 voor overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [
+      "Inschrijvingen_aggr_UNL_2023.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Eerste jaar in het hoger onderwijs",
+      "Eerste jaar aan deze soort hoger onderwijs",
+      "Verblijfsjaar type ho binnen ho",
+      "Soort inschrijving continu hoger onderwijs"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Verblijfsjaar hoger onderwijs?",
+      "Wat is de definitie van Verblijfsjaar hoger onderwijs?",
+      "Welke mogelijke waarden heeft Verblijfsjaar hoger onderwijs?",
+      "In welk bestand staat Verblijfsjaar hoger onderwijs?",
+      "Wat is de bron en type veld van Verblijfsjaar hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Verblijfsjaar hoger onderwijs?",
+      "Toon alles over veld Verblijfsjaar hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 19
+    }
+  },
+  {
+    "field_number": 20,
+    "field_name": "Verblijfsjaar soort ho",
+    "normalized_field_name": "verblijfsjaar soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Het aantal keren dat de student een actieve inschrijving heeft op 1 oktober tot met het betreffende inschrijvingsjaar in het domein soort hoger onderwijs. Dit attribuut is bepaald voor inschrijvingen waarvoor geldt: “Soort inschrijving soort ho” = 1, 2 of 4",
+    "possible_values": [
+      {
+        "code": "00",
+        "meaning": "inschrijving heeft soort inschrijving hoger onderwijs van 3 of 5 (of 8 of C)"
+      },
+      {
+        "code": ">",
+        "meaning": "00 voor overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [
+      "Inschrijvingen_aggr_UNL_2023.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling",
+      "Verblijfsjaar hoger onderwijs"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Verblijfsjaar soort ho?",
+      "Wat is de definitie van Verblijfsjaar soort ho?",
+      "Welke mogelijke waarden heeft Verblijfsjaar soort ho?",
+      "In welk bestand staat Verblijfsjaar soort ho?",
+      "Wat is de bron en type veld van Verblijfsjaar soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Verblijfsjaar soort ho?",
+      "Toon alles over veld Verblijfsjaar soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 20
+    }
+  },
+  {
+    "field_number": 21,
+    "field_name": "Verblijfsjaar type ho binnen soort ho",
+    "normalized_field_name": "verblijfsjaar type ho binnen soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Het aantal keren dat de student een actieve inschrijving heeft op 1 oktober tot met het betreffende inschrijvingsjaar in het domein type hoger onderwijs binnen soort hoger onderwijs. Dit attribuut is bepaald voor inschrijvingen waarvoor geldt: “Soort inschrijving soort ho” = 1, 2 of 4",
+    "possible_values": [
+      {
+        "code": "00",
+        "meaning": "inschrijving heeft soort inschrijving hoger onderwijs van 3 of 5 (of 8 of C)"
+      },
+      {
+        "code": ">",
+        "meaning": "00 voor overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [
+      "Inschrijvingen_aggr_UNL_2023.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving type ho binnen soort ho",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Soort inschrijving act. inst - type ho binnen soort ho",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Soort inschrijving type ho binnen ho",
+      "Verblijfsjaar type ho binnen ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Verblijfsjaar type ho binnen soort ho?",
+      "Wat is de definitie van Verblijfsjaar type ho binnen soort ho?",
+      "Welke mogelijke waarden heeft Verblijfsjaar type ho binnen soort ho?",
+      "In welk bestand staat Verblijfsjaar type ho binnen soort ho?",
+      "Wat is de bron en type veld van Verblijfsjaar type ho binnen soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Verblijfsjaar type ho binnen soort ho?",
+      "Toon alles over veld Verblijfsjaar type ho binnen soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 21
+    }
+  },
+  {
+    "field_number": 22,
+    "field_name": "Indicatie eerstejaars opl. actueel equivalent",
+    "normalized_field_name": "indicatie eerstejaars opl actueel equivalent",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst op 1 oktober in de betreffende actuele opleiding staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars opleiding actueel equivalent voor de betreffende hoofdinschrijving"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars opleiding actueel equivalent voor de betreffende neveninschrijving"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars opleiding actueel equivalent voor de betreffende inschrijving of het oorspronkelijke veld soort inschrijving opleiding actueel equivalent uit 1cHO is gelijk aan 3, 4 of 5 (of 8, 9, C, D, E)"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars opl. actueel equivalent?",
+      "Wat is de definitie van Indicatie eerstejaars opl. actueel equivalent?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars opl. actueel equivalent?",
+      "In welk bestand staat Indicatie eerstejaars opl. actueel equivalent?",
+      "Wat is de bron en type veld van Indicatie eerstejaars opl. actueel equivalent?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars opl. actueel equivalent?",
+      "Toon alles over veld Indicatie eerstejaars opl. actueel equivalent."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 22
+    }
+  },
+  {
+    "field_number": 23,
+    "field_name": "Indicatie eerstejaars actuele instelling",
+    "normalized_field_name": "indicatie eerstejaars actuele instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst op 1 oktober aan de betreffende actuele instelling staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars actuele instelling voor de betreffende hoofdinschrijving"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars actuele instelling voor de betreffende neveninschrijving"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars actuele instelling voor de betreffende inschrijving of het oorspronkelijke veld soort inschrijving actuele instelling uit 1cHO is gelijk aan 3, 4 of 5 (of 8, 9, C, D, E)"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars actuele instelling?",
+      "Wat is de definitie van Indicatie eerstejaars actuele instelling?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars actuele instelling?",
+      "In welk bestand staat Indicatie eerstejaars actuele instelling?",
+      "Wat is de bron en type veld van Indicatie eerstejaars actuele instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars actuele instelling?",
+      "Toon alles over veld Indicatie eerstejaars actuele instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 23
+    }
+  },
+  {
+    "field_number": 24,
+    "field_name": "Indicatie eerstejaars actuele opl.-instelling",
+    "normalized_field_name": "indicatie eerstejaars actuele opl instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst op 1 oktober in de betreffende actuele opleiding aan de betreffende actuele instelling staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars actuele opleiding-instelling voor de betreffende hoofdinschrijving"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars actuele opleiding-instelling voor de betreffende neveninschrijving"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars actuele opleiding-instelling voor de betreffende inschrijving of het"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars actuele opl.-instelling?",
+      "Wat is de definitie van Indicatie eerstejaars actuele opl.-instelling?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars actuele opl.-instelling?",
+      "In welk bestand staat Indicatie eerstejaars actuele opl.-instelling?",
+      "Wat is de bron en type veld van Indicatie eerstejaars actuele opl.-instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars actuele opl.-instelling?",
+      "Toon alles over veld Indicatie eerstejaars actuele opl.-instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 24
+    }
+  },
+  {
+    "field_number": 25,
+    "field_name": "Eerste jaar in het hoger onderwijs",
+    "normalized_field_name": "eerste jaar in het hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Geeft aan of de betreffende student in het inschrijvingsjaar voor het eerst een inschrijvingsrecord in het hoger onderwijs heeft.",
+    "possible_values": [
+      {
+        "code": "0000",
+        "meaning": "ingeschreven heeft in inschrijvingsjaar niet voor het eerst een inschrijvingsrecord in het hoger onderwijs"
+      },
+      {
+        "code": "0001",
+        "meaning": "ingeschreven heeft in inschrijvingsjaar voor het eerst een inschrijvingsrecord in het hoger onderwijs"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar aan deze soort hoger onderwijs"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Eerste jaar in het hoger onderwijs?",
+      "Wat is de definitie van Eerste jaar in het hoger onderwijs?",
+      "Welke mogelijke waarden heeft Eerste jaar in het hoger onderwijs?",
+      "In welk bestand staat Eerste jaar in het hoger onderwijs?",
+      "Wat is de bron en type veld van Eerste jaar in het hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Eerste jaar in het hoger onderwijs?",
+      "Toon alles over veld Eerste jaar in het hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 25
+    }
+  },
+  {
+    "field_number": 26,
+    "field_name": "Eerste jaar aan deze soort hoger onderwijs",
+    "normalized_field_name": "eerste jaar aan deze soort hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Geeft aan of de betreffende student in het inschrijvingsjaar voor het eerst een inschrijvingsrecord in het soort hoger onderwijs heeft.",
+    "possible_values": [
+      {
+        "code": "0000",
+        "meaning": "ingeschreven heeft in inschrijvingsjaar niet voor het eerst een inschrijvingsrecord in het soort hoger onderwijs"
+      },
+      {
+        "code": "0001",
+        "meaning": "ingeschreven heeft in inschrijvingsjaar voor het eerst een inschrijvingsrecord in het soort hoger onderwijs"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar in het hoger onderwijs"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Eerste jaar aan deze soort hoger onderwijs?",
+      "Wat is de definitie van Eerste jaar aan deze soort hoger onderwijs?",
+      "Welke mogelijke waarden heeft Eerste jaar aan deze soort hoger onderwijs?",
+      "In welk bestand staat Eerste jaar aan deze soort hoger onderwijs?",
+      "Wat is de bron en type veld van Eerste jaar aan deze soort hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Eerste jaar aan deze soort hoger onderwijs?",
+      "Toon alles over veld Eerste jaar aan deze soort hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 26
+    }
+  },
+  {
+    "field_number": 27,
+    "field_name": "Eerste jaar aan deze opleiding-instelling",
+    "normalized_field_name": "eerste jaar aan deze opleiding instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Geeft aan of de betreffende student in het inschrijvingsjaar voor het eerst een inschrijvingsrecord in de betreffende combinatie actuele opleiding / actuele instelling (het domein actuele opleidinginstelling) heeft.",
+    "possible_values": [
+      {
+        "code": "0000",
+        "meaning": "ingeschreven heeft in inschrijvingsjaar niet voor het eerst een inschrijvingsrecord in de"
+      },
+      {
+        "code": "0001",
+        "meaning": "ingeschreven heeft in inschrijvingsjaar voor het eerst een inschrijvingsrecord in de betreffende combinatie actuele opleiding / actuele instelling"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar in het hoger onderwijs"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Eerste jaar aan deze opleiding-instelling?",
+      "Wat is de definitie van Eerste jaar aan deze opleiding-instelling?",
+      "Welke mogelijke waarden heeft Eerste jaar aan deze opleiding-instelling?",
+      "In welk bestand staat Eerste jaar aan deze opleiding-instelling?",
+      "Wat is de bron en type veld van Eerste jaar aan deze opleiding-instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Eerste jaar aan deze opleiding-instelling?",
+      "Toon alles over veld Eerste jaar aan deze opleiding-instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 27
+    }
+  },
+  {
+    "field_number": 28,
+    "field_name": "Hoogste vooropleiding voor het HO",
+    "normalized_field_name": "hoogste vooropleiding voor het ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "De hoogste vooropleiding van de student die behaald is voor het hoger onderwijs tot en met het betreffende inschrijvingsjaar.",
+    "possible_values": [],
+    "notes": [],
+    "references": [
+      "Dec_vopl.csv",
+      "Zie bestand Dec_vopl.csv voor decodering."
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Hoogste vooropleiding"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Hoogste vooropleiding voor het HO?",
+      "Wat is de definitie van Hoogste vooropleiding voor het HO?",
+      "Welke mogelijke waarden heeft Hoogste vooropleiding voor het HO?",
+      "In welk bestand staat Hoogste vooropleiding voor het HO?",
+      "Wat is de bron en type veld van Hoogste vooropleiding voor het HO?",
+      "Wat zijn de aandachtspunten/NB's bij Hoogste vooropleiding voor het HO?",
+      "Toon alles over veld Hoogste vooropleiding voor het HO."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 28
+    }
+  },
+  {
+    "field_number": 29,
+    "field_name": "Hoogste vooropleiding",
+    "normalized_field_name": "hoogste vooropleiding",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "De hoogste vooropleiding van de student geldend voor het betreffende inschrijvingsjaar.",
+    "possible_values": [],
+    "notes": [],
+    "references": [
+      "Dec_vopl.csv",
+      "Zie bestand Dec_vopl.csv voor decodering."
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Hoogste vooropleiding voor het HO"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Hoogste vooropleiding?",
+      "Wat is de definitie van Hoogste vooropleiding?",
+      "Welke mogelijke waarden heeft Hoogste vooropleiding?",
+      "In welk bestand staat Hoogste vooropleiding?",
+      "Wat is de bron en type veld van Hoogste vooropleiding?",
+      "Wat zijn de aandachtspunten/NB's bij Hoogste vooropleiding?",
+      "Toon alles over veld Hoogste vooropleiding."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 29
+    }
+  },
+  {
+    "field_number": 30,
+    "field_name": "Geslacht",
+    "normalized_field_name": "geslacht",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Het geslacht van de betreffende student. 1cHO bevat de waarden M (= man) en V (= vrouw). Deze zijn omgezet naar de waarden 1 en 2.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "man"
+      },
+      {
+        "code": "2",
+        "meaning": "vrouw"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "1cHO-waarden M en V zijn omgezet naar 1 en 2."
+    ],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Geslacht?",
+      "Wat is de definitie van Geslacht?",
+      "Welke mogelijke waarden heeft Geslacht?",
+      "In welk bestand staat Geslacht?",
+      "Wat is de bron en type veld van Geslacht?",
+      "Wat zijn de aandachtspunten/NB's bij Geslacht?",
+      "Toon alles over veld Geslacht."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 30
+    }
+  },
+  {
+    "field_number": 31,
+    "field_name": "Leeftijd per peildatum 1 oktober",
+    "normalized_field_name": "leeftijd per peildatum 1 oktober",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "numeriek",
+    "description": "De leeftijd van de betreffende student op 30 september van het betreffende inschrijvingsjaar.",
+    "possible_values": [],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Leeftijd per peildatum 1 oktober?",
+      "Wat is de definitie van Leeftijd per peildatum 1 oktober?",
+      "Welke mogelijke waarden heeft Leeftijd per peildatum 1 oktober?",
+      "In welk bestand staat Leeftijd per peildatum 1 oktober?",
+      "Wat is de bron en type veld van Leeftijd per peildatum 1 oktober?",
+      "Wat zijn de aandachtspunten/NB's bij Leeftijd per peildatum 1 oktober?",
+      "Toon alles over veld Leeftijd per peildatum 1 oktober."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 31
+    }
+  },
+  {
+    "field_number": 32,
+    "field_name": "Nationaliteit 1",
+    "normalized_field_name": "nationaliteit 1",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "De eerste nationaliteit van de betreffende student.",
+    "possible_values": [
+      {
+        "code": "[leeg]",
+        "meaning": "nationaliteit is onbekend"
+      },
+      {
+        "code": "0000",
+        "meaning": "ingeschreven heeft zich in inschrijvingsjaar niet voor het eerst bij de betreffende instelling ingeschreven"
+      },
+      {
+        "code": "0001",
+        "meaning": "ingeschreven heeft zich in inschrijvingsjaar voor het eerst bij de betreffende instelling ingeschreven"
+      }
+    ],
+    "notes": [
+      "NB! Wanneer een student verandert van nationaliteit, dan krijgt deze student met terugwerkende kracht voor alle jaren deze nationaliteit. Bij oudere versies van het 1cHO bestand staat de student nog met de oude nationaliteit geregistreerd, maar vanaf de 1cHO bestanden na de nationaliteitswissel met de nieuwe nationaliteit voor alle voorafgaande jaren."
+    ],
+    "references": [
+      "Dec_nationaliteitscode.csv",
+      "Zie bestand Dec_nationaliteitscode.csv voor decodering van de overige waarden."
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Iscedf2013rubriek",
+      "Leeftijd per peildatum 1 oktober",
+      "Indicatie EER op peildatum 1 oktober",
+      "Nationaliteit 1 op peildatum 1 oktober",
+      "Indicatie internationale student op peildatum 1 oktober"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "nationaliteit actueel"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Nationaliteit 1?",
+      "Wat is de definitie van Nationaliteit 1?",
+      "Welke mogelijke waarden heeft Nationaliteit 1?",
+      "In welk bestand staat Nationaliteit 1?",
+      "Wat is de bron en type veld van Nationaliteit 1?",
+      "Wat zijn de aandachtspunten/NB's bij Nationaliteit 1?",
+      "Toon alles over veld Nationaliteit 1."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 32
+    }
+  },
+  {
+    "field_number": 33,
+    "field_name": "Eerstejaars aan deze instelling",
+    "normalized_field_name": "eerstejaars aan deze instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Geen afzonderlijke beschrijving gevonden in de veldbeschrijving.",
+    "possible_values": [],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Maand vanaf",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar aan deze soort hoger onderwijs",
+      "Eerste jaar aan deze opleiding-instelling",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Eerstejaars aan deze instelling?",
+      "Wat is de definitie van Eerstejaars aan deze instelling?",
+      "Welke mogelijke waarden heeft Eerstejaars aan deze instelling?",
+      "In welk bestand staat Eerstejaars aan deze instelling?",
+      "Wat is de bron en type veld van Eerstejaars aan deze instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Eerstejaars aan deze instelling?",
+      "Toon alles over veld Eerstejaars aan deze instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 33
+    }
+  },
+  {
+    "field_number": 34,
+    "field_name": "Soort inschrijving act. inst - type ho binnen soort ho",
+    "normalized_field_name": "soort inschrijving act inst type ho binnen soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein actuele instelling - type hoger onderwijs binnen soort hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving act. inst - type ho binnen soort ho?",
+      "Wat is de definitie van Soort inschrijving act. inst - type ho binnen soort ho?",
+      "Welke mogelijke waarden heeft Soort inschrijving act. inst - type ho binnen soort ho?",
+      "In welk bestand staat Soort inschrijving act. inst - type ho binnen soort ho?",
+      "Wat is de bron en type veld van Soort inschrijving act. inst - type ho binnen soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving act. inst - type ho binnen soort ho?",
+      "Toon alles over veld Soort inschrijving act. inst - type ho binnen soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 34
+    }
+  },
+  {
+    "field_number": 35,
+    "field_name": "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+    "normalized_field_name": "indicatie eerstejrs act inst type ho binnen soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst op 1 oktober in het betreffende type hoger onderwijs binnen soort hoger onderwijs aan de betreffende actuele instelling staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars act. inst - type ho binnen soort ho voor de betreffende"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars act. inst - type ho binnen soort ho voor de betreffende"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars act. inst - type ho binnen soort ho voor de betreffende inschrijving of het oorspronkelijke veld soort inschrijving act. inst - type ho binnen soort ho uit 1cHO is gelijk aan 3, 4 of 5 (of 8, 9, C, D, E)"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling",
+      "Indicatie eerstejaars continu type ho binnen ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejrs act. inst - type ho binnen soort ho?",
+      "Wat is de definitie van Indicatie eerstejrs act. inst - type ho binnen soort ho?",
+      "Welke mogelijke waarden heeft Indicatie eerstejrs act. inst - type ho binnen soort ho?",
+      "In welk bestand staat Indicatie eerstejrs act. inst - type ho binnen soort ho?",
+      "Wat is de bron en type veld van Indicatie eerstejrs act. inst - type ho binnen soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejrs act. inst - type ho binnen soort ho?",
+      "Toon alles over veld Indicatie eerstejrs act. inst - type ho binnen soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 35
+    }
+  },
+  {
+    "field_number": 36,
+    "field_name": "Soort inschrijving type ho binnen ho",
+    "normalized_field_name": "soort inschrijving type ho binnen ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein type hoger onderwijs binnen hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving type ho binnen ho?",
+      "Wat is de definitie van Soort inschrijving type ho binnen ho?",
+      "Welke mogelijke waarden heeft Soort inschrijving type ho binnen ho?",
+      "In welk bestand staat Soort inschrijving type ho binnen ho?",
+      "Wat is de bron en type veld van Soort inschrijving type ho binnen ho?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving type ho binnen ho?",
+      "Toon alles over veld Soort inschrijving type ho binnen ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 36
+    }
+  },
+  {
+    "field_number": 37,
+    "field_name": "Verblijfsjaar type ho binnen ho",
+    "normalized_field_name": "verblijfsjaar type ho binnen ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Het aantal keren dat de student een actieve inschrijving heeft op 1 oktober tot met het betreffende inschrijvingsjaar in het domein type hoger onderwijs binnen hoger onderwijs.",
+    "possible_values": [
+      {
+        "code": "00",
+        "meaning": "inschrijving heeft soort inschrijving hoger onderwijs van 3 of 5 (of 8 of C)"
+      },
+      {
+        "code": ">",
+        "meaning": "00 voor overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [
+      "Inschrijvingen_aggr_UNL_2023.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving type ho binnen soort ho",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Soort inschrijving act. inst - type ho binnen soort ho",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Soort inschrijving type ho binnen ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Verblijfsjaar type ho binnen ho?",
+      "Wat is de definitie van Verblijfsjaar type ho binnen ho?",
+      "Welke mogelijke waarden heeft Verblijfsjaar type ho binnen ho?",
+      "In welk bestand staat Verblijfsjaar type ho binnen ho?",
+      "Wat is de bron en type veld van Verblijfsjaar type ho binnen ho?",
+      "Wat zijn de aandachtspunten/NB's bij Verblijfsjaar type ho binnen ho?",
+      "Toon alles over veld Verblijfsjaar type ho binnen ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 37
+    }
+  },
+  {
+    "field_number": 38,
+    "field_name": "Soort inschrijving continu hoger onderwijs",
+    "normalized_field_name": "soort inschrijving continu hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken en naar na-inschrijvingen.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving continu hoger onderwijs?",
+      "Wat is de definitie van Soort inschrijving continu hoger onderwijs?",
+      "Welke mogelijke waarden heeft Soort inschrijving continu hoger onderwijs?",
+      "In welk bestand staat Soort inschrijving continu hoger onderwijs?",
+      "Wat is de bron en type veld van Soort inschrijving continu hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving continu hoger onderwijs?",
+      "Toon alles over veld Soort inschrijving continu hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 38
+    }
+  },
+  {
+    "field_number": 39,
+    "field_name": "Soort inschrijving continu soort ho",
+    "normalized_field_name": "soort inschrijving continu soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein soort hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken en naar na-inschrijvingen.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving continu soort ho?",
+      "Wat is de definitie van Soort inschrijving continu soort ho?",
+      "Welke mogelijke waarden heeft Soort inschrijving continu soort ho?",
+      "In welk bestand staat Soort inschrijving continu soort ho?",
+      "Wat is de bron en type veld van Soort inschrijving continu soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving continu soort ho?",
+      "Toon alles over veld Soort inschrijving continu soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 39
+    }
+  },
+  {
+    "field_number": 40,
+    "field_name": "Soort inschrijving continu actuele instelling",
+    "normalized_field_name": "soort inschrijving continu actuele instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein actuele instelling is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken en naar na-inschrijvingen.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving continu actuele instelling?",
+      "Wat is de definitie van Soort inschrijving continu actuele instelling?",
+      "Welke mogelijke waarden heeft Soort inschrijving continu actuele instelling?",
+      "In welk bestand staat Soort inschrijving continu actuele instelling?",
+      "Wat is de bron en type veld van Soort inschrijving continu actuele instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving continu actuele instelling?",
+      "Toon alles over veld Soort inschrijving continu actuele instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 40
+    }
+  },
+  {
+    "field_number": 41,
+    "field_name": "Soort inschrijving continu type ho binnen ho",
+    "normalized_field_name": "soort inschrijving continu type ho binnen ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of de betreffende inschrijving een hoofdinschrijving in het domein type hoger onderwijs binnen hoger onderwijs is, een neveninschrijving (echt / onecht) of een ander soort inschrijving. In dit veld wordt naar actieve inschrijvingen op peildatum 1 oktober gekeken en naar na-inschrijvingen.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "hoofdinschrijving binnen het betreffende domein"
+      },
+      {
+        "code": "2",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt NIET voor bij een andere inschrijving van de betreffende student) (echte neveninschrijving)"
+      },
+      {
+        "code": "4",
+        "meaning": "neveninschrijving binnen het betreffende domein (combinatie opleiding-instelling komt WEL voor bij een andere inschrijving van de betreffende student) (onechte neveninschrijving)"
+      },
+      {
+        "code": "6",
+        "meaning": "overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Waarden ongelijk aan 1, 2 en 4 zijn vóór aggregatie omgezet naar 6."
+    ],
+    "related_fields": [
+      "Inschrijvingsjaar",
+      "Inschrijvingsvorm",
+      "Type hoger onderwijs binnen soort hoger onderwijs",
+      "Soort inschrijving hoger onderwijs",
+      "Soort inschrijving soort ho",
+      "Soort inschrijving type ho binnen soort ho",
+      "Soort inschrijving opleiding actueel equivalent",
+      "Soort inschrijving actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Soort inschrijving continu type ho binnen ho?",
+      "Wat is de definitie van Soort inschrijving continu type ho binnen ho?",
+      "Welke mogelijke waarden heeft Soort inschrijving continu type ho binnen ho?",
+      "In welk bestand staat Soort inschrijving continu type ho binnen ho?",
+      "Wat is de bron en type veld van Soort inschrijving continu type ho binnen ho?",
+      "Wat zijn de aandachtspunten/NB's bij Soort inschrijving continu type ho binnen ho?",
+      "Toon alles over veld Soort inschrijving continu type ho binnen ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 41
+    }
+  },
+  {
+    "field_number": 42,
+    "field_name": "Indicatie eerstejaars continu hoger onderwijs",
+    "normalized_field_name": "indicatie eerstejaars continu hoger onderwijs",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst in het betreffende inschrijvingsjaar in het hoger onderwijs staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars hoger onderwijs voor de betreffende hoofdinschrijving"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars hoger onderwijs voor de betreffende neveninschrijving"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars hoger onderwijs voor de betreffende inschrijving of het"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars continu hoger onderwijs?",
+      "Wat is de definitie van Indicatie eerstejaars continu hoger onderwijs?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars continu hoger onderwijs?",
+      "In welk bestand staat Indicatie eerstejaars continu hoger onderwijs?",
+      "Wat is de bron en type veld van Indicatie eerstejaars continu hoger onderwijs?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars continu hoger onderwijs?",
+      "Toon alles over veld Indicatie eerstejaars continu hoger onderwijs."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 42
+    }
+  },
+  {
+    "field_number": 43,
+    "field_name": "Indicatie eerstejaars continu soort ho",
+    "normalized_field_name": "indicatie eerstejaars continu soort ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst in het betreffende inschrijvingsjaar in het betreffende soort hoger onderwijs staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars soort hoger onderwijs voor de betreffende hoofdinschrijving"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars soort hoger onderwijs voor de betreffende neveninschrijving"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars soort hoger onderwijs voor de betreffende inschrijving of het oorspronkelijke veld soort inschrijving continu soort hoger onderwijs uit 1cHO is gelijk aan 3, 4 of 5 (of 8, 9, C, D, E)"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars continu soort ho?",
+      "Wat is de definitie van Indicatie eerstejaars continu soort ho?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars continu soort ho?",
+      "In welk bestand staat Indicatie eerstejaars continu soort ho?",
+      "Wat is de bron en type veld van Indicatie eerstejaars continu soort ho?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars continu soort ho?",
+      "Toon alles over veld Indicatie eerstejaars continu soort ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 43
+    }
+  },
+  {
+    "field_number": 44,
+    "field_name": "Indicatie eerstejaars continu actuele instelling",
+    "normalized_field_name": "indicatie eerstejaars continu actuele instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst in het betreffende inschrijvingsjaar aan de betreffende actuele instelling staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is eerstejaars actuele instelling voor de betreffende hoofdinschrijving"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is eerstejaars actuele instelling voor de betreffende neveninschrijving"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars actuele instelling voor de betreffende inschrijving of het oorspronkelijke veld soort inschrijving continu actuele instelling uit 1cHO is gelijk aan 3, 4 of 5 (of 8, 9, C, D, E)"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars continu actuele instelling?",
+      "Wat is de definitie van Indicatie eerstejaars continu actuele instelling?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars continu actuele instelling?",
+      "In welk bestand staat Indicatie eerstejaars continu actuele instelling?",
+      "Wat is de bron en type veld van Indicatie eerstejaars continu actuele instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars continu actuele instelling?",
+      "Toon alles over veld Indicatie eerstejaars continu actuele instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 44
+    }
+  },
+  {
+    "field_number": 45,
+    "field_name": "Indicatie eerstejaars continu type ho binnen ho",
+    "normalized_field_name": "indicatie eerstejaars continu type ho binnen ho",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "afleiding",
+    "type_field": "tekst",
+    "description": "Indicatie die aangeeft of een student voor het eerst in het betreffende inschrijvingsjaar in het betreffende type hoger onderwijs binnen hoger onderwijs staat ingeschreven.",
+    "possible_values": [
+      {
+        "code": "1",
+        "meaning": "ingeschrevene is type hoger onderwijs binnen hoger onderwijs voor de betreffende"
+      },
+      {
+        "code": "3",
+        "meaning": "ingeschrevene is type hoger onderwijs binnen hoger onderwijs voor de betreffende"
+      },
+      {
+        "code": "6",
+        "meaning": "ingeschrevene is hogerejaars type hoger onderwijs binnen hoger onderwijs voor de betreffende"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [
+      "Eerstejaars-/eerste-jaarvelden zijn vóór aggregatie geharmoniseerd; eerste-jaarvelden zijn 0001 bij gelijkheid aan Inschrijvingsjaar en anders 0000, indicaties 2/4/5 zijn omgezet naar 6."
+    ],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerstejaars aan deze instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie eerstejaars continu type ho binnen ho?",
+      "Wat is de definitie van Indicatie eerstejaars continu type ho binnen ho?",
+      "Welke mogelijke waarden heeft Indicatie eerstejaars continu type ho binnen ho?",
+      "In welk bestand staat Indicatie eerstejaars continu type ho binnen ho?",
+      "Wat is de bron en type veld van Indicatie eerstejaars continu type ho binnen ho?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie eerstejaars continu type ho binnen ho?",
+      "Toon alles over veld Indicatie eerstejaars continu type ho binnen ho."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 45
+    }
+  },
+  {
+    "field_number": 46,
+    "field_name": "Indicatie EER actueel",
+    "normalized_field_name": "indicatie eer actueel",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Deze indicatie geeft aan of de nationaliteit van de student behoort tot de actuele lijst van landen van de Europese Economische Ruimte, aangevuld met Zwitserland en Suriname. Hierbij wordt niet alleen meer naar de eerste nationaliteit van de student gekeken. De peildatum van de actuele lijst is 1 oktober 2021. Dit wil zeggen dat studenten uit het Verenigd Koninkrijk (nationaliteit code=60, Brits burger) voor geen enkel jaar tot EER-studenten gerekend worden. Studenten uit landen die later toetraden tot de EU/EER tellen ook mee als EER studenten voor de jaren dat het land waar ze afkomstig waren nog niet toe was toegetreden. NB: EER is inclusief Nederland!",
+    "possible_values": [
+      {
+        "code": "J",
+        "meaning": "EER-student"
+      },
+      {
+        "code": "N",
+        "meaning": "niet-EER-student"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar in het hoger onderwijs",
+      "Eerste jaar aan deze soort hoger onderwijs",
+      "Eerste jaar aan deze opleiding-instelling",
+      "Eerstejaars aan deze instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "eer",
+      "EER",
+      "EU/EER",
+      "EER-student",
+      "eer actueel"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie EER actueel?",
+      "Wat is de definitie van Indicatie EER actueel?",
+      "Welke mogelijke waarden heeft Indicatie EER actueel?",
+      "In welk bestand staat Indicatie EER actueel?",
+      "Wat is de bron en type veld van Indicatie EER actueel?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie EER actueel?",
+      "Toon alles over veld Indicatie EER actueel."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 46
+    }
+  },
+  {
+    "field_number": 47,
+    "field_name": "Indicatie internationale student",
+    "normalized_field_name": "indicatie internationale student",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Deze indicatie geeft aan of de student beschouwd wordt als internationale student. Hierbij wordt gebruik gemaakt van de definitie zoals afgesproken tussen diverse partijen, waarbij voor de nationaliteit wordt uitgegaan van de actuele eerste nationaliteit.",
+    "possible_values": [
+      {
+        "code": "J",
+        "meaning": "internationale student"
+      },
+      {
+        "code": "N",
+        "meaning": "geen internationale student"
+      }
+    ],
+    "notes": [
+      "NB! Wanneer een student in 2018 instroomde en een niet Nederlandse nationaliteit en een niet Nederlandse vooropleiding voor HO had, maar inmiddels is genaturaliseerd tot Nederlander, dan wordt deze student met terugwerkende kracht voor alle jaren niet meer als internationale student gezien. Bij oudere versies van het 1cHO bestand staat de student nog wel als internationale student geregistreerd, maar vanaf de 1cHO bestanden het jaar van de naturalisatie niet meer."
+    ],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "internationale student",
+      "international student"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie internationale student?",
+      "Wat is de definitie van Indicatie internationale student?",
+      "Welke mogelijke waarden heeft Indicatie internationale student?",
+      "In welk bestand staat Indicatie internationale student?",
+      "Wat is de bron en type veld van Indicatie internationale student?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie internationale student?",
+      "Toon alles over veld Indicatie internationale student."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 47
+    }
+  },
+  {
+    "field_number": 48,
+    "field_name": "Indicatie EER op peildatum 1 oktober",
+    "normalized_field_name": "indicatie eer op peildatum 1 oktober",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Deze indicatie geeft aan of de nationaliteit van de student behoort tot de landen van de Europese Economische Ruimte, aangevuld met Zwitserland en Suriname. Hierbij wordt niet alleen meer naar de eerste nationaliteit van de student gekeken. De peildatum van de lijst is 1 oktober van het betreffende inschrijvingsjaar. Dit wil zeggen dat studenten uit het Verenigd Koninkrijk (nationaliteit code=60, Brits burger) t/m academisch jaar 2021 nog wel tot EER-studenten gerekend worden en daarna niet meer. Studenten uit landen die later toetraden tot de EU/EER tellen alleen mee als EER-student vanaf het jaar van toetreding. NB: EER is inclusief Nederland!",
+    "possible_values": [
+      {
+        "code": "J",
+        "meaning": "EER-student"
+      },
+      {
+        "code": "N",
+        "meaning": "niet-EER-student"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Eerste jaar in het hoger onderwijs",
+      "Eerste jaar aan deze soort hoger onderwijs",
+      "Eerste jaar aan deze opleiding-instelling",
+      "Eerstejaars aan deze instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "eer peildatum",
+      "EER op peildatum",
+      "EU/EER peildatum"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie EER op peildatum 1 oktober?",
+      "Wat is de definitie van Indicatie EER op peildatum 1 oktober?",
+      "Welke mogelijke waarden heeft Indicatie EER op peildatum 1 oktober?",
+      "In welk bestand staat Indicatie EER op peildatum 1 oktober?",
+      "Wat is de bron en type veld van Indicatie EER op peildatum 1 oktober?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie EER op peildatum 1 oktober?",
+      "Toon alles over veld Indicatie EER op peildatum 1 oktober."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 48
+    }
+  },
+  {
+    "field_number": 49,
+    "field_name": "Geboorteland",
+    "normalized_field_name": "geboorteland",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Het land waarin de betreffende student is geboren. De gegevens zijn afkomstig uit het GBA en het Register Niet-Ingezetenen.",
+    "possible_values": [
+      {
+        "code": "[leeg]",
+        "meaning": "geboorteland is onbekend"
+      }
+    ],
+    "notes": [],
+    "references": [
+      "dec_landcode.csv",
+      "Zie bestand dec_landcode.csv voor decodering van de overige waarden."
+    ],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Geboorteland?",
+      "Wat is de definitie van Geboorteland?",
+      "Welke mogelijke waarden heeft Geboorteland?",
+      "In welk bestand staat Geboorteland?",
+      "Wat is de bron en type veld van Geboorteland?",
+      "Wat zijn de aandachtspunten/NB's bij Geboorteland?",
+      "Toon alles over veld Geboorteland."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 49
+    }
+  },
+  {
+    "field_number": 50,
+    "field_name": "Generatie",
+    "normalized_field_name": "generatie",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Op basis van het geboorteland van de betreffende student en geboorteland ouders van de betreffende student de hoeveelste generatie allochtoon de betreffende student is. Dit betreft de oude bepaling van de generatie behorende bij migratieachtergrond en is vervangen door de variabele \"Indicatie geboren\".",
+    "possible_values": [
+      {
+        "code": "0",
+        "meaning": "geen allochtoon"
+      },
+      {
+        "code": "1",
+        "meaning": "1e generatie"
+      },
+      {
+        "code": "2",
+        "meaning": "2e generatie"
+      },
+      {
+        "code": "3",
+        "meaning": "onbekend"
+      }
+    ],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Generatie?",
+      "Wat is de definitie van Generatie?",
+      "Welke mogelijke waarden heeft Generatie?",
+      "In welk bestand staat Generatie?",
+      "Wat is de bron en type veld van Generatie?",
+      "Wat zijn de aandachtspunten/NB's bij Generatie?",
+      "Toon alles over veld Generatie."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 50
+    }
+  },
+  {
+    "field_number": 51,
+    "field_name": "Verblijfsjaar Actuele Opleiding-Instelling",
+    "normalized_field_name": "verblijfsjaar actuele opleiding instelling",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Het aantal keren dat de student een actieve inschrijving heeft op 1 oktober tot met het betreffende inschrijvingsjaar in het domein type hoger onderwijs binnen soort hoger onderwijs. Dit attribuut is bepaald voor inschrijvingen waarvoor geldt: “Soort inschrijving soort ho” = 1, 2 of 4",
+    "possible_values": [
+      {
+        "code": "00",
+        "meaning": "inschrijving heeft soort inschrijving hoger onderwijs van 3 of 5 (of 8 of C)"
+      },
+      {
+        "code": ">",
+        "meaning": "00 voor overige inschrijvingen"
+      }
+    ],
+    "notes": [],
+    "references": [
+      "Inschrijvingen_aggr_UNL_2023.csv"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Actuele instelling",
+      "Croho-onderdeel actuele opleiding",
+      "Soort inschrijving actuele instelling",
+      "Soort inschrijving actuele opleiding-instelling",
+      "Verblijfsjaar hoger onderwijs",
+      "Verblijfsjaar soort ho",
+      "Verblijfsjaar type ho binnen soort ho",
+      "Indicatie eerstejaars actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Verblijfsjaar Actuele Opleiding-Instelling?",
+      "Wat is de definitie van Verblijfsjaar Actuele Opleiding-Instelling?",
+      "Welke mogelijke waarden heeft Verblijfsjaar Actuele Opleiding-Instelling?",
+      "In welk bestand staat Verblijfsjaar Actuele Opleiding-Instelling?",
+      "Wat is de bron en type veld van Verblijfsjaar Actuele Opleiding-Instelling?",
+      "Wat zijn de aandachtspunten/NB's bij Verblijfsjaar Actuele Opleiding-Instelling?",
+      "Toon alles over veld Verblijfsjaar Actuele Opleiding-Instelling."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 51
+    }
+  },
+  {
+    "field_number": 52,
+    "field_name": "Nationaliteit 1 op peildatum 1 oktober",
+    "normalized_field_name": "nationaliteit 1 op peildatum 1 oktober",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "De eerste nationaliteit van de student op peildatum 1 oktober van het inschrijvingsjaar.",
+    "possible_values": [
+      {
+        "code": "[leeg]",
+        "meaning": "nationaliteit is onbekend"
+      }
+    ],
+    "notes": [
+      "NB! Wanneer een student verandert van nationaliteit, dan krijgt deze student vanaf het moment van de verandering van de nationaliteit de nieuwe nationaliteit. Voor de oudere jaren blijft de ‘oude’ nationaliteit staan."
+    ],
+    "references": [
+      "Dec_nationaliteitscode.csv",
+      "Zie bestand Dec_nationaliteitscode.csv voor decodering van de overige waarden.2"
+    ],
+    "transformations": [],
+    "related_fields": [
+      "Iscedf2013rubriek",
+      "Leeftijd per peildatum 1 oktober",
+      "Nationaliteit 1",
+      "Indicatie EER op peildatum 1 oktober",
+      "Indicatie internationale student op peildatum 1 oktober"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "nationaliteit peildatum"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Nationaliteit 1 op peildatum 1 oktober?",
+      "Wat is de definitie van Nationaliteit 1 op peildatum 1 oktober?",
+      "Welke mogelijke waarden heeft Nationaliteit 1 op peildatum 1 oktober?",
+      "In welk bestand staat Nationaliteit 1 op peildatum 1 oktober?",
+      "Wat is de bron en type veld van Nationaliteit 1 op peildatum 1 oktober?",
+      "Wat zijn de aandachtspunten/NB's bij Nationaliteit 1 op peildatum 1 oktober?",
+      "Toon alles over veld Nationaliteit 1 op peildatum 1 oktober."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 52
+    }
+  },
+  {
+    "field_number": 53,
+    "field_name": "Indicatie internationale student op peildatum 1 oktober",
+    "normalized_field_name": "indicatie internationale student op peildatum 1 oktober",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "1cHO",
+    "type_field": "tekst",
+    "description": "Deze indicatie geeft aan of de student beschouwd wordt als internationale student op peildatum 1 oktober. Hierbij wordt gebruik gemaakt van de definitie zoals afgesproken tussen diverse partijen, waarbij voor de nationaliteit wordt uitgegaan van de eerste nationaliteit op peildatum 1 oktober.",
+    "possible_values": [
+      {
+        "code": "J",
+        "meaning": "internationale student"
+      },
+      {
+        "code": "N",
+        "meaning": "geen internationale student"
+      }
+    ],
+    "notes": [
+      "NB! Wanneer een student in 2018 instroomde en een niet Nederlandse nationaliteit en een niet Nederlandse vooropleiding voor HO had, maar inmiddels is genaturaliseerd tot Nederlander, dan wordt deze student vanaf de naturalisatie niet meer als internationale student gezien. Voor de jaren voor de naturalisatie BLIJFT DE STUDENT als internationale student geregistreerd."
+    ],
+    "references": [],
+    "transformations": [],
+    "related_fields": [
+      "Indicatie actief op peildatum",
+      "Indicatie eerstejaars opl. actueel equivalent",
+      "Indicatie eerstejaars actuele instelling",
+      "Indicatie eerstejaars actuele opl.-instelling",
+      "Indicatie eerstejrs act. inst - type ho binnen soort ho",
+      "Indicatie eerstejaars continu hoger onderwijs",
+      "Indicatie eerstejaars continu soort ho",
+      "Indicatie eerstejaars continu actuele instelling"
+    ],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "internationale student peildatum",
+      "international student peildatum"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Indicatie internationale student op peildatum 1 oktober?",
+      "Wat is de definitie van Indicatie internationale student op peildatum 1 oktober?",
+      "Welke mogelijke waarden heeft Indicatie internationale student op peildatum 1 oktober?",
+      "In welk bestand staat Indicatie internationale student op peildatum 1 oktober?",
+      "Wat is de bron en type veld van Indicatie internationale student op peildatum 1 oktober?",
+      "Wat zijn de aandachtspunten/NB's bij Indicatie internationale student op peildatum 1 oktober?",
+      "Toon alles over veld Indicatie internationale student op peildatum 1 oktober."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 53
+    }
+  },
+  {
+    "field_number": 54,
+    "field_name": "Aantal",
+    "normalized_field_name": "aantal",
+    "dataset": "Inschrijvingen_aggr_UNL_2025.csv",
+    "source_document": "Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
+    "bron": "Afleiding",
+    "type_field": "numeriek",
+    "description": "Geeft aan hoe vaak het betreffende aggregaat voorkomt.",
+    "possible_values": [],
+    "notes": [],
+    "references": [],
+    "transformations": [],
+    "related_fields": [],
+    "aliases": [
+      "veld",
+      "variabele",
+      "kolom",
+      "field",
+      "telveld",
+      "count"
+    ],
+    "gold_questions": [
+      "Wat betekent veld Aantal?",
+      "Wat is de definitie van Aantal?",
+      "Welke mogelijke waarden heeft Aantal?",
+      "In welk bestand staat Aantal?",
+      "Wat is de bron en type veld van Aantal?",
+      "Wat zijn de aandachtspunten/NB's bij Aantal?",
+      "Toon alles over veld Aantal."
+    ],
+    "source_metadata": {
+      "document_part": "4. Veldbeschrijving",
+      "layout_table_row": 54
+    }
+  }
+]

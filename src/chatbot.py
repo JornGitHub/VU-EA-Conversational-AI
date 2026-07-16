@@ -11,9 +11,11 @@ def answer_with_llm(
     query: str,
     model: str = "qwen3:30b-instruct",
     debug: bool = False,
+    source_focus: str = "primary",
+    include_supplemental: bool = True,
 ) -> dict:
     """Return an LLM-formulated Dutch answer grounded in retrieval output."""
-    retrieval_result = answer_definition_question_json(query, debug=debug)
+    retrieval_result = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
     prompt = build_grounded_prompt(query, retrieval_result)
 
     try:

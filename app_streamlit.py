@@ -5,6 +5,8 @@ Install and run manually with:
     streamlit run app_streamlit.py
 """
 
+import json
+
 import streamlit as st
 
 from src.chatbot import answer_with_llm
@@ -12,11 +14,14 @@ from src.definitions.search import answer_definition_question_json
 
 
 EXAMPLE_QUESTIONS = [
-    "wat is een internationale student?",
-    "waar vind ik data over internationale studenten?",
-    "wat telt als student?",
-    "wat is instroom?",
-    "wat is studiesucces?",
+    "Toon alle velden van Inschrijvingen_aggr_UNL_2025.csv",
+    "Wat betekent Indicatie internationale student?",
+    "Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?",
+    "Welke mogelijke waarden heeft Indicatie actief op peildatum?",
+    "Wat betekent waarde 4 bij Soort inschrijving hoger onderwijs?",
+    "Wat is Aantal?",
+    "Welke bewerkingen zijn uitgevoerd op de eerstejaarsvelden?",
+    "Welke records zijn geselecteerd voor dit aggregaatbestand?",
 ]
 
 
@@ -113,6 +118,13 @@ def render_result(result: dict) -> None:
     notes = result.get("notes") or []
     related_terms = result.get("related_terms") or []
 
+    if result.get("primary_source_used"):
+        st.info(f"Primaire bron gebruikt: {result.get('primary_source_document')}")
+    if result.get("source_policy") == "no_difference":
+        st.caption("Bronfocus maakt voor deze vraag inhoudelijk geen verschil; voorkeursranking blijft actief waar relevant.")
+    if result.get("supplemental_sources"):
+        st.warning("Aanvullende context uit andere documenten is gebruikt.")
+
     st.subheader("Antwoord")
     datasets_shown_in_answer = False
     if is_definition_like_query(result.get("query"), result) and definition:
@@ -152,7 +164,27 @@ def render_result(result: dict) -> None:
         st.subheader("Definitie")
         st.markdown(definition)
 
-    if fields:
+    if result.get("field_table"):
+        st.subheader("Veldenoverzicht")
+        st.dataframe(result["field_table"], use_container_width=True)
+        st.download_button("Download velden als JSON", data=json.dumps(result["field_table"], ensure_ascii=False, indent=2), file_name="inschrijvingen_aggr_2025_fields.json", mime="application/json")
+    if result.get("field_detail"):
+        fd = result["field_detail"]
+        st.subheader("Veldkaart")
+        st.json({k: fd.get(k) for k in ["field_number", "field_name", "bron", "type_field", "dataset", "source_document", "source_path"]})
+        if fd.get("possible_values"):
+            st.subheader("Mogelijke waarden")
+            st.table(fd["possible_values"])
+        if fd.get("notes"):
+            st.subheader("Let op / NB")
+            render_bullets(fd["notes"])
+        if fd.get("transformations"):
+            st.subheader("Bewerkingen / afleidingen")
+            render_bullets(fd["transformations"])
+        if fd.get("related_fields"):
+            st.subheader("Gerelateerde velden")
+            render_bullets(fd["related_fields"], code=True)
+    elif fields:
         st.subheader("Relevante velden")
         render_bullets(fields, code=True)
 
@@ -174,6 +206,8 @@ st.markdown("Stel een vraag over definities, velden of databestanden uit de HO-d
 debug = st.sidebar.checkbox("Toon debug-informatie")
 use_llm = st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False)
 model = st.sidebar.text_input("Ollama-model", value="qwen3:8b")
+focus_primary = st.sidebar.checkbox("Focus op Aggregaatbestand inschrijvingen_1cHO2025.docx", value=True)
+include_supplemental = st.sidebar.checkbox("Gebruik aanvullende documentatie indien nodig", value=True)
 
 if "query" not in st.session_state:
     st.session_state.query = ""
@@ -190,7 +224,7 @@ if not query.strip():
 else:
     if use_llm:
         with st.spinner("Antwoord formuleren met LLM..."):
-            result = answer_with_llm(query, model=model, debug=debug)
+            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
 
         if result.get("llm_answer"):
             st.subheader("LLM-antwoord")
@@ -207,7 +241,7 @@ else:
                 st.code(result["prompt"])
     else:
         try:
-            result = answer_definition_question_json(query, debug=debug)
+            result = answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
         except Exception as exc:  # noqa: BLE001 - show useful diagnostics during development.
             st.error("Er ging iets mis bij het zoeken in de definitiebestanden.")
             st.exception(exc)

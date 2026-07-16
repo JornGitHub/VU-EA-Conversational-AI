@@ -19,11 +19,16 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
+from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
 CURATED_PATH = DATA_DIR / "ho_definities_curated.json"
 INDEX_PATH = DATA_DIR / "ho_definities_index.jsonl"
 CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
+FIELD_CATALOG_PATH = DATA_DIR / "inschrijvingen_aggr_2025_field_catalog.json"
+PRIMARY_SOURCE_DOCUMENT = "Aggregaatbestand inschrijvingen_1cHO2025.docx"
+PRIMARY_DATASET = "Inschrijvingen_aggr_UNL_2025.csv"
 DEMO_QUERY = "waar vind ik internationale studenten"
 
 CANONICAL_TERM_ALIASES = {
@@ -406,13 +411,152 @@ def sanitize_notes(notes: list[Any], main_term: Any) -> list[str]:
         clean.append(text)
     return unique_preserve_order(clean)
 
+def load_field_catalog_entries() -> list[Entry]:
+    """Load the primary inschrijvingen field catalog as high-priority entries."""
+    entries: list[Entry] = []
+    for field in load_catalog():
+        entries.append({
+            "term": field.get("field_name"),
+            "definition": field.get("description"),
+            "aliases": field.get("aliases", []),
+            "fields": [field.get("field_name")],
+            "datasets": [field.get("dataset")],
+            "source_documents": [field.get("source_document")],
+            "source_document": field.get("source_document"),
+            "source_path": field.get("source_path"),
+            "entry_type": "primary_field_catalog",
+            "field_detail": field,
+            "possible_values": field.get("possible_values", []),
+            "notes": field.get("notes", []),
+            "references": field.get("references", []),
+            "transformations": field.get("transformations", []),
+        })
+    return entries
+
+
+def is_primary_query(query: str) -> bool:
+    text = normalize_text(query)
+    triggers = ["inschrijvingen", "inschrijving", "aggregaat", "unl 2025", "veld", "variabele", "kolom", "peildatum", "eer", "internationale student", "nationaliteit", "eerstejaars", "verblijfsjaar", "aantal", PRIMARY_DATASET.lower()]
+    return any(normalize_text(t) in text for t in triggers) or find_catalog_field(query) is not None
+
+
+def catalog_match_score(query: str, field: Entry) -> float:
+    detail = field.get("field_detail", {})
+    q = normalize_text(query)
+    name = normalize_text(detail.get("field_name", ""))
+    aliases = [normalize_text(a) for a in detail.get("aliases", [])]
+    score = title_match_score(query, {"term": detail.get("field_name", ""), "aliases": detail.get("aliases", [])})
+    if name and name in q:
+        score += 100 + len(name.split())
+    for alias in aliases:
+        if alias and alias in q:
+            # Broad aliases such as "internationale student" should not hijack
+            # conceptual questions unless the user asks for the Indicatie field.
+            if alias in {"internationale student", "international student", "eer", "eer student"} and "indicatie" not in q and PRIMARY_DATASET.lower() not in q:
+                continue
+            score += 20
+    # Disambiguate current vs peildatum variants by requiring the qualifier when present.
+    if "peildatum" in q and "peildatum" in name:
+        score += 40
+    if "peildatum" not in q and "peildatum" in name:
+        score -= 35
+    if "actueel" in q and "actueel" in name:
+        score += 30
+    if "actueel" in q and "peildatum" in name:
+        score -= 30
+    if detail.get("field_number") and re.search(rf"\bveld\s+{detail['field_number']}\b", q):
+        score += 100
+    return score
+
+
+def find_catalog_field(query: str) -> Entry | None:
+    q = normalize_text(query)
+    # Only route to the field catalog when the user signals a field/column, uses
+    # the dataset name, names an Indicatie field, or exactly names another field.
+    field_signal = any(t in q for t in ["indicatie", "veld", "variabele", "kolom", "field", normalize_text(PRIMARY_DATASET), "aantal", "nationaliteit 1", "verblijfsjaar", "soort inschrijving"])
+    catalog_entries = load_field_catalog_entries()
+    exact_non_broad = any(normalize_text(e.get("field_detail", {}).get("field_name", "")) in q for e in catalog_entries)
+    if not field_signal and not exact_non_broad:
+        return None
+    scored = [(catalog_match_score(query, e), e) for e in catalog_entries]
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return scored[0][1] if scored and scored[0][0] >= 12 else None
+
+
+def is_all_fields_query(query: str) -> bool:
+    q = normalize_text(query)
+    return ("alle" in q or "layout" in q or "welke" in q) and any(w in q for w in ["velden", "variabelen", "kolommen"])
+
+
+def build_field_answer(field: dict[str, Any]) -> str:
+    lines = ["Antwoord:", f"{field['field_name']} is veld {field['field_number']} in {field['dataset']}.", f"Bron: {field.get('bron')}; type veld: {field.get('type_field')}.", "", "Definitie/beschrijving:", field.get("description", "")]
+    if field.get("possible_values"):
+        lines += ["", "Mogelijke waarden:"] + [f"- {v.get('code')} = {v.get('meaning')}" for v in field["possible_values"]]
+    if field.get("notes"):
+        lines += ["", "Let op / NB:"] + [f"- {n}" for n in field["notes"]]
+    if field.get("transformations"):
+        lines += ["", "Bewerkingen / afleidingen:"] + [f"- {t}" for t in field["transformations"]]
+    if field.get("references"):
+        lines += ["", "Verwijzingen:"] + [f"- {r}" for r in field["references"]]
+    lines += ["", "Bronnen:", f"- {field.get('source_document')} ({field.get('source_path')})"]
+    return "\n".join(lines).strip()
+
+
+def build_all_fields_payload(query: str, debug: bool, source_policy: str) -> dict[str, Any]:
+    catalog = load_catalog()
+    fields = [{k: f.get(k) for k in ["field_number", "field_name", "bron", "type_field", "dataset", "source_document", "source_path"]} for f in catalog]
+    return {
+        "query": query, "intent": "all_fields", "answer": f"Antwoord:\n{PRIMARY_DATASET} bevat {len(fields)} velden uit {PRIMARY_SOURCE_DOCUMENT}.",
+        "main_term": PRIMARY_DATASET, "definition": "", "fields": [f["field_name"] for f in fields], "field_table": fields, "datasets": [PRIMARY_DATASET], "notes": [], "related_terms": [], "curated_definition_found": True, "supporting_chunks": [],
+        "source_policy": source_policy, "primary_source_used": True, "supplemental_sources": [], "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
+        "selection_info": SELECTION_INFO,
+    }
+
+
+
+def build_primary_context_payload(query: str, intent: str, debug: bool, source_policy: str) -> dict[str, Any]:
+    if intent == "source_selection":
+        body = [f"Het bestand {PRIMARY_DATASET} is gebaseerd op {SELECTION_INFO['based_on']}.", "Geselecteerde records:"] + [f"- {r}" for r in SELECTION_INFO["records"]]
+    elif intent == "transformation":
+        body = ["Voor aggregatie zijn onder meer deze bewerkingen uitgevoerd:"] + [f"- {t}" for t in GLOBAL_TRANSFORMATIONS]
+    elif intent == "comparison":
+        field_names = [f["field_name"] for f in load_catalog() if any(w in normalize_text(f["field_name"]) for w in ["peildatum", "actueel", "nationaliteit", "internationale"])]
+        body = ["Actuele varianten gebruiken de actuele/terugwerkend bijgewerkte informatie; peildatumvarianten gebruiken de situatie op 1 oktober van het betreffende inschrijvingsjaar.", "Relevante velden:"] + [f"- {name}" for name in field_names]
+    else:
+        body = [f"{PRIMARY_DATASET} gebruikt {PRIMARY_SOURCE_DOCUMENT} als primaire bron."]
+    return {
+        "query": query, "intent": intent, "answer": "Antwoord:\n" + "\n".join(body), "main_term": PRIMARY_DATASET, "definition": "\n".join(body),
+        "fields": [], "datasets": [PRIMARY_DATASET], "notes": SELECTION_INFO.get("limitations", []), "related_terms": [], "curated_definition_found": True, "supporting_chunks": [],
+        "source_policy": "primary_only", "primary_source_used": True, "supplemental_sources": [], "primary_source_document": PRIMARY_SOURCE_DOCUMENT, "selection_info": SELECTION_INFO,
+    }
+
+def build_field_payload(query: str, field: Entry, intent: str, debug: bool, source_policy: str, supplemental: list[Any] | None = None) -> dict[str, Any]:
+    detail = field["field_detail"]
+    return {
+        "query": query, "intent": intent, "answer": build_field_answer(detail), "main_term": detail.get("field_name"), "definition": detail.get("description", ""),
+        "field_detail": detail, "fields": [detail.get("field_name")], "datasets": [detail.get("dataset")], "notes": detail.get("notes", []), "related_terms": detail.get("related_fields", []), "curated_definition_found": True, "supporting_chunks": [],
+        "source_policy": source_policy, "primary_source_used": True, "supplemental_sources": supplemental or [], "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
+    }
+
 def detect_intent(query: str) -> str:
-    """Classify the user's intent so the answer can lead with definition or location."""
+    """Classify intents, including primary inschrijvingen field-catalog intents."""
     normalized = normalize_text(query)
-    location_phrases = ("waar vind ik", "welk bestand", "welke dataset", "waar staat")
+    if is_all_fields_query(query):
+        return "all_fields"
+    if "verschil" in normalized or "vergelijk" in normalized:
+        return "comparison"
+    if any(p in normalized for p in ("welke records", "records geselecteerd", "waarop is het bestand gebaseerd", "selectie")):
+        return "source_selection"
+    if any(p in normalized for p in ("bewerking", "bewerkingen", "transformatie", "waarde 6")):
+        return "transformation"
+    if any(p in normalized for p in ("mogelijke waarden", "welke waarden", "wat betekent code", "waarde ")):
+        return "possible_values"
+    location_phrases = ("waar vind ik", "welk bestand", "welke dataset", "waar staat", "in welk bestand")
     definition_phrases = ("wat is", "wat betekent", "definitie")
     if any(phrase in normalized for phrase in location_phrases):
         return "location"
+    if find_catalog_field(query) is not None and any(p in normalized for p in ("toon alles", "wat betekent", "definitie", "leg", "veld", "variabele", "kolom")):
+        return "field_detail"
     if any(normalized.startswith(phrase) or phrase in normalized for phrase in definition_phrases):
         return "definition"
     return "general"
@@ -930,7 +1074,7 @@ def debug_match_payload(result: Result) -> dict[str, Any]:
     }
 
 
-def answer_definition_question_json(query: str, debug: bool = False) -> dict[str, Any]:
+def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True) -> dict[str, Any]:
     """Return structured retrieval output for LLM/chatbot grounding.
 
     The JSON-style dictionary separates the user query, detected intent, final
@@ -938,10 +1082,21 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
     A future LLM should treat this payload as source material and avoid adding
     unsupported definitions from its own prior knowledge.
     """
-    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions()), ("chunk", load_chunks())]
+    intent = detect_intent(query)
+    primary_relevant = source_focus == "primary" and is_primary_query(query)
+    source_policy = "primary_preferred" if primary_relevant else "no_difference"
+    if primary_relevant and intent == "all_fields":
+        return build_all_fields_payload(query, debug, "primary_only")
+    if primary_relevant and intent in {"source_selection", "transformation", "comparison"}:
+        return build_primary_context_payload(query, intent, debug, "primary_only")
+    field = find_catalog_field(query) if primary_relevant else None
+    if field is not None and intent in {"field_detail", "possible_values", "location", "definition", "general"}:
+        return build_field_payload(query, field, "field_detail" if intent in {"definition", "general", "location"} else intent, debug, "primary_only")
+    entries = [("primary_catalog", load_field_catalog_entries()), ("curated", load_curated_definitions()), ("index", load_index_definitions())]
+    if include_supplemental:
+        entries.append(("chunk", load_chunks()))
     results = search_definitions(query, entries)
     grouped_results = group_related_results(results)
-    intent = detect_intent(query)
     answer = build_answer(grouped_results, query)
 
     payload: dict[str, Any] = {
@@ -956,6 +1111,10 @@ def answer_definition_question_json(query: str, debug: bool = False) -> dict[str
         "related_terms": [],
         "curated_definition_found": False,
         "supporting_chunks": [],
+        "source_policy": source_policy,
+        "primary_source_used": any(r.get("source") == "primary_catalog" for r in results[:5]) if 'results' in locals() else False,
+        "supplemental_sources": [],
+        "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
     }
 
     if grouped_results and is_reliable_match(query, grouped_results[0].get("best")):
