@@ -10,6 +10,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 from scripts.evaluation_utils import NOISE_PHRASES, as_list, read_jsonl, stable_id, unique, write_jsonl
+from scripts.run_evaluation import evaluate_case
+from src.definitions.search import answer_definition_question_json
 
 DEFAULT_CURATED = ROOT / "data/ho_definities_curated.json"
 DEFAULT_INDEX = ROOT / "data/ho_definities_index.jsonl"
@@ -396,15 +398,43 @@ def entries_from_chunks(chunks: list[dict[str, Any]], stats: Counter) -> list[di
     return entries
 
 
-def split_tiers(cases: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def append_warning(case: dict[str, Any], warning: str) -> None:
+    warnings = list(as_list(case.get("candidate_quality_warnings")))
+    if warning not in warnings:
+        warnings.append(warning)
+    case["candidate_quality_warnings"] = warnings
+
+
+def demote_to_candidate(case: dict[str, Any], failures: list[str]) -> dict[str, Any]:
+    demoted = dict(case)
+    demoted["label_status"] = "pseudo_uncertain"
+    demoted["confidence"] = "medium"
+    demoted["needs_human_review"] = True
+    demoted["extraction_reason"] = demoted.get("extraction_reason") or "demoted_executable"
+    demoted["executable_failures"] = failures
+    append_warning(demoted, "executable_expectation_failed")
+    return add_hashes(demoted)
+
+
+def split_tiers(cases: list[dict[str, Any]], answer_func=answer_definition_question_json) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     by_id = {case["id"]: case for case in cases}
     all_cases = sorted(by_id.values(), key=lambda c: c["id"])
-    pseudo_gold = [c for c in all_cases if c.get("label_status") == "pseudo_generated"]
-    candidates = [c for c in all_cases if c.get("label_status") == "pseudo_uncertain"]
+    pseudo_gold: list[dict[str, Any]] = []
+    candidates: list[dict[str, Any]] = []
+    for case in all_cases:
+        if case.get("label_status") == "pseudo_generated":
+            actual = answer_func(str(case.get("question", "")))
+            failures = evaluate_case(case, actual)
+            if failures:
+                candidates.append(demote_to_candidate(case, failures))
+            else:
+                pseudo_gold.append(case)
+        elif case.get("label_status") == "pseudo_uncertain":
+            candidates.append(case)
     return pseudo_gold, candidates
 
 
-def generate_case_tiers(curated: list[dict[str, Any]], index_rows=None, chunks=None) -> tuple[list[dict[str, Any]], list[dict[str, Any]], Counter]:
+def generate_case_tiers(curated: list[dict[str, Any]], index_rows=None, chunks=None, *, answer_func=answer_definition_question_json) -> tuple[list[dict[str, Any]], list[dict[str, Any]], Counter]:
     stats: Counter = Counter()
     cases: list[dict[str, Any]] = []
     index_rows = index_rows or []
@@ -418,12 +448,12 @@ def generate_case_tiers(curated: list[dict[str, Any]], index_rows=None, chunks=N
         cases.extend(cases_for_entry(entry, extraction_reason="index_row", stats=stats))
     for entry in entries_from_chunks(chunks, stats):
         cases.extend(cases_for_entry(entry, extraction_reason="chunk", stats=stats))
-    pseudo_gold, candidates = split_tiers(cases)
+    pseudo_gold, candidates = split_tiers(cases, answer_func=answer_func)
     return pseudo_gold, candidates, stats
 
 
-def generate_cases(curated: list[dict[str, Any]], index_rows=None, chunks=None, *, include_uncertain: bool = True) -> list[dict[str, Any]]:
-    pseudo_gold, candidates, _stats = generate_case_tiers(curated, index_rows, chunks)
+def generate_cases(curated: list[dict[str, Any]], index_rows=None, chunks=None, *, include_uncertain: bool = True, answer_func=answer_definition_question_json) -> list[dict[str, Any]]:
+    pseudo_gold, candidates, _stats = generate_case_tiers(curated, index_rows, chunks, answer_func=answer_func)
     return pseudo_gold + (candidates if include_uncertain else [])
 
 
