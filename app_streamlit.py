@@ -10,18 +10,18 @@ import json
 import streamlit as st
 
 from src.chatbot import answer_with_llm
-from src.definitions.search import answer_definition_question_json
+from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
 
 
 EXAMPLE_QUESTIONS = [
-    "Toon alle velden van Inschrijvingen_aggr_UNL_2025.csv",
+    "Wat is een internationale student?",
     "Wat betekent Indicatie internationale student?",
     "Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?",
-    "Welke mogelijke waarden heeft Indicatie actief op peildatum?",
-    "Wat betekent waarde 4 bij Soort inschrijving hoger onderwijs?",
-    "Wat is Aantal?",
-    "Welke bewerkingen zijn uitgevoerd op de eerstejaarsvelden?",
-    "Welke records zijn geselecteerd voor dit aggregaatbestand?",
+    "Wat is het verschil tussen opleiding historisch en opleiding actueel?",
+    "Wat betekent Opleiding actueel equivalent?",
+    "Waar verwijst Opleiding historisch equivalent naar?",
+    "Welke waarden heeft Indicatie actief op peildatum?",
+    "Toon alle velden van Inschrijvingen_aggr_UNL_2025.csv",
 ]
 
 
@@ -164,6 +164,21 @@ def render_result(result: dict) -> None:
         st.subheader("Definitie")
         st.markdown(definition)
 
+    if result.get("matched_fields"):
+        st.subheader("Uit het primaire document")
+        for field in result["matched_fields"]:
+            st.markdown(f"- **{field.get('field_name')}**: {field.get('description')}")
+    if result.get("supplemental_context"):
+        st.subheader("Aanvullende context")
+        for chunk in result["supplemental_context"]:
+            st.markdown(f"- `{chunk.get('source_document')}`: {str(chunk.get('text',''))[:300]}")
+    if result.get("references"):
+        st.subheader("Verwijzingen naar andere documentatie")
+        render_bullets(result["references"], code=True)
+    if result.get("missing_references"):
+        st.subheader("Ontbrekende bronnen")
+        render_bullets(result["missing_references"], code=True)
+
     if result.get("field_table"):
         st.subheader("Veldenoverzicht")
         st.dataframe(result["field_table"], use_container_width=True)
@@ -207,7 +222,8 @@ debug = st.sidebar.checkbox("Toon debug-informatie")
 use_llm = st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False)
 model = st.sidebar.text_input("Ollama-model", value="qwen3:8b")
 focus_primary = st.sidebar.checkbox("Focus op Aggregaatbestand inschrijvingen_1cHO2025.docx", value=True)
-include_supplemental = st.sidebar.checkbox("Gebruik aanvullende documentatie indien nodig", value=True)
+include_supplemental = st.sidebar.checkbox("Volg verwijzingen naar aanvullende documentatie", value=True)
+use_deep_context = st.sidebar.checkbox("Gebruik LLM voor deep-context antwoorden", value=True)
 
 if "query" not in st.session_state:
     st.session_state.query = ""
@@ -224,7 +240,7 @@ if not query.strip():
 else:
     if use_llm:
         with st.spinner("Antwoord formuleren met LLM..."):
-            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
+            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, deep_context=use_deep_context)
 
         if result.get("llm_answer"):
             st.subheader("LLM-antwoord")
@@ -241,7 +257,7 @@ else:
                 st.code(result["prompt"])
     else:
         try:
-            result = answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
+            result = answer_deep_context_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental) if use_deep_context else answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
         except Exception as exc:  # noqa: BLE001 - show useful diagnostics during development.
             st.error("Er ging iets mis bij het zoeken in de definitiebestanden.")
             st.exception(exc)

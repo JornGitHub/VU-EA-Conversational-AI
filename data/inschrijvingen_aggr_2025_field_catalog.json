@@ -227,7 +227,7 @@
     "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
     "bron": "1cHO",
     "type_field": "Tekst",
-    "description": "Zie Bestandsbeschrijving hoacth.csv/ hoacth_vest.csv. .",
+    "description": "Zie Bestandsbeschrijving hoacth.csv/ hoacth_vest.csv.",
     "possible_values": [],
     "notes": [],
     "references": [
@@ -236,9 +236,10 @@
     ],
     "transformations": [],
     "related_fields": [
-      "Opleidingsvorm",
       "Opleiding historisch equivalent",
+      "Iscedf2013rubriek",
       "Croho-onderdeel actuele opleiding",
+      "Opleidingsvorm",
       "Opleidingsfase actueel",
       "Soort inschrijving opleiding actueel equivalent",
       "Soort inschrijving actuele opleiding-instelling",
@@ -249,7 +250,11 @@
       "veld",
       "variabele",
       "kolom",
-      "field"
+      "field",
+      "actuele opleiding",
+      "opleiding actueel",
+      "actueel equivalent",
+      "opleiding code actueel"
     ],
     "gold_questions": [
       "Wat betekent veld Opleiding actueel equivalent?",
@@ -320,9 +325,10 @@
     ],
     "transformations": [],
     "related_fields": [
-      "Opleidingsvorm",
       "Opleiding actueel equivalent",
+      "Iscedf2013rubriek",
       "Croho-onderdeel actuele opleiding",
+      "Opleidingsvorm",
       "Opleidingsfase actueel",
       "Soort inschrijving opleiding actueel equivalent",
       "Soort inschrijving actuele opleiding-instelling",
@@ -333,7 +339,11 @@
       "veld",
       "variabele",
       "kolom",
-      "field"
+      "field",
+      "historische opleiding",
+      "opleiding historisch",
+      "historisch equivalent",
+      "opleiding code historisch"
     ],
     "gold_questions": [
       "Wat betekent veld Opleiding historisch equivalent?",
@@ -1023,9 +1033,7 @@
       }
     ],
     "notes": [],
-    "references": [
-      "Inschrijvingen_aggr_UNL_2023.csv"
-    ],
+    "references": [],
     "transformations": [],
     "related_fields": [
       "Type hoger onderwijs binnen soort hoger onderwijs",
@@ -1078,9 +1086,7 @@
       }
     ],
     "notes": [],
-    "references": [
-      "Inschrijvingen_aggr_UNL_2023.csv"
-    ],
+    "references": [],
     "transformations": [],
     "related_fields": [
       "Type hoger onderwijs binnen soort hoger onderwijs",
@@ -1133,9 +1139,7 @@
       }
     ],
     "notes": [],
-    "references": [
-      "Inschrijvingen_aggr_UNL_2023.csv"
-    ],
+    "references": [],
     "transformations": [],
     "related_fields": [
       "Type hoger onderwijs binnen soort hoger onderwijs",
@@ -1522,8 +1526,7 @@
     "possible_values": [],
     "notes": [],
     "references": [
-      "Dec_vopl.csv",
-      "Zie bestand Dec_vopl.csv voor decodering."
+      "Dec_vopl.csv"
     ],
     "transformations": [],
     "related_fields": [
@@ -1562,8 +1565,7 @@
     "possible_values": [],
     "notes": [],
     "references": [
-      "Dec_vopl.csv",
-      "Zie bestand Dec_vopl.csv voor decodering."
+      "Dec_vopl.csv"
     ],
     "transformations": [],
     "related_fields": [
@@ -1698,8 +1700,7 @@
       "NB! Wanneer een student verandert van nationaliteit, dan krijgt deze student met terugwerkende kracht voor alle jaren deze nationaliteit. Bij oudere versies van het 1cHO bestand staat de student nog met de oude nationaliteit geregistreerd, maar vanaf de 1cHO bestanden na de nationaliteitswissel met de nieuwe nationaliteit voor alle voorafgaande jaren."
     ],
     "references": [
-      "Dec_nationaliteitscode.csv",
-      "Zie bestand Dec_nationaliteitscode.csv voor decodering van de overige waarden."
+      "Dec_nationaliteitscode.csv"
     ],
     "transformations": [],
     "related_fields": [
@@ -1980,9 +1981,7 @@
       }
     ],
     "notes": [],
-    "references": [
-      "Inschrijvingen_aggr_UNL_2023.csv"
-    ],
+    "references": [],
     "transformations": [],
     "related_fields": [
       "Type hoger onderwijs binnen soort hoger onderwijs",
@@ -2569,7 +2568,7 @@
     "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
     "bron": "1cHO",
     "type_field": "tekst",
-    "description": "Deze indicatie geeft aan of de student beschouwd wordt als internationale student. Hierbij wordt gebruik gemaakt van de definitie zoals afgesproken tussen diverse partijen, waarbij voor de nationaliteit wordt uitgegaan van de actuele eerste nationaliteit.",
+    "description": "Deze indicatie geeft aan of de student beschouwd wordt als internationale student. Hierbij wordt gebruik gemaakt van de definitie zoals afgesproken tussen diverse partijen, waarbij voor de nationaliteit wordt uitgegaan van de actuele eerste nationaliteit. Definitie internationale student: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen.",
     "possible_values": [
       {
         "code": "J",
@@ -2691,8 +2690,7 @@
     ],
     "notes": [],
     "references": [
-      "dec_landcode.csv",
-      "Zie bestand dec_landcode.csv voor decodering van de overige waarden."
+      "dec_landcode.csv"
     ],
     "transformations": [],
     "related_fields": [],
@@ -2789,9 +2787,7 @@
       }
     ],
     "notes": [],
-    "references": [
-      "Inschrijvingen_aggr_UNL_2023.csv"
-    ],
+    "references": [],
     "transformations": [],
     "related_fields": [
       "Actuele instelling",
@@ -2843,8 +2839,7 @@
       "NB! Wanneer een student verandert van nationaliteit, dan krijgt deze student vanaf het moment van de verandering van de nationaliteit de nieuwe nationaliteit. Voor de oudere jaren blijft de ‘oude’ nationaliteit staan."
     ],
     "references": [
-      "Dec_nationaliteitscode.csv",
-      "Zie bestand Dec_nationaliteitscode.csv voor decodering van de overige waarden.2"
+      "Dec_nationaliteitscode.csv"
     ],
     "transformations": [],
     "related_fields": [
@@ -2884,7 +2879,7 @@
     "source_path": "1cHO Documentatie/Aggregaatbestand inschrijvingen_1cHO2025.docx",
     "bron": "1cHO",
     "type_field": "tekst",
-    "description": "Deze indicatie geeft aan of de student beschouwd wordt als internationale student op peildatum 1 oktober. Hierbij wordt gebruik gemaakt van de definitie zoals afgesproken tussen diverse partijen, waarbij voor de nationaliteit wordt uitgegaan van de eerste nationaliteit op peildatum 1 oktober.",
+    "description": "Deze indicatie geeft aan of de student beschouwd wordt als internationale student op peildatum 1 oktober. Hierbij wordt gebruik gemaakt van de definitie zoals afgesproken tussen diverse partijen, waarbij voor de nationaliteit wordt uitgegaan van de eerste nationaliteit op peildatum 1 oktober. Definitie internationale student: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven behouden als de student toen internationale student was.",
     "possible_values": [
       {
         "code": "J",

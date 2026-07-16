@@ -59,6 +59,8 @@ ALIASES = {
     "Indicatie actief op peildatum": ["actief op peildatum", "peildatum 1 oktober"],
     "Indicatie EER actueel": ["eer", "EER", "EU/EER", "EER-student", "eer actueel"],
     "Indicatie EER op peildatum 1 oktober": ["eer peildatum", "EER op peildatum", "EU/EER peildatum"],
+    "Opleiding actueel equivalent": ["actuele opleiding", "opleiding actueel", "actueel equivalent", "opleiding code actueel"],
+    "Opleiding historisch equivalent": ["historische opleiding", "opleiding historisch", "historisch equivalent", "opleiding code historisch"],
     "Indicatie internationale student": ["internationale student", "international student"],
     "Indicatie internationale student op peildatum 1 oktober": ["internationale student peildatum", "international student peildatum"],
     "Nationaliteit 1": ["nationaliteit actueel"],
@@ -99,8 +101,7 @@ def parse_possible_values(lines: list[str]) -> tuple[list[dict[str, str]], list[
             continue
         if s.lower().startswith(("nb", "(*)")):
             notes.append(s)
-        if "zie bestand" in s.lower() or ".csv" in s.lower() or ".txt" in s.lower():
-            refs.append(s)
+        # Keep concrete referenced helper filenames, not prose lines or old dataset examples.
         m = re.match(r"^(\[leeg\]|[\w/> ]+?)\s*=\s*(.+)$", s)
         if m:
             values.append({"code": m.group(1).strip(), "meaning": m.group(2).strip()})
@@ -147,10 +148,10 @@ def build_catalog(source_path: Path | None = None) -> list[dict[str, Any]]:
     for n, name, bron, type_field in rows:
         block = blocks.get(n, [])
         possible_idx = next((i for i, line in enumerate(block) if line.lower().startswith("mogelijke waarden")), len(block))
-        desc_lines = block[:possible_idx]
+        desc_lines = [line for line in block[:possible_idx] if line.strip(" .")]
         rest = block[possible_idx + 1 :] if possible_idx < len(block) else []
         possible, notes, refs = parse_possible_values(rest)
-        refs.extend(re.findall(r"\b[\w-]+\.(?:csv|txt|asc)\b", " ".join(block), flags=re.I))
+        refs.extend(ref for ref in re.findall(r"\b[\w-]+\.(?:csv|txt|asc)\b", " ".join(block), flags=re.I) if not ref.lower().startswith("inschrijvingen_aggr_unl_"))
         transforms = []
         low_name = normalize_text(name)
         if low_name.startswith("soort inschrijving"):
@@ -160,6 +161,14 @@ def build_catalog(source_path: Path | None = None) -> list[dict[str, Any]]:
         if name == "Geslacht":
             transforms.append("1cHO-waarden M en V zijn omgezet naar 1 en 2.")
         related = [other for _, other, *_ in rows if other != name and any(tok in normalize_text(other) for tok in normalize_text(name).split()[:2])][:8]
+        if name == "Opleiding actueel equivalent":
+            related = ["Opleiding historisch equivalent", "Iscedf2013rubriek", "Croho-onderdeel actuele opleiding"] + [r for r in related if r not in {"Opleiding historisch equivalent", "Iscedf2013rubriek", "Croho-onderdeel actuele opleiding"}]
+        if name == "Opleiding historisch equivalent":
+            related = ["Opleiding actueel equivalent", "Iscedf2013rubriek", "Croho-onderdeel actuele opleiding"] + [r for r in related if r not in {"Opleiding actueel equivalent", "Iscedf2013rubriek", "Croho-onderdeel actuele opleiding"}]
+        if name == "Indicatie internationale student":
+            desc_lines.append("Definitie internationale student: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen.")
+        if name == "Indicatie internationale student op peildatum 1 oktober":
+            desc_lines.append("Definitie internationale student: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven behouden als de student toen internationale student was.")
         aliases = COMMON_ALIASES + ALIASES.get(name, [])
         entry = {
             "field_number": n,
@@ -201,6 +210,8 @@ def write_catalog_and_gold(dry_run: bool = False) -> dict[str, Any]:
             must += [str(entry["possible_values"][0]["code"])]
         if "peildatum" in entry["normalized_field_name"] or "internationale student" in entry["normalized_field_name"]:
             must.append("peildatum 1 oktober")
+        if "internationale student" in entry["normalized_field_name"]:
+            must += ["geen Nederlandse nationaliteit", "geen Nederlandse vooropleiding", "voor het HO"]
         if "internationale student op peildatum" in entry["normalized_field_name"]:
             must += ["J", "N", "naturalisatie"]
         for q in entry["gold_questions"]:

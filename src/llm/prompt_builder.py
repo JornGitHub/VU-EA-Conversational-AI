@@ -30,6 +30,9 @@ Regels:
 - Antwoord in helder, beknopt Nederlands.
 - Noem waar relevant: definitie, relevante velden, databestanden en aandachtspunten.
 - Maak het antwoord natuurlijker dan de ruwe JSON, maar blijf feitelijk trouw aan de JSON.
+- Beantwoord alleen met informatie uit de meegegeven context. Als de context een verwijzing bevat naar een ontbrekende bron, zeg dat de primaire bron het verschil niet volledig uitlegt en noem welke bron nodig is. Als aanvullende broncontext aanwezig is, gebruik die om het verschil uit te leggen en label dit als aanvullende context.
+- Voor deep-context antwoorden gebruik je altijd herkenbare kopjes: "Uit het primaire document", "Aanvullende context", "Conclusie / verschil" en, indien relevant, "Onzekerheid of ontbrekende bron".
+- Laat bij internationale student nooit de nuance "geen Nederlandse vooropleiding voor het HO" weg als die in de retrieval-output staat.
 
 Gebruikersvraag:
 {user_query}
