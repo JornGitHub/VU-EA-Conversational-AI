@@ -69,7 +69,7 @@ class WebSourcesTests(unittest.TestCase):
         def fake(query, *args, **kwargs):
             called["value"] = True
             context = [{"source_tier":"official_web","title":"DUO","url":"https://duo.nl/x","domain":"duo.nl","retrieved_at":"2026-07-21T00:00:00+00:00","text_excerpt":"aanvullende context","used_for_answer":True}]
-            return context, context, [], "web_context_found"
+            return context, context, [], ["seed_urls"], "relevant_official_web_context_found"
         search.attempt_web_context = fake
         try:
             result = search.answer_deep_context_question_json("Waar verwijst Opleiding actueel equivalent naar?", web_mode="fallback")
@@ -83,7 +83,7 @@ class WebSourcesTests(unittest.TestCase):
 
     def test_conflict_policy_local_documentation_remains_first(self):
         original = search.attempt_web_context
-        search.attempt_web_context = lambda *a, **k: ([{"source_tier":"official_web","title":"new","url":"https://duo.nl/x","domain":"duo.nl","retrieved_at":"2026-07-21T00:00:00+00:00","text_excerpt":"conflicting web claim","used_for_answer":True}], [], [], "web_context_found")
+        search.attempt_web_context = lambda *a, **k: ([{"source_tier":"official_web","title":"new","url":"https://duo.nl/x","domain":"duo.nl","retrieved_at":"2026-07-21T00:00:00+00:00","text_excerpt":"conflicting web claim","used_for_answer":True}], [], [], ["seed_urls"], "relevant_official_web_context_found")
         try:
             result = search.answer_deep_context_question_json("Waar verwijst Opleiding historisch equivalent naar?", web_mode="force")
         finally:
@@ -109,7 +109,7 @@ class WebSourcesTests(unittest.TestCase):
         def empty(*args, **kwargs):
             called["value"] = True
             rejected = [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}]
-            return [], rejected, rejected, "no_relevant_official_web_context_found"
+            return [], rejected, rejected, ["seed_urls"], "no_relevant_official_web_context_found"
         search.attempt_web_context = empty
         try:
             result = search.answer_deep_context_question_json("Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?", web_mode="enhance")
@@ -122,7 +122,7 @@ class WebSourcesTests(unittest.TestCase):
 
     def test_web_mode_force_attempts_without_api_keys(self):
         original = search.attempt_web_context
-        search.attempt_web_context = lambda *a, **k: ([], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], "no_relevant_official_web_context_found")
+        search.attempt_web_context = lambda *a, **k: ([], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], ["seed_urls"], "no_relevant_official_web_context_found")
         try:
             result = search.answer_deep_context_question_json("Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?", web_mode="force")
         finally:
@@ -132,7 +132,7 @@ class WebSourcesTests(unittest.TestCase):
 
     def test_definition_force_does_not_report_local_context_sufficient(self):
         original = search.attempt_web_context
-        search.attempt_web_context = lambda *a, **k: ([], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], "no_relevant_official_web_context_found")
+        search.attempt_web_context = lambda *a, **k: ([], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], [{"url":"https://duo.nl/search?q=x","accepted":False,"reject_reason":"search_page"}], ["seed_urls"], "no_relevant_official_web_context_found")
         try:
             result = search.answer_definition_question_json("Wat is een onechte neveninschrijving?", web_mode="force")
         finally:
@@ -212,7 +212,79 @@ class WebSourceQualityTests(unittest.TestCase):
                 raise AssertionError("search page should be rejected before fetch")
         result = web_sources.build_web_context_with_candidates("onechte neveninschrijving", provider=Provider())
         self.assertEqual(result["web_context"], [])
-        self.assertEqual(result["rejected_web_candidates"][0]["reject_reason"], "search_page")
+        self.assertTrue(any(c["reject_reason"] == "search_page" for c in result["rejected_web_candidates"]))
+
+class WebDiscoveryPipelineTests(unittest.TestCase):
+    PDF_URL = "https://duo.nl/zakelijk/images/toelichting-op-de-gegevens-die-duo-levert.pdf"
+    PDF_TEXT = (
+        "Soort inschrijving ho. Indicatie die de status van de inschrijving in het domein ho aangeeft: "
+        "hoofdinschrijving, echte neveninschrijving, onechte neveninschrijving. "
+        "Het doel is om dubbeltellingen van de inschrijvingen te voorkomen. "
+        "Beslisboom rekenregel hoger onderwijs student."
+    )
+
+    def test_seed_url_discovery_adds_duo_pdf(self):
+        discovery = web_sources.discover_web_candidates("Wat is een onechte neveninschrijving?")
+        urls = [candidate["url"] for candidate in discovery["candidates"]]
+        self.assertIn(self.PDF_URL, urls)
+        self.assertIn("seed_urls", discovery["strategies"])
+
+    def test_pdf_relevance_accepted(self):
+        candidate = web_sources.classify_web_candidate({
+            "url": self.PDF_URL,
+            "domain": "duo.nl",
+            "source_tier": "official_web",
+            "status_code": 200,
+            "title": "Toelichting op de gegevens die DUO levert",
+            "text": self.PDF_TEXT,
+            "content_type": "application/pdf",
+        }, "Wat is een onechte neveninschrijving?")
+        self.assertTrue(candidate["accepted"])
+        self.assertEqual(candidate["source_tier"], "official_web")
+        self.assertTrue(candidate["used_for_answer"])
+        self.assertIn("onechte neveninschrijving", candidate["matched_terms"])
+        self.assertGreaterEqual(candidate["relevance_score"], web_sources.RELEVANCE_THRESHOLD)
+
+    def test_search_page_is_discovery_only_not_used_for_answer(self):
+        candidate = web_sources.classify_web_candidate({
+            "url": "https://duo.nl/search?q=onechte+neveninschrijving",
+            "status_code": 200,
+            "title": "Zoeken | DUO",
+            "text": "Zoeken Home",
+            "used_for_answer": False,
+        }, "onechte neveninschrijving")
+        self.assertFalse(candidate["accepted"])
+        self.assertNotEqual(candidate.get("used_for_answer"), True)
+        self.assertEqual(candidate["reject_reason"], "search_page")
+
+    def test_force_mode_with_relevant_seed_pdf_uses_web_context(self):
+        class Provider:
+            name = "fixture"
+            requires_api_key = False
+            is_paid_or_usage_based = False
+            def search(self, query, *, allowed_domains=None, max_results=5):
+                return []
+            def fetch(self, url):
+                if url == WebDiscoveryPipelineTests.PDF_URL:
+                    return {"title": "Toelichting op de gegevens die DUO levert", "url": url, "status_code": 200, "content_type": "application/pdf", "text": WebDiscoveryPipelineTests.PDF_TEXT, "snippet": WebDiscoveryPipelineTests.PDF_TEXT[:200]}
+                raise RuntimeError("offline")
+        result = web_sources.build_web_context_with_candidates("Wat is een onechte neveninschrijving?", provider=Provider())
+        self.assertTrue(result["web_context"])
+        self.assertEqual(result["web_context"][0]["url"], self.PDF_URL)
+        self.assertTrue(result["web_context"][0]["used_for_answer"])
+
+    def test_fetch_failure_is_rejected_without_crash(self):
+        class Provider:
+            name = "fixture"
+            requires_api_key = False
+            is_paid_or_usage_based = False
+            def search(self, query, *, allowed_domains=None, max_results=5):
+                return []
+            def fetch(self, url):
+                raise RuntimeError("offline")
+        result = web_sources.build_web_context_with_candidates("Wat is een onechte neveninschrijving?", provider=Provider())
+        self.assertEqual(result["web_context"], [])
+        self.assertTrue(any(c.get("reject_reason") == "fetch_failed" for c in result["rejected_web_candidates"]))
 
 if __name__ == "__main__":
     unittest.main()

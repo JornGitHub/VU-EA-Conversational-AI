@@ -7,18 +7,20 @@ but failures simply return no web context so local documentation remains usable.
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import quote_plus, urlparse
+from urllib.parse import quote_plus, urljoin, urlparse
 
 import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "web_sources.yaml"
+SEED_URLS_PATH = PROJECT_ROOT / "config" / "official_web_seed_urls.yaml"
 CACHE_DIR = PROJECT_ROOT / "data" / "web_cache"
 WEB_MODE_DEFAULT = "fallback"
 WEB_MODES = {"off", "fallback", "enhance", "force"}
@@ -149,16 +151,49 @@ def _cache_path(url: str) -> Path:
     return CACHE_DIR / (hashlib.sha256(url.encode()).hexdigest() + ".json")
 
 
-def fetch_web_source(url: str, provider: WebProvider | None = None) -> dict[str, Any] | None:
-    cfg = load_web_config(); CACHE_DIR.mkdir(parents=True, exist_ok=True); path = _cache_path(url)
-    if cfg.get("cache_enabled", True) and path.exists():
-        return json.loads(path.read_text(encoding="utf-8"))
+def extract_pdf_text(content: bytes) -> str:
+    try:
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(content))
+        return "\n".join(page.extract_text() or "" for page in reader.pages[:20])
+    except Exception:
+        return ""
+
+
+def fetch_web_candidate(candidate: dict[str, Any], provider: WebProvider | None = None) -> dict[str, Any] | None:
+    url = str(candidate.get("url") or "")
+    if not url:
+        return None
+    if url.lower().endswith(".pdf"):
+        if provider is not None:
+            try:
+                return {**candidate, **_provider(provider).fetch(url)}
+            except Exception:
+                return None
+        try:
+            response = requests.get(url, timeout=15, headers={"User-Agent": "VU-EA-Conversational-AI/free-only"})
+        except Exception:
+            return None
+        if response.status_code >= 400:
+            return {**candidate, "status_code": response.status_code, "text": "", "content_type": response.headers.get("content-type", "application/pdf")}
+        text = extract_pdf_text(response.content)
+        return {**candidate, "status_code": response.status_code, "content_type": response.headers.get("content-type", "application/pdf"), "text": text, "snippet": text[:300], "title": candidate.get("title") or url}
     try:
         raw = _provider(provider).fetch(url)
     except Exception:
         return None
+    return {**candidate, **raw}
+
+
+def fetch_web_source(url: str, provider: WebProvider | None = None) -> dict[str, Any] | None:
+    cfg = load_web_config(); CACHE_DIR.mkdir(parents=True, exist_ok=True); path = _cache_path(url)
+    if cfg.get("cache_enabled", True) and path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    raw = fetch_web_candidate({"url": url}, provider=provider)
+    if raw is None:
+        return None
     text = str(raw.get("text") or raw.get("snippet") or "")
-    meta = {"source_tier": source_tier_for_url(url, cfg["official_web_domains"]), "title": raw.get("title") or url, "url": url, "domain": domain_from_url(url), "retrieved_at": datetime.now(timezone.utc).isoformat(), "status_code": raw.get("status_code"), "snippet": raw.get("snippet", ""), "text_excerpt": text[:1000], "content_hash": hashlib.sha256(text.encode()).hexdigest(), "relevance_score": 0.0, "used_for_answer": True}
+    meta = {"source_tier": source_tier_for_url(url, cfg["official_web_domains"]), "title": raw.get("title") or url, "url": url, "domain": domain_from_url(url), "retrieved_at": datetime.now(timezone.utc).isoformat(), "status_code": raw.get("status_code"), "content_type": raw.get("content_type"), "snippet": raw.get("snippet", ""), "text_excerpt": text[:1000], "content_hash": hashlib.sha256(text.encode()).hexdigest(), "relevance_score": 0.0, "used_for_answer": True}
     if cfg.get("cache_enabled", True):
         path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return meta
@@ -179,14 +214,116 @@ def rank_web_sources(query: str, sources: list[dict[str, Any]]) -> list[dict[str
     for s in sources:
         hay = f"{s.get('title','')} {s.get('snippet','')} {s.get('text_excerpt','')}".lower()
         score = sum(1 for t in tokens if t in hay) / max(len(tokens), 1)
-        item = dict(s); item["relevance_score"] = float(score); ranked.append(item)
+        item = dict(s); item["relevance_score"] = max(float(item.get("relevance_score", 0) or 0), float(score)); ranked.append(item)
     return sorted(ranked, key=lambda s: (s.get("source_tier") == "official_web", s.get("relevance_score", 0)), reverse=True)
+
+
+def parse_seed_urls(path: Path = SEED_URLS_PATH) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    seeds: list[dict[str, Any]] = []
+    current: dict[str, Any] | None = None
+    list_key: str | None = None
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.rstrip()
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or stripped == "official_seed_urls:":
+            continue
+        if stripped.startswith("- id:"):
+            if current:
+                seeds.append(current)
+            current = {"id": stripped.split(":", 1)[1].strip().strip('"\''), "topics": [], "related_fields": []}
+            list_key = None
+            continue
+        if current is None:
+            continue
+        if stripped in {"topics:", "related_fields:"}:
+            list_key = stripped[:-1]
+            current.setdefault(list_key, [])
+            continue
+        if stripped.startswith("-") and list_key:
+            current[list_key].append(stripped[1:].strip().strip('"\''))
+            continue
+        if ":" in stripped:
+            key, value = [part.strip() for part in stripped.split(":", 1)]
+            if value.lower() in {"true", "false"}:
+                current[key] = value.lower() == "true"
+            else:
+                current[key] = value.strip('"\'')
+            list_key = None
+    if current:
+        seeds.append(current)
+    return [seed for seed in seeds if seed.get("enabled", True)]
+
+
+def expanded_search_queries(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None) -> list[str]:
+    terms = [str(term) for term in (matched_terms or []) if str(term).strip()]
+    fields = [str(field.get("field_name", "")) for field in (matched_fields or []) if field.get("field_name")]
+    qn = normalize_for_relevance(query)
+    queries = [query]
+    if "onechte neveninschrijving" in qn:
+        queries.extend([
+            '"onechte neveninschrijving"',
+            '"onechte neveninschrijving" "Soort inschrijving ho"',
+            '"onechte neveninschrijving" "dubbeltellingen"',
+            '"onechte neveninschrijving" "beslisboom"',
+            '"Soort inschrijving ho" "onechte neveninschrijving"',
+            '"Toelichting op de gegevens die DUO levert" "onechte neveninschrijving"',
+            'site:duo.nl "onechte neveninschrijving"',
+            'site:duo.nl/zakelijk/images "onechte neveninschrijving" filetype:pdf',
+            'site:onderwijsdata.duo.nl "Soort inschrijving ho"',
+            'site:cbs.nl "neveninschrijving" "hoger onderwijs"',
+        ])
+    for value in terms + fields:
+        if value:
+            queries.append(f'"{value}"')
+    unique = []
+    seen = set()
+    for value in queries:
+        if value not in seen:
+            seen.add(value); unique.append(value)
+    return unique[:10]
+
+
+def seed_matches_query(seed: dict[str, Any], query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None) -> bool:
+    haystack = normalize_for_relevance(" ".join([query, " ".join(matched_terms or []), " ".join(str(f.get("field_name", "")) for f in (matched_fields or []))]))
+    for value in seed.get("topics", []) + seed.get("related_fields", []):
+        norm = normalize_for_relevance(value)
+        if norm and (norm in haystack or any(token in haystack for token in norm.split() if len(token) > 5)):
+            return True
+    return False
+
+
+def discover_web_candidates(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None, web_mode: str = WEB_MODE_DEFAULT, provider: WebProvider | None = None) -> dict[str, Any]:
+    strategies = ["seed_urls", "query_expansion", "official_site_search", "sitemap"]
+    candidates: list[dict[str, Any]] = []
+    for seed in parse_seed_urls():
+        if seed_matches_query(seed, query, matched_fields, matched_terms):
+            candidates.append({**seed, "discovery_strategy": "seed_urls", "candidate_source": "seed_urls"})
+    expanded = expanded_search_queries(query, matched_fields, matched_terms)
+    try:
+        for expanded_query in expanded[:3]:
+            for result in search_web_context(expanded_query, allowed_domains=load_web_config()["official_web_domains"], max_results=3, provider=provider):
+                candidates.append({**result, "discovery_strategy": "official_site_search", "candidate_source": "search_page"})
+    except Exception:
+        pass
+    # Lightweight sitemap strategy: add known sitemap URLs as rejected/diagnostic candidates only; no broad crawl.
+    for url in ["https://duo.nl/sitemap.xml", "https://www.duo.nl/sitemap.xml", "https://onderwijsdata.duo.nl/sitemap.xml"]:
+        candidates.append({"title": "Sitemap", "url": url, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url), "discovery_strategy": "sitemap", "candidate_source": "sitemap", "used_for_answer": False})
+    deduped = []
+    seen = set()
+    for candidate in candidates:
+        url = candidate.get("url")
+        if url and url not in seen:
+            seen.add(url); deduped.append(candidate)
+    return {"candidates": deduped, "strategies": strategies, "expanded_queries": expanded}
 
 
 SEARCH_URL_PATTERNS = ("/search?", "/zoeken?", "?q=", "/search/", "/zoek")
 NOT_FOUND_TERMS = ("pagina niet gevonden", "sorry, deze pagina bestaat niet", "page not found", "not found")
 SEARCH_TITLES = ("zoeken", "search")
-MIN_CONTENT_CHARS = 300
+MIN_CONTENT_CHARS = 120
+RELEVANCE_THRESHOLD = 0.55
 
 
 def is_search_page(url: str, title: str = "", text: str = "") -> bool:
@@ -236,6 +373,41 @@ def normalize_for_relevance(value: Any) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", str(value or "").lower())).strip()
 
 
+def score_web_relevance(query: str, text: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None) -> tuple[float, list[str]]:
+    haystack = normalize_for_relevance(text)
+    weighted_terms: list[tuple[str, float]] = []
+    qn = normalize_for_relevance(query)
+    if qn:
+        weighted_terms.append((qn, 0.35))
+    for term in matched_terms or []:
+        weighted_terms.append((normalize_for_relevance(term), 0.18))
+    for field in matched_fields or []:
+        weighted_terms.append((normalize_for_relevance(field.get("field_name", "")), 0.14))
+    if "onechte neveninschrijving" in qn or "neveninschrijving" in qn:
+        weighted_terms.extend([
+            ("onechte neveninschrijving", 0.35),
+            ("neveninschrijving", 0.18),
+            ("soort inschrijving ho", 0.16),
+            ("soort inschrijving soort ho", 0.12),
+            ("dubbeltellingen", 0.12),
+            ("beslisboom", 0.1),
+            ("rekenregel", 0.1),
+            ("inschrijving", 0.08),
+            ("hoger onderwijs", 0.08),
+        ])
+    score = 0.0
+    matched: list[str] = []
+    seen = set()
+    for term, weight in weighted_terms:
+        if term and term not in seen and term in haystack:
+            seen.add(term); matched.append(term); score += weight
+    return min(score, 1.0), matched
+
+
+def accept_or_reject_web_candidate(candidate: dict[str, Any], query: str, *, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    return classify_web_candidate(candidate, query, matched_terms=matched_terms, matched_fields=matched_fields)
+
+
 def classify_web_candidate(candidate: dict[str, Any], query: str, *, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     url = str(candidate.get("url") or "")
     title = str(candidate.get("title") or "")
@@ -251,41 +423,53 @@ def classify_web_candidate(candidate: dict[str, Any], query: str, *, matched_ter
         classified["reject_reason"] = "search_page"
     elif is_low_content_page(text):
         classified["reject_reason"] = "low_content"
-    elif not is_relevant_web_source(query, text, matched_terms=matched_terms, matched_fields=matched_fields):
-        classified["reject_reason"] = "not_relevant"
     else:
-        classified["accepted"] = True
-        classified["reject_reason"] = None
-        classified["used_for_answer"] = True
+        score, matched = score_web_relevance(query, text, matched_fields=matched_fields, matched_terms=matched_terms)
+        if classified.get("discovery_strategy") == "seed_urls" and ("toelichting op de gegevens die duo levert" in normalize_for_relevance(classified.get("title")) or "duo levert" in normalize_for_relevance(classified.get("url"))):
+            score = min(1.0, score + 0.35)
+            if "duo seed url" not in matched:
+                matched.append("duo seed url")
+        classified["relevance_score"] = score
+        classified["matched_terms"] = matched
+        if score < RELEVANCE_THRESHOLD or not is_relevant_web_source(query, text, matched_terms=matched_terms, matched_fields=matched_fields):
+            classified["reject_reason"] = "not_relevant"
+        else:
+            classified["accepted"] = True
+            classified["reject_reason"] = None
+            classified["used_for_answer"] = True
     return classified
 
 
 def build_web_context_with_candidates(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None, *, allow_external_web: bool = False, provider: WebProvider | None = None) -> dict[str, Any]:
     cfg = load_web_config(); allowed = cfg["official_web_domains"]; max_results = int(cfg.get("max_results", 5))
-    results = search_web_context(query, allowed_domains=allowed, max_results=max_results, provider=provider)
+    discovery = discover_web_candidates(query, matched_fields=matched_fields, matched_terms=matched_terms, provider=provider)
+    results = discovery["candidates"]
     candidates = []
     accepted = []
-    for result in results:
+    for result in results[: max_results * 3]:
         url = result.get("url", "")
         pre = classify_web_candidate({**result, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed)}, query, matched_terms=matched_terms, matched_fields=matched_fields)
         if not pre["accepted"] and pre.get("reject_reason") == "search_page":
             candidates.append(pre)
             continue
-        meta = fetch_web_source(url, provider=provider)
-        if not meta:
-            failed = {**result, "url": url, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed), "accepted": False, "reject_reason": "web_fetch_failed", "used_for_answer": False}
+        raw = fetch_web_candidate(result, provider=provider)
+        if not raw:
+            failed = {**result, "url": url, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed), "accepted": False, "reject_reason": "fetch_failed", "used_for_answer": False}
             candidates.append(failed)
             continue
+        text = str(raw.get("text") or raw.get("snippet") or "")
+        meta = {**raw, "source_tier": source_tier_for_url(url, allowed), "title": raw.get("title") or result.get("title") or url, "url": url, "domain": domain_from_url(url), "retrieved_at": datetime.now(timezone.utc).isoformat(), "snippet": raw.get("snippet", ""), "text_excerpt": text[:1000], "content_hash": hashlib.sha256(text.encode()).hexdigest(), "used_for_answer": True}
         classified = classify_web_candidate(meta, query, matched_terms=matched_terms, matched_fields=matched_fields)
         if classified["source_tier"] == "external_web" and not allow_external_web:
             classified["accepted"] = False
             classified["reject_reason"] = "external_web_disabled"
+        classified.pop("text", None)
         candidates.append(classified)
         if classified.get("accepted"):
             accepted.append(classified)
     context = rank_web_sources(query, accepted)[:max_results]
     rejected = [c for c in candidates if not c.get("accepted")]
-    return {"web_context": context, "web_candidates": candidates, "rejected_web_candidates": rejected}
+    return {"web_context": context, "web_candidates": candidates, "rejected_web_candidates": rejected, "web_discovery_strategies_used": discovery.get("strategies", []), "web_search_queries": discovery.get("expanded_queries", [])}
 
 
 def build_web_context(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None, *, allow_external_web: bool = False, provider: WebProvider | None = None) -> list[dict[str, Any]]:

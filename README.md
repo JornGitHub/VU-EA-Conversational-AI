@@ -90,3 +90,7 @@ CLI-gebruik kan dezelfde webmodus meegeven, bijvoorbeeld:
 ```bash
 python main.py --skip-install --query "Wat is een onechte neveninschrijving?" --json --web-mode force
 ```
+
+### Web discovery pipeline
+
+De gratis weblaag gebruikt eerst handmatige officiële seed-URL's uit `config/official_web_seed_urls.yaml`, daarna compacte query-expansie, officiële site-search hints en beperkte sitemap-kandidaten. Zoekpagina's en sitemaps zijn alleen discovery-kandidaten: ze worden nooit als bewijsbron gebruikt. Kandidaten worden pas `web_context` wanneer de pagina/PDF succesvol is opgehaald, voldoende tekst bevat, op een allowlisted domein staat en de relevance-score boven de drempel komt. De seed bevat onder andere de DUO-PDF `Toelichting op de gegevens die DUO levert`, zodat vragen over `onechte neveninschrijving` ten minste deze officiële bron proberen. PDF-tekstextractie gebeurt lokaal met `pypdf`; bij fetch-failure of ontbrekend internet blijft de app werken en wordt de kandidaat afgekeurd met een reden zoals `fetch_failed`.
