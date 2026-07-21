@@ -10,7 +10,7 @@ import json
 import streamlit as st
 
 from src.chatbot import answer_with_llm
-from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
+from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json, is_meaningful_llm_inference
 
 
 EXAMPLE_QUESTIONS = [
@@ -190,15 +190,13 @@ def render_result(result: dict, *, show_source_status: bool = True) -> None:
             st.markdown(f"- **{source.get('title')}** — `{source.get('domain')}` — {source.get('retrieved_at')} — `{source.get('source_tier')}`")
             st.caption(source.get("url", ""))
             st.write(str(source.get("text_excerpt", ""))[:500])
-    if result.get("llm_inference"):
+    if is_meaningful_llm_inference(result.get("llm_inference")):
         st.subheader("LLM-interpretatie")
         st.write(result["llm_inference"].get("text"))
         st.caption(result["llm_inference"].get("disclaimer"))
     if show_source_status:
         st.subheader("Bronstatus")
-        render_bullets(result.get("source_tiers_used") or [])
-        if not result.get("manual_knowledge_used"):
-            st.caption("Niet bevestigd door interne/mondelinge kennis.")
+        render_bullets(result.get("bronstatus") or ["Lokale officiële documentatie gebruikt."])
 
     if result.get("references"):
         st.subheader("Verwijzingen naar andere documentatie")

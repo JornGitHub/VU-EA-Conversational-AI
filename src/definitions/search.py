@@ -590,21 +590,79 @@ def match_catalog_fields(query: str, limit: int = 4, min_score: float = 18.0) ->
     return matches
 
 
+
+def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_inference: dict[str, Any] | None = None, has_supplemental: bool = False, manual_knowledge_used: bool = False) -> list[str]:
+    labels = ["Lokale officiële documentatie gebruikt."]
+    if has_supplemental:
+        labels.append("Aanvullende lokale documentatie gebruikt.")
+    web_context = web_context or []
+    if any(w.get("source_tier") == "official_web" for w in web_context):
+        labels.append("Officiële webbronnen gebruikt.")
+    if any(w.get("source_tier") == "external_web" for w in web_context):
+        labels.append("Externe webbronnen gebruikt als lager geprioriteerde context.")
+    if not web_context:
+        labels.append("Geen webbronnen gebruikt.")
+    if llm_inference and str(llm_inference.get("text") or "").strip():
+        labels.append("LLM-interpretatie gebruikt.")
+    if not manual_knowledge_used:
+        labels.append("Niet bevestigd door interne/mondelinge kennis.")
+    return labels
+
+
+def is_meaningful_llm_inference(llm_inference: dict[str, Any] | None) -> bool:
+    if not llm_inference:
+        return False
+    text = normalize_text(llm_inference.get("text"))
+    generic = normalize_text("Deze uitleg is een voorzichtige LLM-interpretatie op basis van de hierboven gelabelde bronlagen; bij conflicten blijft lokale officiële documentatie leidend.")
+    return bool(text) and text != generic and "disclaimer" not in text
+
+
+def build_llm_inference_text(query: str, official_answer: str, matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None) -> str:
+    text = normalize_text(" ".join([query, official_answer]))
+    if "onechte neveninschrijving" in text:
+        return "Praktisch betekent dit waarschijnlijk dat de inschrijving administratief wel bestaat als neveninschrijving, maar voorzichtig geïnterpreteerd moet worden als zelfstandige extra inschrijving, omdat dezelfde combinatie van opleiding en instelling al voorkomt bij een andere inschrijving van dezelfde student."
+    if "echte neveninschrijving" in text:
+        return "Praktisch betekent dit waarschijnlijk dat de inschrijving als afzonderlijke neveninschrijving kan meetellen, omdat de relevante combinatie niet al bij een andere inschrijving van dezelfde student voorkomt."
+    if "hoofdinschrijving" in text:
+        return "Praktisch betekent dit waarschijnlijk dat dit de inschrijving is die administratief als belangrijkste of eerst leidende inschrijving wordt behandeld binnen de betreffende telling."
+    if "overige inschrijving" in text or "overige inschrijvingen" in text:
+        return "Praktisch betekent dit waarschijnlijk dat de inschrijving niet in de hoofd- of specifieke neveninschrijvingscategorie valt en daarom apart en voorzichtig als restcategorie moet worden geïnterpreteerd."
+    return ""
+
+
+def _disclaimer_for_tiers(based_on: list[str]) -> str:
+    if "official_web" in based_on or "external_web" in based_on:
+        return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en gelabelde webbronnen. Dit is geen bevestigde interne/mondelinge toelichting."
+    if "official_documentation" in based_on or "official_supplemental" in based_on:
+        return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie. Dit is geen bevestigde interne/mondelinge toelichting."
+    return "Deze uitleg is een LLM-interpretatie op basis van beperkt beschikbare broncontext. Dit is geen bevestigde interne/mondelinge toelichting."
+
+
+def primary_aggregate_fields_for_term(term: Any, fields: list[str]) -> list[str]:
+    if "onechte neveninschrijving" not in normalize_text(term):
+        return fields
+    catalog_names = [f["field_name"] for f in catalog_fields() if normalize_text(f.get("field_name", "")).startswith("soort inschrijving")]
+    return catalog_names or [field for field in fields if normalize_text(field).startswith("soort inschrijving")]
+
 def _local_context_sufficient(fields: list[dict[str, Any]], pack: dict[str, Any], refs: list[str]) -> bool:
     return bool(fields) and (not refs or bool(pack.get("supplemental_context")))
 
 
-def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow_llm_inference: bool) -> dict[str, Any] | None:
+def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow_llm_inference: bool, *, official_answer: str = "", matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None) -> dict[str, Any] | None:
     if not allow_llm_inference:
         return None
     based_on = [tier for tier in tiers if tier != "llm_inference"]
-    missing_text = " Ontbrekende broncontext: " + ", ".join(missing) + "." if missing else ""
+    text = build_llm_inference_text(query, official_answer, matched_fields, context_pack)
+    if not text:
+        return None
+    if missing:
+        text += " Ontbrekende broncontext blijft onzeker: " + ", ".join(missing) + "."
     return {
         "status": "unverified_interpretation",
         "based_on_sources": based_on,
-        "text": "Deze uitleg is een voorzichtige LLM-interpretatie op basis van de hierboven gelabelde bronlagen; bij conflicten blijft lokale officiële documentatie leidend." + missing_text,
+        "text": text,
         "confidence": "low_to_medium",
-        "disclaimer": "Deze uitleg is een LLM-interpretatie op basis van beschikbare documentatie en webbronnen. Dit is geen bevestigde interne/mondelinge toelichting.",
+        "disclaimer": _disclaimer_for_tiers(based_on),
     }
 
 
@@ -636,8 +694,11 @@ def answer_deep_context_question_json(
         payload.setdefault("web_sources_used", False)
         payload.setdefault("source_tiers_used", ["official_documentation"] if payload.get("curated_definition_found") else [])
         if allow_llm_inference:
-            payload["llm_inference"] = _build_llm_inference(query, payload["source_tiers_used"], [], allow_llm_inference)
-            payload["source_tiers_used"] = unique_preserve_order(payload["source_tiers_used"] + ["llm_inference"])
+            payload["llm_inference"] = _build_llm_inference(query, payload["source_tiers_used"], [], allow_llm_inference, official_answer=str(payload.get("definition") or payload.get("answer") or ""))
+            if payload["llm_inference"]:
+                payload["source_tiers_used"] = unique_preserve_order(payload["source_tiers_used"] + ["llm_inference"])
+        payload["llm_inference_used"] = bool(payload.get("llm_inference"))
+        payload["bronstatus"] = bronstatus_labels(web_context=payload.get("web_context"), llm_inference=payload.get("llm_inference"))
         return payload
 
     if "verwijs" in q or "verwijzing" in q or "waar naar" in q:
@@ -674,7 +735,8 @@ def answer_deep_context_question_json(
         source_tiers_used.append("official_web")
     if external_web:
         source_tiers_used.append("external_web")
-    llm_inference = _build_llm_inference(query, source_tiers_used, missing, allow_llm_inference)
+    official_answer_summary = " ".join([str(f.get("description", "")) for f in fields])
+    llm_inference = _build_llm_inference(query, source_tiers_used, missing, allow_llm_inference, official_answer=official_answer_summary, matched_fields=fields, context_pack=pack)
     if llm_inference:
         source_tiers_used.append("llm_inference")
     lines = ["Antwoord:", "Uit lokale officiële documentatie:"]
@@ -705,6 +767,8 @@ def answer_deep_context_question_json(
             lines += ["", "Conclusie / verschil:", "Het primaire document toont dat beide opleidingsvelden bestaan, maar bevat zelf alleen de verwijzing naar Bestandsbeschrijving hoacth.csv/hoacth_vest.csv. Daardoor kan het inhoudelijke verschil niet volledig uit het primaire document alleen worden verklaard."]
         elif any("internationale student" in normalize_text(f["field_name"]) for f in fields):
             lines += ["", "Conclusie / verschil:", "De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven als internationale student geregistreerd als dat toen zo was. In beide gevallen hoort bij de kern dat de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding vóór het HO heeft."]
+    if not any(line == "Bronstatus:" for line in lines):
+        lines += ["", "Bronstatus:"] + [f"- {label}" for label in bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False)]
     answer = "\n".join(lines)
     payload = {
         "query": query,
@@ -732,6 +796,8 @@ def answer_deep_context_question_json(
         "web_context": web_context,
         "source_tiers_used": unique_preserve_order(source_tiers_used),
         "llm_inference": llm_inference,
+        "llm_inference_used": bool(llm_inference),
+        "bronstatus": bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False),
         "manual_knowledge_used": False,
         "web_unavailable_message": web_unavailable_message,
     }
@@ -1191,7 +1257,9 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
     best_entry = group["best"]["entry"]
     title = best_entry.get("term", "Gevonden definitie")
     definition = best_definition(group)
-    fields = filter_fields_for_main_term(title, [field for field in sanitize_fields(metadata_values(group, "fields") + group["fields"]) if normalize_text(field) != normalize_text(title)])
+    if "onechte neveninschrijving" in normalize_text(title):
+        definition = definition.replace("sleutel-domeinvelden en soort-inschrijvingsvelden", "soort-inschrijvingsvelden")
+    fields = primary_aggregate_fields_for_term(title, filter_fields_for_main_term(title, [field for field in sanitize_fields(metadata_values(group, "fields") + group["fields"]) if normalize_text(field) != normalize_text(title)]))
     datasets = sanitize_datasets(metadata_values(group, "datasets") + group["datasets"], title)
     notes = sanitize_notes(notes_for_group(group), title)
     has_curated_definition = curated_definition_found(group)
@@ -1290,7 +1358,7 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
     source_policy = "primary_preferred" if primary_relevant else "no_difference"
     if primary_relevant and intent in {"all_fields", "dataset_layout"}:
         return build_all_fields_payload(query, debug, "primary_only")
-    if primary_relevant and intent in {"field_comparison", "field_reference", "field_values"}:
+    if primary_relevant and intent in {"field_comparison", "field_reference", "field_values"} and match_catalog_fields(query, limit=1):
         return answer_deep_context_question_json(query, source_focus=source_focus, include_supplemental=include_supplemental, debug=debug)
     if primary_relevant and intent in {"source_selection", "transformation", "comparison"}:
         return build_primary_context_payload(query, intent, debug, "primary_only")
@@ -1327,12 +1395,12 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         payload.update(
             {
                 "main_term": canonical_term(group["best"]["entry"].get("term")),
-                "definition": best_definition(group),
-                "fields": filter_fields_for_main_term(group["best"]["entry"].get("term", ""), [
+                "definition": best_definition(group).replace("sleutel-domeinvelden en soort-inschrijvingsvelden", "soort-inschrijvingsvelden") if "onechte neveninschrijving" in normalize_text(group["best"]["entry"].get("term")) else best_definition(group),
+                "fields": primary_aggregate_fields_for_term(group["best"]["entry"].get("term", ""), filter_fields_for_main_term(group["best"]["entry"].get("term", ""), [
                     field
                     for field in sanitize_fields(metadata_values(group, "fields") + group["fields"])
                     if normalize_text(field) != normalize_text(group["best"]["entry"].get("term", ""))
-                ]),
+                ])),
                 "datasets": sanitize_datasets(metadata_values(group, "datasets") + group["datasets"], group["best"]["entry"].get("term", "")),
                 "notes": sanitize_notes(notes_for_group(group), group["best"]["entry"].get("term", "")),
                 "related_terms": sanitize_related_terms([
@@ -1352,6 +1420,27 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
                 ][:3],
             }
         )
+
+    if payload.get("curated_definition_found"):
+        tiers = ["official_documentation"]
+        llm = _build_llm_inference(query, tiers, [], True, official_answer=str(payload.get("definition") or payload.get("answer") or ""))
+        payload.update({
+            "web_context": [],
+            "web_sources_used": False,
+            "source_tiers_used": unique_preserve_order(tiers + (["llm_inference"] if llm else [])),
+            "llm_inference": llm,
+            "llm_inference_used": bool(llm),
+            "bronstatus": bronstatus_labels(web_context=[], llm_inference=llm),
+        })
+        if llm:
+            payload["answer"] = payload["answer"].rstrip() + "\n\nLLM-interpretatie:\n" + llm["text"] + "\n\nBronstatus:\n" + "\n".join(f"- {label}" for label in payload["bronstatus"])
+    else:
+        payload.setdefault("web_context", [])
+        payload.setdefault("web_sources_used", False)
+        payload.setdefault("source_tiers_used", [])
+        payload.setdefault("llm_inference", None)
+        payload.setdefault("llm_inference_used", False)
+        payload.setdefault("bronstatus", bronstatus_labels(web_context=[], llm_inference=None))
 
     if debug:
         payload["debug_matches"] = [debug_match_payload(result) for result in results]

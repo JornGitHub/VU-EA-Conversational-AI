@@ -74,7 +74,8 @@ class WebSourcesTests(unittest.TestCase):
         self.assertIs(called["value"], True)
         self.assertIs(result["web_sources_used"], True)
         self.assertIn("official_web", result["source_tiers_used"])
-        self.assertEqual(result["llm_inference"]["based_on_sources"], ["official_documentation", "official_web"])
+        self.assertIn("Officiële webbronnen gebruikt.", result["bronstatus"])
+        self.assertIsNone(result["llm_inference"])
 
     def test_conflict_policy_local_documentation_remains_first(self):
         original = search.build_web_context
@@ -84,8 +85,35 @@ class WebSourcesTests(unittest.TestCase):
         finally:
             search.build_web_context = original
         self.assertEqual(result["source_tiers_used"][0], "official_documentation")
-        self.assertIn("lokale officiële documentatie leidend", result["llm_inference"]["text"])
+        self.assertIn("Officiële webbronnen gebruikt.", result["bronstatus"])
+        self.assertIsNone(result["llm_inference"])
 
+
+class SourceAwareInterpretationRegressionTests(unittest.TestCase):
+    def test_onechte_neveninschrijving_has_contentful_interpretation_and_primary_fields(self):
+        result = search.answer_definition_question_json("Wat is een onechte neveninschrijving?")
+        answer = result["answer"]
+        self.assertIn("wel voorkomt", answer.lower())
+        self.assertIn("andere inschrijving", answer)
+        self.assertIn("dezelfde student", answer)
+        self.assertIn("LLM-interpretatie", answer)
+        self.assertTrue("administratief" in answer or "voorzichtig geïnterpreteerd" in answer)
+        self.assertIn("Niet bevestigd door interne/mondelinge kennis", answer)
+        self.assertNotIn("documentatie en webbronnen", result["llm_inference"]["disclaimer"])
+        self.assertFalse(result["web_sources_used"])
+        self.assertNotIn("Sleutel domein hoger onderwijs", result["fields"])
+        self.assertTrue(all(field.startswith("Soort inschrijving") for field in result["fields"]))
+
+    def test_empty_llm_text_is_not_meaningful(self):
+        self.assertFalse(search.is_meaningful_llm_inference({"text": "", "disclaimer": "x"}))
+        self.assertFalse(search.is_meaningful_llm_inference(None))
+
+    def test_bronstatus_has_readable_labels_while_json_keeps_tiers(self):
+        result = search.answer_definition_question_json("Wat is een onechte neveninschrijving?")
+        self.assertIn("official_documentation", result["source_tiers_used"])
+        self.assertIn("llm_inference", result["source_tiers_used"])
+        self.assertIn("Lokale officiële documentatie gebruikt.", result["bronstatus"])
+        self.assertIn("Geen webbronnen gebruikt.", result["bronstatus"])
 
 if __name__ == "__main__":
     unittest.main()
