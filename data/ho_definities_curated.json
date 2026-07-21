@@ -354,7 +354,7 @@
     "aliases": [],
     "related_fields": [
       "Hoogste vooropleiding voor het HO",
-      "Vestigingsnummer van de hoogste vooropl. vóór het HO"
+      "Vestigingsnummer van de hoogste vooropl. voor het HO"
     ],
     "available_in_datasets": [
       "1cyferho_2025_v1.0.asc",
@@ -364,7 +364,7 @@
     ],
     "source_terms": [
       "Hoogste vooropleiding voor het HO",
-      "Hoogste vooropl. vóór het HO"
+      "Hoogste vooropl. voor het HO"
     ],
     "note": "",
     "tags": [
@@ -384,11 +384,11 @@
     ],
     "fields": [
       "Hoogste vooropleiding voor het HO",
-      "Vestigingsnummer van de hoogste vooropl. vóór het HO"
+      "Vestigingsnummer van de hoogste vooropl. voor het HO"
     ],
     "source_documents": [
       "Hoogste vooropleiding voor het HO",
-      "Hoogste vooropl. vóór het HO"
+      "Hoogste vooropl. voor het HO"
     ],
     "confidence": 0.99,
     "source_fragments": [
@@ -398,7 +398,7 @@
   {
     "id": "indicatie_internationale_student",
     "term": "Indicatie internationale student",
-    "definition": "Veld dat aangeeft of een student als internationale student wordt beschouwd. De documentatie vermeldt de waarden J = internationale student en N = geen internationale student. Voor de nationaliteit wordt uitgegaan van de actuele eerste nationaliteit. Daardoor kan een student die later Nederlander wordt in nieuwere 1cHO-bestanden met terugwerkende kracht niet meer als internationale student tellen.",
+    "definition": "Geeft aan of een student als internationale student wordt geteld: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. Mogelijke waarden: J = internationale student; N = geen internationale student. De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen.",
     "aliases": [],
     "related_fields": [
       "Indicatie internationale student"
@@ -435,13 +435,13 @@
     ],
     "confidence": 0.99,
     "source_fragments": [
-      "Veld dat aangeeft of een student als internationale student wordt beschouwd. De documentatie vermeldt de waarden J = internationale student en N = geen internationale student. Voor de nationaliteit wordt uitgegaan van de actuele eerste nationaliteit. Daardoor kan een student die later Nederlander wordt in nieuwere 1cHO-bestanden met terugwerkende kracht niet meer als internationale student tellen."
+      "Geeft aan of een student als internationale student wordt geteld: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. Mogelijke waarden: J = internationale student; N = geen internationale student. De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen."
     ]
   },
   {
     "id": "indicatie_internationale_student_op_peildatum_1_oktober",
     "term": "Indicatie internationale student op peildatum 1 oktober",
-    "definition": "Veld dat aangeeft of een student op 1 oktober van het betreffende inschrijvingsjaar als internationale student wordt beschouwd. Hierbij wordt gebruikgemaakt van de eerste nationaliteit op peildatum 1 oktober. Bij latere naturalisatie blijft de student voor jaren vóór naturalisatie als internationale student geregistreerd.",
+    "definition": "Geeft aan of een student op peildatum 1 oktober als internationale student wordt geteld: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven behouden als de student toen internationale student was.",
     "aliases": [],
     "related_fields": [
       "Indicatie internationale student op peildatum 1 oktober"
@@ -479,7 +479,7 @@
     ],
     "confidence": 0.99,
     "source_fragments": [
-      "Veld dat aangeeft of een student op 1 oktober van het betreffende inschrijvingsjaar als internationale student wordt beschouwd. Hierbij wordt gebruikgemaakt van de eerste nationaliteit op peildatum 1 oktober. Bij latere naturalisatie blijft de student voor jaren vóór naturalisatie als internationale student geregistreerd."
+      "Geeft aan of een student op peildatum 1 oktober als internationale student wordt geteld: geen Nederlandse nationaliteit en geen Nederlandse vooropleiding voor het HO. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven behouden als de student toen internationale student was."
     ]
   },
   {
@@ -551,7 +551,7 @@
   {
     "term": "Instroom",
     "category": "concept",
-    "definition": "Lay-out bestand Variabele nummer UNL 21P* Naam veld Bron Type veld 1 1 Persoonsgebonden nummer 1cHO tekst 2 2 Inschrijvingsjaar 1cHO tekst 3 3 Maand examenresultaat 1cHO tekst 4 4 Actuele instelling 1cHO tekst 5 5 Opleiding historisch equivalent 1cHO tekst 6 6 Opleiding actueel equivalent 1cHO tekst 7 7 Iscedf2013rubriek cbs tekst 8 8 Croho-onderdeel actuele opleiding 1cHO tekst 9 9 Opleidingsfase actueel van het diploma 1cHO tekst 10 10 Type hoger onderwijs binnen soort hoger onderwijs 1cHO tekst 11 11 Maand hoger onderwijs afleiding numeriek 12 12 Maand soort afleiding numeriek 13 13 Maand instelling afleiding numeriek 14 14 Maand type ho afleiding numeriek 15 15 Maand equivalent afleiding numeriek 16 16 Masterin afleiding tekst 17 17 Masterintwee afleiding tekst 18 18 Masterintot afleiding tekst 19 19 Masterex3 afleiding tekst 20 20 Masterex5 afleiding tekst 21 21 Masterextot afleiding tekst 22 22 JaarMasterex afleiding tekst 23 23 Instroomcategorie afleiding tekst 24 24 Opleidingsvorm 1cHO tekst 25 25 Soort hoger onderwijs 1cHO tekst 26 26 Hoogste vooropleiding vóór het HO 1cHO tekst 27 27 Diplomajaar van de hoogste vooropl.",
+    "definition": "Lay-out bestand Variabele nummer UNL 21P* Naam veld Bron Type veld 1 1 Persoonsgebonden nummer 1cHO tekst 2 2 Inschrijvingsjaar 1cHO tekst 3 3 Maand examenresultaat 1cHO tekst 4 4 Actuele instelling 1cHO tekst 5 5 Opleiding historisch equivalent 1cHO tekst 6 6 Opleiding actueel equivalent 1cHO tekst 7 7 Iscedf2013rubriek cbs tekst 8 8 Croho-onderdeel actuele opleiding 1cHO tekst 9 9 Opleidingsfase actueel van het diploma 1cHO tekst 10 10 Type hoger onderwijs binnen soort hoger onderwijs 1cHO tekst 11 11 Maand hoger onderwijs afleiding numeriek 12 12 Maand soort afleiding numeriek 13 13 Maand instelling afleiding numeriek 14 14 Maand type ho afleiding numeriek 15 15 Maand equivalent afleiding numeriek 16 16 Masterin afleiding tekst 17 17 Masterintwee afleiding tekst 18 18 Masterintot afleiding tekst 19 19 Masterex3 afleiding tekst 20 20 Masterex5 afleiding tekst 21 21 Masterextot afleiding tekst 22 22 JaarMasterex afleiding tekst 23 23 Instroomcategorie afleiding tekst 24 24 Opleidingsvorm 1cHO tekst 25 25 Soort hoger onderwijs 1cHO tekst 26 26 Hoogste vooropleiding voor het HO 1cHO tekst 27 27 Diplomajaar van de hoogste vooropl.",
     "datasets": [
       "nationaliteit is onbekend Zie bestand Dec_nationaliteitscode.csv"
     ],
@@ -578,7 +578,7 @@
   {
     "term": "Internationale student",
     "category": "concept",
-    "definition": "Een student wordt als internationale student beschouwd wanneer de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding heeft. Deze definitie sluit aan op het veld Indicatie internationale student.",
+    "definition": "Een student wordt als internationale student beschouwd wanneer de student geen Nederlandse nationaliteit heeft en geen Nederlandse vooropleiding voor het HO heeft. Deze definitie sluit aan op het veld Indicatie internationale student. Let op: de actuele variant kan door naturalisatie met terugwerkende kracht veranderen; bij de peildatumvariant blijven oudere jaren vóór naturalisatie behouden als de student toen internationale student was.",
     "datasets": [
       "1cyferho_2025_v1.0.asc",
       "Inschrijvingen_aggr_UNL_2025.csv",
@@ -593,7 +593,7 @@
       "Bestandsbeschrijving_1cyferho_2025_v1.0.txt"
     ],
     "source_fragments": [
-      "Mogelijke waarden: J = internationale student N = niet-internationale student."
+      "Een student wordt als internationale student beschouwd wanneer de student geen Nederlandse nationaliteit heeft en geen Nederlandse vooropleiding voor het HO heeft. Deze definitie sluit aan op het veld Indicatie internationale student. Let op: de actuele variant kan door naturalisatie met terugwerkende kracht veranderen; bij de peildatumvariant blijven oudere jaren vóór naturalisatie behouden als de student toen internationale student was."
     ],
     "confidence": 0.99,
     "generated_by": "automatic_ingestion",
@@ -689,7 +689,7 @@
       "= Onbekend (code 00000) = (v)mbo (codes 00101 t/m 00165, 00301 t/m 00305) = Havo (codes 00200 t/m 00211) = Vwo (codes 00400 t/m 00411) = Overig (codes 00501, 00503, 00505, 00506) = Buitenlands (codes 00502, 00504) = Hbo-propedeuse (codes 00600 t/m 00611) = Hbo-associate degree (codes 00651 t/m 00661) = Wo-propedeuse (codes 00700 t/m 00711) = Hbo-bachelor (codes 00801 t/m 00811)(*) = Hbo-master (codes 01001 t/m 01011, 01301 t/m 01311) = Wo-bachelor (codes 00901 t/m 00911) = Wo-master (codes 00110",
       "= Eerstejaars hoger onderwijs = Eerstejaars wetenschappelijk onderwijs = Eerstejaars instelling = Eerstejaars opleiding-instelling Voorkomen Geeft het aantal unieke combinaties Actuele instelling + Opleiding historisch equivalent geteld aan in het EOI-jaar.",
       "≥ 1 Her 1 Geeft aan hoe de student ingeschreven staat in het eerste jaar na EOI-jaar.",
-      "1 t/m 10 Hoogste vooropleiding vóór het HO De hoogste vooropleiding van de student die behaald is vóór het hoger onderwijs tot en met het betreffende inschrijvingsjaar.",
+      "1 t/m 10 Hoogste vooropleiding voor het HO De hoogste vooropleiding van de student die behaald is vóór het hoger onderwijs tot en met het betreffende inschrijvingsjaar.",
       "Zie bestand Dec_vopl.asc voor decodering.1 Geslacht Het geslacht van de betreffende student.",
       "1 = man 2 = vrouw 9 = overig/onbekend Nationaliteit 1 De eerste nationaliteit van de betreffende student.",
       "[leeg] = nationaliteit is onbekend Zie bestand Dec_nationaliteitscode.asc voor decodering van de overige waarden.1 Indicatie EER actueel Deze indicatie geeft aan of de eerste nationaliteit van de student behoort tot de actuele lijst van landen van de Europese Economische Ruimte, aangevuld met Zwitserland en Suriname.",
@@ -710,7 +710,7 @@
       "B = bachelor I = initiële opleiding (voornamelijk betreft dit ongedeelde opleidingen) M = master Z = beroepsfase artsen-, tandartsen-, dierenartsen- en apothekersopleidingen Type hoger onderwijs binnen soort hoger onderwijs Het type hoger onderwijs binnen het soort hoger onderwijs van de betreffende inschrijving.",
       "on = ongedeelde opleiding ba = bachelor-opleiding ma = master-opleiding pm = postmaster-opleiding Maand hoger onderwijs Het aantal maanden dat de student ingeschreven heeft gestaan in het hoger onderwijs vanaf de eerste maand van inschrijving tot en met de maand waarin het diploma is behaald.",
       "1 = voltijd 2 = deeltijd 3 = duaal onderwijs Soort hoger onderwijs Het soort hoger onderwijs van de betreffende inschrijving.",
-      "wo = wetenschappelijk onderwijs Hoogste vooropleiding vóór het HO De hoogste vooropleiding van de student die behaald is vóór het hoger onderwijs tot en met het betreffende inschrijvingsjaar.",
+      "wo = wetenschappelijk onderwijs Hoogste vooropleiding voor het HO De hoogste vooropleiding van de student die behaald is vóór het hoger onderwijs tot en met het betreffende inschrijvingsjaar.",
       "00 01 02 03 04 11 12 Indicatie EER actueel Deze indicatie geeft aan of de eerste nationaliteit van de student behoort tot de actuele lijst van landen van de Europese Economische Ruimte, aangevuld met Zwitserland en Suriname.",
       "[leeg] = geboorteland is onbekend Zie bestand Dec_landcode.csv voor decodering van de overige waarden.2 Generatie Op basis van het geboorteland van de student en geboorteland ouders van de student de hoeveelste generatie migratieachtergrond de student is.",
       "0 = geen migratieachtergrond 1 = 1e generatie migratieachtergrond 2 = 2e generatie migratieachtergrond 3 = onbekend Nationaliteit 1 op peildatum 1 oktober (NIEUW) De eerste nationaliteit van de student op peildatum 1 oktober van het inschrijvingsjaar.",

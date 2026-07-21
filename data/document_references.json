@@ -1,0 +1,210 @@
+[
+  {
+    "field_number": 6,
+    "field_name": "Opleiding actueel equivalent",
+    "references": [
+      "hoacth.csv",
+      "hoacth_vest.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "hoacth.csv",
+        "aliases": [
+          "hoacth.csv",
+          "Bestandsbeschrijving hoacth.csv",
+          "hoacth"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      },
+      {
+        "reference": "hoacth_vest.csv",
+        "aliases": [
+          "hoacth_vest.csv",
+          "Bestandsbeschrijving hoacth_vest.csv",
+          "hoacth_vest"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "hoacth.csv",
+      "hoacth_vest.csv"
+    ]
+  },
+  {
+    "field_number": 7,
+    "field_name": "Iscedf2013rubriek",
+    "references": [
+      "Iscedf2013.txt"
+    ],
+    "resolved_references": [
+      {
+        "reference": "Iscedf2013.txt",
+        "aliases": [
+          "Iscedf2013.txt",
+          "Iscedf2013"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "Iscedf2013.txt"
+    ]
+  },
+  {
+    "field_number": 8,
+    "field_name": "Opleiding historisch equivalent",
+    "references": [
+      "hoacth.csv",
+      "hoacth_vest.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "hoacth.csv",
+        "aliases": [
+          "hoacth.csv",
+          "Bestandsbeschrijving hoacth.csv",
+          "hoacth"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      },
+      {
+        "reference": "hoacth_vest.csv",
+        "aliases": [
+          "hoacth_vest.csv",
+          "Bestandsbeschrijving hoacth_vest.csv",
+          "hoacth_vest"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "hoacth.csv",
+      "hoacth_vest.csv"
+    ]
+  },
+  {
+    "field_number": 28,
+    "field_name": "Hoogste vooropleiding voor het HO",
+    "references": [
+      "Dec_vopl.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "Dec_vopl.csv",
+        "aliases": [
+          "Dec_vopl.csv",
+          "Dec_vopl",
+          "dec_vopl.asc"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "Dec_vopl.csv"
+    ]
+  },
+  {
+    "field_number": 29,
+    "field_name": "Hoogste vooropleiding",
+    "references": [
+      "Dec_vopl.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "Dec_vopl.csv",
+        "aliases": [
+          "Dec_vopl.csv",
+          "Dec_vopl",
+          "dec_vopl.asc"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "Dec_vopl.csv"
+    ]
+  },
+  {
+    "field_number": 32,
+    "field_name": "Nationaliteit 1",
+    "references": [
+      "Dec_nationaliteitscode.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "Dec_nationaliteitscode.csv",
+        "aliases": [
+          "Dec_nationaliteitscode.csv",
+          "Dec_nationaliteitscode",
+          "dec_nationaliteitscode.asc"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "Dec_nationaliteitscode.csv"
+    ]
+  },
+  {
+    "field_number": 49,
+    "field_name": "Geboorteland",
+    "references": [
+      "dec_landcode.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "dec_landcode.csv",
+        "aliases": [
+          "dec_landcode.csv",
+          "dec_landcode"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "dec_landcode.csv"
+    ]
+  },
+  {
+    "field_number": 52,
+    "field_name": "Nationaliteit 1 op peildatum 1 oktober",
+    "references": [
+      "Dec_nationaliteitscode.csv"
+    ],
+    "resolved_references": [
+      {
+        "reference": "Dec_nationaliteitscode.csv",
+        "aliases": [
+          "Dec_nationaliteitscode.csv",
+          "Dec_nationaliteitscode",
+          "dec_nationaliteitscode.asc"
+        ],
+        "found_files": [],
+        "chunks": [],
+        "missing": true
+      }
+    ],
+    "missing_references": [
+      "Dec_nationaliteitscode.csv"
+    ]
+  }
+]

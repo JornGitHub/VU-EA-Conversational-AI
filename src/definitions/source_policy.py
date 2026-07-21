@@ -1,0 +1,5 @@
+"""Small constants for source-aware retrieval policy."""
+PRIMARY_ONLY = "primary_only"
+PRIMARY_PREFERRED = "primary_preferred"
+SUPPLEMENTAL_USED = "supplemental_used"
+NO_DIFFERENCE = "no_difference"
