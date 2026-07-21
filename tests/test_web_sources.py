@@ -317,6 +317,32 @@ class WebExcerptAndDisclaimerTests(unittest.TestCase):
         self.assertIn("Officiële webbronnen:", prompt)
         self.assertIn("Toelichting op de gegevens die DUO levert", prompt)
         self.assertIn("onechte neveninschrijving", prompt)
+    def test_interpretation_mentions_duo_context_when_available(self):
+        web_context = [{
+            "source_tier": "official_web",
+            "title": "Toelichting op de gegevens die DUO levert",
+            "text_excerpt": "Veldnaam Soort inschrijving ho. Beschrijving: Indicatie die de status van de inschrijving in het domein ho aangeeft, waaronder onechte neveninschrijving. Rekenregel: een beslisboom door DUO.",
+            "evidence_excerpt": "Veldnaam Soort inschrijving ho. Beschrijving: Indicatie die de status van de inschrijving in het domein ho aangeeft, waaronder onechte neveninschrijving. Rekenregel: een beslisboom door DUO.",
+        }]
+        text = search.build_llm_inference_text(
+            "Wat is een onechte neveninschrijving?",
+            "Een onechte neveninschrijving is een neveninschrijving waarbij de combinatie opleiding-instelling WEL voorkomt bij een andere inschrijving van dezelfde student.",
+            web_context=web_context,
+        )
+        self.assertIn("Soort inschrijving ho", text)
+        self.assertIn("status van een inschrijving", text)
+        self.assertTrue("rekenregel" in text or "beslisboom" in text)
+        self.assertIn("DUO", text)
+
+    def test_clean_web_excerpt_removes_table_prefix(self):
+        messy = "Kences Nee SK123 Nee Veldnaam Soort inschrijving ho Beschrijving Indicatie die de status van de inschrijving in het domein ho aangeeft (hoofdinschrijving, echte neveninschrijving, inschrijving is niet actief op peildatum 1 oktober, onechte neveninschrijving, opleiding telt niet mee). Afgeleid door DUO IP Ja Rekenregel Een beslisboom o.b.v. veel velden..."
+        cleaned = web_sources.clean_web_excerpt(messy)
+        self.assertFalse(cleaned.startswith("Kences Nee SK123 Nee"))
+        self.assertIn("Veldnaam Soort inschrijving ho", cleaned)
+        self.assertIn("onechte neveninschrijving", cleaned)
+        self.assertIn("Rekenregel", cleaned)
+        self.assertIn("Beschrijving:", cleaned)
+
 
 if __name__ == "__main__":
     unittest.main()

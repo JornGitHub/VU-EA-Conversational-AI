@@ -456,6 +456,32 @@ def build_relevant_excerpt(text: str, query: str, matched_terms: list[str] | Non
     return excerpt
 
 
+def clean_web_excerpt(text: str) -> str:
+    clean = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not clean:
+        return ""
+    # PDF table extraction can prepend unrelated cells before the field label;
+    # keep the excerpt anchored on the evidence-bearing field label when present.
+    field_anchor = re.search(r"\bVeldnaam\s+Soort\s+inschrijving\s+ho\b", clean, flags=re.I)
+    if field_anchor:
+        clean = clean[field_anchor.start():]
+    clean = re.sub(r"\bBeschrijving\b", "Beschrijving:", clean, count=1, flags=re.I)
+    clean = re.sub(r"\bRekenregel\b", "Rekenregel:", clean, count=1, flags=re.I)
+    clean = re.sub(r"\bAfgeleid door DUO IP\s+Ja\b", "Afgeleid door DUO IP.", clean, flags=re.I)
+    clean = re.sub(r"\bAfgeleid door DUO IP\b", "Afgeleid door DUO IP.", clean, count=1, flags=re.I)
+    clean = re.sub(r"\s+([.,;:])", r"\1", clean)
+    clean = re.sub(r"\bAfgeleid door DUO IP\.\s*\.", "Afgeleid door DUO IP.", clean, flags=re.I)
+    clean = re.sub(r"\bo\.\s*b\.\s*v\.", "o.b.v.", clean, flags=re.I)
+    clean = re.sub(r"([.:])(?=\S)", r"\1 ", clean)
+    clean = re.sub(r"\s+", " ", clean).strip(" .")
+    if len(clean) > 700:
+        boundary = max(clean.rfind(". ", 0, 700), clean.rfind(") ", 0, 700))
+        clean = clean[:boundary + 1 if boundary > 250 else 700].rstrip()
+    if clean and clean[-1] not in ".!?…":
+        clean += "…"
+    return clean
+
+
 def accept_or_reject_web_candidate(candidate: dict[str, Any], query: str, *, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return classify_web_candidate(candidate, query, matched_terms=matched_terms, matched_fields=matched_fields)
 
@@ -516,7 +542,7 @@ def build_web_context_with_candidates(query: str, matched_fields: list[dict[str,
             classified["accepted"] = False
             classified["reject_reason"] = "external_web_disabled"
         if classified.get("accepted"):
-            excerpt = build_relevant_excerpt(text, query, matched_terms=classified.get("matched_terms") or matched_terms, matched_fields=matched_fields)
+            excerpt = clean_web_excerpt(build_relevant_excerpt(text, query, matched_terms=classified.get("matched_terms") or matched_terms, matched_fields=matched_fields))
             classified["text_excerpt"] = excerpt
             classified["evidence_excerpt"] = excerpt[:500]
         classified.pop("text", None)

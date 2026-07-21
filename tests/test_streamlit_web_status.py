@@ -7,6 +7,7 @@ class StreamlitWebStatusTests(unittest.TestCase):
         self.assertIn("Webcontext-modus", text)
         self.assertIn("Gebruik overige externe webbronnen", text)
         self.assertIn("Officiële webbronnen", text)
+        self.assertIn("Relevante passage", text)
         self.assertIn("Externe webbronnen", text)
         self.assertIn("Bronstatus", text)
         self.assertIn("Alleen bij ontbrekende lokale context", text)

@@ -23,7 +23,7 @@ def answer_with_llm(
     if deep_context:
         retrieval_result = answer_deep_context_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental, web_mode=web_mode, allow_external_web=allow_external_web, allow_llm_inference=allow_llm_inference, allow_web_sources=allow_web_sources)
     else:
-        retrieval_result = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
+        retrieval_result = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental, web_mode=web_mode)
     prompt = build_grounded_prompt(query, retrieval_result)
 
     try:

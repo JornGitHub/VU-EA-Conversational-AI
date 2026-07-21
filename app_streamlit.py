@@ -180,14 +180,16 @@ def render_result(result: dict, *, show_source_status: bool = True) -> None:
         for source in official_web:
             st.markdown(f"- **{source.get('title')}** — `{source.get('domain')}` — {source.get('retrieved_at')} — `{source.get('source_tier')}`")
             st.caption(source.get("url", ""))
-            st.write(str(source.get("text_excerpt", ""))[:500])
+            st.markdown("**Relevante passage:**")
+            st.write(str(source.get("evidence_excerpt") or source.get("text_excerpt", ""))[:700])
     if external_web:
         st.subheader("Externe webbronnen")
         st.warning("Externe webbronnen zijn lager geprioriteerd dan officiële documentatie.")
         for source in external_web:
             st.markdown(f"- **{source.get('title')}** — `{source.get('domain')}` — {source.get('retrieved_at')} — `{source.get('source_tier')}`")
             st.caption(source.get("url", ""))
-            st.write(str(source.get("text_excerpt", ""))[:500])
+            st.markdown("**Relevante passage:**")
+            st.write(str(source.get("evidence_excerpt") or source.get("text_excerpt", ""))[:700])
     if is_meaningful_llm_inference(result.get("llm_inference")):
         st.subheader("LLM-interpretatie")
         st.write(result["llm_inference"].get("text"))
