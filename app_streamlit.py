@@ -101,7 +101,7 @@ def render_bullets(values: list[str], *, code: bool = False) -> None:
             st.markdown(f"- {value}")
 
 
-def render_result(result: dict) -> None:
+def render_result(result: dict, *, show_source_status: bool = True) -> None:
     """Render structured retrieval output in clear Streamlit sections."""
     if result.get("curated_definition_found") is True:
         st.success("✅ Opgeschoonde definitie gevonden")
@@ -165,13 +165,41 @@ def render_result(result: dict) -> None:
         st.markdown(definition)
 
     if result.get("matched_fields"):
-        st.subheader("Uit het primaire document")
+        st.subheader("Lokale officiële documentatie")
         for field in result["matched_fields"]:
             st.markdown(f"- **{field.get('field_name')}**: {field.get('description')}")
     if result.get("supplemental_context"):
-        st.subheader("Aanvullende context")
+        st.subheader("Aanvullende lokale documentatie")
         for chunk in result["supplemental_context"]:
             st.markdown(f"- `{chunk.get('source_document')}`: {str(chunk.get('text',''))[:300]}")
+    web_context = result.get("web_context") or []
+    official_web = [w for w in web_context if w.get("source_tier") == "official_web"]
+    external_web = [w for w in web_context if w.get("source_tier") == "external_web"]
+    if official_web or result.get("web_unavailable_message"):
+        st.subheader("Officiële webbronnen")
+        if not official_web:
+            st.info(result.get("web_unavailable_message") or "Geen officiële webbronnen gebruikt.")
+        for source in official_web:
+            st.markdown(f"- **{source.get('title')}** — `{source.get('domain')}` — {source.get('retrieved_at')} — `{source.get('source_tier')}`")
+            st.caption(source.get("url", ""))
+            st.write(str(source.get("text_excerpt", ""))[:500])
+    if external_web:
+        st.subheader("Externe webbronnen")
+        st.warning("Externe webbronnen zijn lager geprioriteerd dan officiële documentatie.")
+        for source in external_web:
+            st.markdown(f"- **{source.get('title')}** — `{source.get('domain')}` — {source.get('retrieved_at')} — `{source.get('source_tier')}`")
+            st.caption(source.get("url", ""))
+            st.write(str(source.get("text_excerpt", ""))[:500])
+    if result.get("llm_inference"):
+        st.subheader("LLM-interpretatie")
+        st.write(result["llm_inference"].get("text"))
+        st.caption(result["llm_inference"].get("disclaimer"))
+    if show_source_status:
+        st.subheader("Bronstatus")
+        render_bullets(result.get("source_tiers_used") or [])
+        if not result.get("manual_knowledge_used"):
+            st.caption("Niet bevestigd door interne/mondelinge kennis.")
+
     if result.get("references"):
         st.subheader("Verwijzingen naar andere documentatie")
         render_bullets(result["references"], code=True)
@@ -219,6 +247,10 @@ st.title("📘 HO Definitiezoeker")
 st.markdown("Stel een vraag over definities, velden of databestanden uit de HO-documentatie.")
 
 debug = st.sidebar.checkbox("Toon debug-informatie")
+use_official_web = st.sidebar.checkbox("Gebruik officiële webbronnen", value=True)
+use_external_web = st.sidebar.checkbox("Gebruik overige externe webbronnen", value=False)
+allow_llm_inference = st.sidebar.checkbox("Sta LLM-interpretatie toe", value=True)
+show_source_status = st.sidebar.checkbox("Toon bronstatus", value=True)
 use_llm = st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False)
 model = st.sidebar.text_input("Ollama-model", value="qwen3:8b")
 focus_primary = st.sidebar.checkbox("Focus op Aggregaatbestand inschrijvingen_1cHO2025.docx", value=True)
@@ -240,7 +272,7 @@ if not query.strip():
 else:
     if use_llm:
         with st.spinner("Antwoord formuleren met LLM..."):
-            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, deep_context=use_deep_context)
+            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, deep_context=use_deep_context, allow_web_sources=use_official_web, allow_external_web=use_external_web, allow_llm_inference=allow_llm_inference)
 
         if result.get("llm_answer"):
             st.subheader("LLM-antwoord")
@@ -257,12 +289,12 @@ else:
                 st.code(result["prompt"])
     else:
         try:
-            result = answer_deep_context_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental) if use_deep_context else answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
+            result = answer_deep_context_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, allow_web_sources=use_official_web, allow_external_web=use_external_web, allow_llm_inference=allow_llm_inference) if use_deep_context else answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
         except Exception as exc:  # noqa: BLE001 - show useful diagnostics during development.
             st.error("Er ging iets mis bij het zoeken in de definitiebestanden.")
             st.exception(exc)
         else:
-            render_result(result)
+            render_result(result, show_source_status=show_source_status)
             if debug:
                 with st.expander("Debug JSON"):
                     st.json(result)

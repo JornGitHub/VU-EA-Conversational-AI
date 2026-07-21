@@ -21,6 +21,7 @@ from typing import Any
 
 from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
 from src.definitions.context_pack import build_context_pack
+from src.definitions.web_sources import SOURCE_TIERS, build_web_context
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -589,7 +590,34 @@ def match_catalog_fields(query: str, limit: int = 4, min_score: float = 18.0) ->
     return matches
 
 
-def answer_deep_context_question_json(query: str, source_focus: str = "primary", include_supplemental: bool = True, debug: bool = False) -> dict[str, Any]:
+def _local_context_sufficient(fields: list[dict[str, Any]], pack: dict[str, Any], refs: list[str]) -> bool:
+    return bool(fields) and (not refs or bool(pack.get("supplemental_context")))
+
+
+def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow_llm_inference: bool) -> dict[str, Any] | None:
+    if not allow_llm_inference:
+        return None
+    based_on = [tier for tier in tiers if tier != "llm_inference"]
+    missing_text = " Ontbrekende broncontext: " + ", ".join(missing) + "." if missing else ""
+    return {
+        "status": "unverified_interpretation",
+        "based_on_sources": based_on,
+        "text": "Deze uitleg is een voorzichtige LLM-interpretatie op basis van de hierboven gelabelde bronlagen; bij conflicten blijft lokale officiële documentatie leidend." + missing_text,
+        "confidence": "low_to_medium",
+        "disclaimer": "Deze uitleg is een LLM-interpretatie op basis van beschikbare documentatie en webbronnen. Dit is geen bevestigde interne/mondelinge toelichting.",
+    }
+
+
+def answer_deep_context_question_json(
+    query: str,
+    source_focus: str = "primary",
+    include_supplemental: bool = True,
+    include_manual_knowledge: bool = True,
+    allow_llm_inference: bool = True,
+    allow_web_sources: bool = True,
+    allow_external_web: bool = False,
+    debug: bool = False,
+) -> dict[str, Any]:
     """Answer source-aware field/context questions with references followed."""
     q = normalize_text(query)
     fields = match_catalog_fields(query, limit=6)
@@ -603,7 +631,14 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
         by_name = {f["field_name"]: f for f in catalog_fields()}
         fields = [by_name[name] for name in wanted if name in by_name]
     if not fields:
-        return answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
+        payload = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
+        payload.setdefault("web_context", [])
+        payload.setdefault("web_sources_used", False)
+        payload.setdefault("source_tiers_used", ["official_documentation"] if payload.get("curated_definition_found") else [])
+        if allow_llm_inference:
+            payload["llm_inference"] = _build_llm_inference(query, payload["source_tiers_used"], [], allow_llm_inference)
+            payload["source_tiers_used"] = unique_preserve_order(payload["source_tiers_used"] + ["llm_inference"])
+        return payload
 
     if "verwijs" in q or "verwijzing" in q or "waar naar" in q:
         intent = "field_reference"
@@ -623,7 +658,26 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
     refs = sorted({r for f in fields for r in (f.get("references") or [])}, key=str.lower)
     has_supp = bool(pack["supplemental_context"])
     missing = pack["missing_references"]
-    lines = ["Antwoord:", "Uit het primaire document:"]
+    local_sufficient = _local_context_sufficient(fields, pack, refs)
+    web_context = []
+    web_unavailable_message = ""
+    if allow_web_sources and not local_sufficient:
+        web_context = build_web_context(query, matched_fields=fields, matched_terms=refs, allow_external_web=allow_external_web)
+        if not web_context:
+            web_unavailable_message = "Geen aanvullende gratis webbron gevonden/gebruikt."
+    official_web = [w for w in web_context if w.get("source_tier") == "official_web"]
+    external_web = [w for w in web_context if w.get("source_tier") == "external_web"]
+    source_tiers_used = ["official_documentation"]
+    if has_supp:
+        source_tiers_used.append("official_supplemental")
+    if official_web:
+        source_tiers_used.append("official_web")
+    if external_web:
+        source_tiers_used.append("external_web")
+    llm_inference = _build_llm_inference(query, source_tiers_used, missing, allow_llm_inference)
+    if llm_inference:
+        source_tiers_used.append("llm_inference")
+    lines = ["Antwoord:", "Uit lokale officiële documentatie:"]
     for field in fields:
         lines.append(f"- {field['field_name']} (veld {field['field_number']}): {field.get('description','')}")
         if field.get("possible_values"):
@@ -633,9 +687,17 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
     if refs:
         lines += ["", "Verwijzingen naar andere documentatie:"] + [f"- Bestandsbeschrijving {r}" if r.startswith("hoacth") else f"- {r}" for r in refs]
     if has_supp:
-        lines += ["", "Aanvullende context:"] + [f"- {c.get('source_document')}: {c.get('text')}" for c in pack["supplemental_context"][:2]]
+        lines += ["", "Aanvullende lokale documentatie:"] + [f"- {c.get('source_document')}: {c.get('text')}" for c in pack["supplemental_context"][:2]]
     elif refs:
-        lines += ["", "Aanvullende context:", "- Er is geen aanvullende broncontext gevonden in de huidige repo/chunk-index voor deze verwijzingen."]
+        lines += ["", "Aanvullende lokale documentatie:", "- Er is geen aanvullende broncontext gevonden in de huidige repo/chunk-index voor deze verwijzingen."]
+    if official_web or web_unavailable_message:
+        lines += ["", "Uit officiële webbronnen:"]
+        lines += [f"- {w.get('title')} ({w.get('domain')}): {w.get('text_excerpt')}" for w in official_web[:3]] or [f"- {web_unavailable_message}"]
+    if external_web:
+        lines += ["", "Let op: onderstaande aanvullende context komt uit externe webbronnen en is lager geprioriteerd dan officiële documentatie.", "Externe webbronnen:"]
+        lines += [f"- {w.get('title')} ({w.get('domain')}): {w.get('text_excerpt')}" for w in external_web[:3]]
+    if llm_inference:
+        lines += ["", "LLM-interpretatie:", llm_inference["text"]]
     if missing:
         lines += ["", "Onzekerheid of ontbrekende bron:"] + [f"- {r}" for r in missing]
     if intent == "field_comparison":
@@ -665,6 +727,13 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
         "fields": [f["field_name"] for f in fields],
         "notes": [n for f in fields for n in (f.get("notes") or [])],
         "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
+        "source_tiers": SOURCE_TIERS,
+        "web_sources_used": bool(web_context),
+        "web_context": web_context,
+        "source_tiers_used": unique_preserve_order(source_tiers_used),
+        "llm_inference": llm_inference,
+        "manual_knowledge_used": False,
+        "web_unavailable_message": web_unavailable_message,
     }
     if debug:
         payload["debug"] = {"matched_field_scores": [(field_term_score(query, f), f["field_name"]) for f in fields]}

@@ -14,3 +14,65 @@ Naast losse definitievragen ondersteunt de zoeklaag nu deep-contextvragen via `a
 De resolver schrijft `data/document_references.json`. Als een gerefereerde bron niet in de repository of chunk-index staat, vermeldt de app dit expliciet bij `missing_references` en legt het antwoord uit wat wel uit het primaire document volgt en welke aanvullende bron nodig is. Helper-/decoderbestanden worden dus niet meer als hoofddataset gepresenteerd, maar blijven wel beschikbaar als bronverwijzing en aanvullende context.
 
 De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om niet te gokken: ontbrekende broninformatie moet als onzekerheid worden benoemd, terwijl aanwezige aanvullende broncontext apart wordt gelabeld.
+
+## Webbronnen en LLM-interpretatie
+
+De primaire bronlaag blijft altijd de lokale officiële documentatie die in de repository is verwerkt, zoals de 1cHO-bronbestanden en de gegenereerde catalogi in `data/`. Als die context ontbreekt of kaal is, kan de deep-contextlaag optioneel aanvullende webcontext proberen op te halen. Webcontext wordt nooit stilzwijgend als waarheid gebruikt: iedere webbron houdt een `source_tier`, titel, URL, domein, `retrieved_at`, excerpt en gebruiksstatus bij.
+
+Bronlagen worden in vaste prioriteit behandeld:
+
+1. `official_documentation`: lokale officiële bronbestanden.
+2. `official_supplemental`: lokale decoder- of helperbestanden waar primaire documentatie naar verwijst.
+3. `official_web`: allowlisted officiële websites/documenten.
+4. `external_web`: overige webbronnen; standaard uit en lager geprioriteerd.
+5. `manual_knowledge`: gereserveerd voor later, expliciet gelabelde interne kennis.
+6. `llm_inference`: interpretatie op basis van gevonden bronlagen; geen zelfstandige bron.
+
+Bij conflicten blijft lokale officiële documentatie leidend, tenzij later expliciet een nieuwere officiële webbron wordt gevonden en als nieuwer/actueler wordt gelabeld. Webresultaten worden niet automatisch toegevoegd aan curated of gold-standard datasets.
+
+De officiële web-allowlist staat in `config/web_sources.yaml` en bevat standaard:
+
+- `cbs.nl`
+- `opendata.cbs.nl`
+- `duo.nl`
+- `onderwijsdata.duo.nl`
+- `rijksoverheid.nl`
+- `ocwincijfers.nl`
+- `universiteitenvannederland.nl`
+
+Caching staat standaard aan. Opgehaalde webbronnen worden per URL gehasht en lokaal bewaard in `data/web_cache/`, zodat dezelfde bron niet steeds opnieuw hoeft te worden opgehaald. Als gratis webcontext niet beschikbaar is, blijft de app werken met lokale documentatie en verschijnt de melding: “Geen aanvullende gratis webbron gevonden/gebruikt.”
+
+In Streamlit kun je web- en interpretatiegebruik sturen met de sidebar-opties:
+
+- **Gebruik officiële webbronnen**: standaard aan.
+- **Gebruik overige externe webbronnen**: standaard uit.
+- **Sta LLM-interpretatie toe**: standaard aan.
+- **Toon bronstatus**: standaard aan.
+
+Handige commando’s:
+
+```bash
+python main.py --skip-install --tests
+python main.py --skip-install --query "Wat is een onechte neveninschrijving?" --json
+python scripts/run_evaluation.py --dataset web_context
+```
+
+## Gratis-only ontwerp
+
+Dit project blijft gratis-only. Standaardgebruik vereist geen `.env`, secrets, betaalde accounts of API keys. Er zijn geen betaalde web-search services of hosted LLM API’s toegevoegd. De weblaag accepteert alleen providers die geen API key vereisen en niet betaald of usage-based zijn.
+
+De gratis-only architectuur gebruikt:
+
+- lokale documentatie in `sources/`/`1cHO Documentatie/` en generated artifacts in `data/`;
+- optionele lokale LLM-formulering via Ollama, bijvoorbeeld `qwen3:8b`;
+- optionele no-key webcontext via directe HTTP-fetches van allowlisted of bekende URL’s;
+- lokale caching in `data/web_cache/`.
+
+Niet gebruikt of vereist: Bing Search API, Tavily, SerpAPI, Google Custom Search API, OpenAI API, Anthropic API, Azure OpenAI, Gemini API of commerciële hosted embedding/search/vector APIs. Als Ollama niet draait, geeft de app retrieval-output zonder hosted fallback en crasht de zoeklaag niet.
+
+Tests draaien zonder live internet door webproviders te mocken of de weblaag te monkeypatchen:
+
+```bash
+pytest
+python scripts/run_evaluation.py --dataset web_context
+```

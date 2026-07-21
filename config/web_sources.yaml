@@ -1,0 +1,16 @@
+web_sources:
+  allow_paid_apis: false
+  allow_api_key_based_search: false
+  provider: free_only
+  official_web_only: true
+  external_web_enabled: false
+  max_results: 5
+  cache_enabled: true
+  official_web_domains:
+    - cbs.nl
+    - opendata.cbs.nl
+    - duo.nl
+    - onderwijsdata.duo.nl
+    - rijksoverheid.nl
+    - ocwincijfers.nl
+    - universiteitenvannederland.nl
