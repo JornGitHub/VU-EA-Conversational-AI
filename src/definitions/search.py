@@ -21,7 +21,7 @@ from typing import Any
 
 from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
 from src.definitions.context_pack import build_context_pack
-from src.definitions.web_sources import SOURCE_TIERS, WEB_MODE_DEFAULT, WEB_MODES, build_web_context
+from src.definitions.web_sources import SOURCE_TIERS, WEB_MODE_DEFAULT, WEB_MODES, build_web_context, build_web_context_with_candidates
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -607,8 +607,12 @@ def web_decision_label(reason: str, attempted: bool, used: bool) -> str:
         return "Web niet geprobeerd, omdat lokale documentatie voldoende context gaf."
     if used:
         return "Webbronnen gebruikt."
+    if attempted and reason == "no_relevant_official_web_context_found":
+        return "Geen bruikbare officiële webbron gevonden."
     if attempted and reason == "no_free_official_web_context_found":
         return "Geen gratis officiële webbron gevonden/gebruikt."
+    if attempted and reason == "web_fetch_failed":
+        return "Web geprobeerd, maar ophalen van gratis webcontext is mislukt."
     if attempted:
         return "Web geprobeerd."
     return "Web niet geprobeerd."
@@ -627,14 +631,19 @@ def should_attempt_web(web_mode: str, local_sufficient: bool, missing: list[str]
     return False, "local_context_sufficient"
 
 
-def attempt_web_context(query: str, fields: list[dict[str, Any]] | None, refs: list[str] | None, *, allow_external_web: bool) -> tuple[list[dict[str, Any]], str]:
+def attempt_web_context(query: str, fields: list[dict[str, Any]] | None, refs: list[str] | None, *, allow_external_web: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], str]:
     try:
-        context = build_web_context(query, matched_fields=fields or [], matched_terms=refs or [], allow_external_web=allow_external_web)
+        result = build_web_context_with_candidates(query, matched_fields=fields or [], matched_terms=refs or [], allow_external_web=allow_external_web)
     except Exception:
-        return [], "web_fetch_failed"
+        return [], [], [], "web_fetch_failed"
+    context = result.get("web_context", [])
+    candidates = result.get("web_candidates", [])
+    rejected = result.get("rejected_web_candidates", [])
     if context:
-        return context, "web_context_found"
-    return [], "no_free_official_web_context_found"
+        return context, candidates, rejected, "web_context_found"
+    if candidates or rejected:
+        return [], candidates, rejected, "no_relevant_official_web_context_found"
+    return [], candidates, rejected, "no_free_official_web_context_found"
 
 
 def web_debug_payload(*, requested: str, effective: str, attempted: bool, reason: str) -> dict[str, Any]:
@@ -653,7 +662,7 @@ def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_in
     if has_supplemental:
         labels.append("Aanvullende lokale documentatie gebruikt.")
     web_context = web_context or []
-    if any(w.get("source_tier") == "official_web" for w in web_context):
+    if any(w.get("source_tier") == "official_web" and w.get("used_for_answer", True) for w in web_context):
         labels.append("Officiële webbronnen gebruikt.")
     if any(w.get("source_tier") == "external_web" for w in web_context):
         labels.append("Externe webbronnen gebruikt als lager geprioriteerde context.")
@@ -662,6 +671,8 @@ def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_in
     if llm_inference and str(llm_inference.get("text") or "").strip():
         labels.append("LLM-interpretatie gebruikt.")
     labels.append(f"Webmodus: {web_mode_label(web_mode)}.")
+    if web_attempted:
+        labels.append("Web geprobeerd.")
     labels.append(web_decision_label(web_decision_reason, web_attempted, bool(web_context)))
     if not manual_knowledge_used:
         labels.append("Niet bevestigd door interne/mondelinge kennis.")
@@ -759,6 +770,8 @@ def answer_deep_context_question_json(
     if not fields:
         payload = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
         payload.setdefault("web_context", [])
+        payload.setdefault("web_candidates", [])
+        payload.setdefault("rejected_web_candidates", [])
         payload.setdefault("web_sources_used", False)
         payload.setdefault("source_tiers_used", ["official_documentation"] if payload.get("curated_definition_found") else [])
         if allow_llm_inference:
@@ -769,13 +782,17 @@ def answer_deep_context_question_json(
         local_sufficient = bool(payload.get("curated_definition_found") or payload.get("definition"))
         attempted, reason = should_attempt_web(web_mode, local_sufficient, [], "medium" if local_sufficient else "low", str(payload.get("answer", "")))
         web_context = []
+        web_candidates = []
+        rejected_web_candidates = []
         if attempted:
-            web_context, reason = attempt_web_context(query, [], [], allow_external_web=allow_external_web)
+            web_context, web_candidates, rejected_web_candidates, reason = attempt_web_context(query, [], [], allow_external_web=allow_external_web)
         payload["web_mode"] = web_mode
         payload["web_attempted"] = attempted
         payload["web_decision_reason"] = reason
         payload["web_context"] = web_context
-        payload["web_sources_used"] = bool(web_context)
+        payload["web_candidates"] = web_candidates
+        payload["rejected_web_candidates"] = rejected_web_candidates
+        payload["web_sources_used"] = any(w.get("used_for_answer", True) for w in web_context)
         payload["bronstatus"] = bronstatus_labels(web_context=web_context, llm_inference=payload.get("llm_inference"), web_mode=web_mode, web_attempted=attempted, web_decision_reason=reason)
         if debug:
             payload.setdefault("debug", {})["web_decision"] = web_debug_payload(requested=web_mode_requested, effective=web_mode, attempted=attempted, reason=reason)
@@ -803,11 +820,13 @@ def answer_deep_context_question_json(
     confidence = "high" if has_supp else ("medium" if not refs else "low")
     web_attempted, web_decision_reason = should_attempt_web(web_mode, local_sufficient, missing, confidence)
     web_context = []
+    web_candidates = []
+    rejected_web_candidates = []
     web_unavailable_message = ""
     if web_attempted:
-        web_context, web_decision_reason = attempt_web_context(query, fields, refs, allow_external_web=allow_external_web)
+        web_context, web_candidates, rejected_web_candidates, web_decision_reason = attempt_web_context(query, fields, refs, allow_external_web=allow_external_web)
         if not web_context:
-            web_unavailable_message = "Geen gratis officiële webbron gevonden/gebruikt."
+            web_unavailable_message = "Geen bruikbare officiële webbron gevonden." if web_decision_reason == "no_relevant_official_web_context_found" else "Geen gratis officiële webbron gevonden/gebruikt."
     official_web = [w for w in web_context if w.get("source_tier") == "official_web"]
     external_web = [w for w in web_context if w.get("source_tier") == "external_web"]
     source_tiers_used = ["official_documentation"]
@@ -877,8 +896,10 @@ def answer_deep_context_question_json(
         "web_mode": web_mode,
         "web_attempted": web_attempted,
         "web_decision_reason": web_decision_reason,
-        "web_sources_used": bool(web_context),
+        "web_sources_used": any(w.get("used_for_answer", True) for w in web_context),
         "web_context": web_context,
+        "web_candidates": web_candidates,
+        "rejected_web_candidates": rejected_web_candidates,
         "source_tiers_used": unique_preserve_order(source_tiers_used),
         "llm_inference": llm_inference,
         "llm_inference_used": bool(llm_inference),
@@ -1514,15 +1535,19 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         llm = _build_llm_inference(query, tiers, [], True, official_answer=str(payload.get("definition") or payload.get("answer") or ""))
         attempted, reason = should_attempt_web(web_mode, True, [], "medium", str(payload.get("answer", "")))
         web_context = []
+        web_candidates = []
+        rejected_web_candidates = []
         if attempted:
-            web_context, reason = attempt_web_context(query, [], [], allow_external_web=False)
+            web_context, web_candidates, rejected_web_candidates, reason = attempt_web_context(query, [], [], allow_external_web=False)
         source_tiers = unique_preserve_order(tiers + (["official_web"] if any(w.get("source_tier") == "official_web" for w in web_context) else []) + (["external_web"] if any(w.get("source_tier") == "external_web" for w in web_context) else []) + (["llm_inference"] if llm else []))
         payload.update({
             "web_mode": web_mode,
             "web_attempted": attempted,
             "web_decision_reason": reason,
             "web_context": web_context,
-            "web_sources_used": bool(web_context),
+            "web_candidates": web_candidates,
+            "rejected_web_candidates": rejected_web_candidates,
+            "web_sources_used": any(w.get("used_for_answer", True) for w in web_context),
             "source_tiers_used": source_tiers,
             "llm_inference": llm,
             "llm_inference_used": bool(llm),
@@ -1535,6 +1560,8 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         payload.setdefault("web_attempted", False)
         payload.setdefault("web_decision_reason", "web_disabled" if web_mode == "off" else "local_context_sufficient")
         payload.setdefault("web_context", [])
+        payload.setdefault("web_candidates", [])
+        payload.setdefault("rejected_web_candidates", [])
         payload.setdefault("web_sources_used", False)
         payload.setdefault("source_tiers_used", [])
         payload.setdefault("llm_inference", None)

@@ -175,10 +175,8 @@ def render_result(result: dict, *, show_source_status: bool = True) -> None:
     web_context = result.get("web_context") or []
     official_web = [w for w in web_context if w.get("source_tier") == "official_web"]
     external_web = [w for w in web_context if w.get("source_tier") == "external_web"]
-    if official_web or result.get("web_unavailable_message"):
+    if official_web:
         st.subheader("Officiële webbronnen")
-        if not official_web:
-            st.info(result.get("web_unavailable_message") or "Geen officiële webbronnen gebruikt.")
         for source in official_web:
             st.markdown(f"- **{source.get('title')}** — `{source.get('domain')}` — {source.get('retrieved_at')} — `{source.get('source_tier')}`")
             st.caption(source.get("url", ""))
@@ -197,6 +195,12 @@ def render_result(result: dict, *, show_source_status: bool = True) -> None:
     if show_source_status:
         st.subheader("Bronstatus")
         render_bullets(result.get("bronstatus") or ["Lokale officiële documentatie gebruikt."])
+
+    rejected_candidates = result.get("rejected_web_candidates") or []
+    if rejected_candidates and result.get("debug"):
+        with st.expander("Geprobeerde maar afgekeurde webpagina’s"):
+            for candidate in rejected_candidates:
+                st.markdown(f"- `{candidate.get('reject_reason')}` — {candidate.get('url')}")
 
     if result.get("references"):
         st.subheader("Verwijzingen naar andere documentatie")

@@ -128,13 +128,14 @@ class FreeOnlyProvider:
 
     def fetch(self, url: str) -> dict[str, Any]:
         response = requests.get(url, timeout=10, headers={"User-Agent": "VU-EA-Conversational-AI/free-only"})
+        # Keep status code in metadata; HTTP errors are classified later and not used as evidence.
         response.raise_for_status()
         text = re.sub(r"<script.*?</script>|<style.*?</style>", " ", response.text, flags=re.I | re.S)
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text).strip()
         title_match = re.search(r"<title[^>]*>(.*?)</title>", response.text, flags=re.I | re.S)
         title = re.sub(r"\s+", " ", title_match.group(1)).strip() if title_match else url
-        return {"title": title, "url": url, "snippet": text[:300], "text": text}
+        return {"title": title, "url": url, "snippet": text[:300], "text": text, "status_code": response.status_code}
 
 
 def _provider(provider: WebProvider | None = None) -> WebProvider:
@@ -157,7 +158,7 @@ def fetch_web_source(url: str, provider: WebProvider | None = None) -> dict[str,
     except Exception:
         return None
     text = str(raw.get("text") or raw.get("snippet") or "")
-    meta = {"source_tier": source_tier_for_url(url, cfg["official_web_domains"]), "title": raw.get("title") or url, "url": url, "domain": domain_from_url(url), "retrieved_at": datetime.now(timezone.utc).isoformat(), "snippet": raw.get("snippet", ""), "text_excerpt": text[:1000], "content_hash": hashlib.sha256(text.encode()).hexdigest(), "relevance_score": 0.0, "used_for_answer": True}
+    meta = {"source_tier": source_tier_for_url(url, cfg["official_web_domains"]), "title": raw.get("title") or url, "url": url, "domain": domain_from_url(url), "retrieved_at": datetime.now(timezone.utc).isoformat(), "status_code": raw.get("status_code"), "snippet": raw.get("snippet", ""), "text_excerpt": text[:1000], "content_hash": hashlib.sha256(text.encode()).hexdigest(), "relevance_score": 0.0, "used_for_answer": True}
     if cfg.get("cache_enabled", True):
         path.write_text(json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8")
     return meta
@@ -182,15 +183,110 @@ def rank_web_sources(query: str, sources: list[dict[str, Any]]) -> list[dict[str
     return sorted(ranked, key=lambda s: (s.get("source_tier") == "official_web", s.get("relevance_score", 0)), reverse=True)
 
 
-def build_web_context(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None, *, allow_external_web: bool = False, provider: WebProvider | None = None) -> list[dict[str, Any]]:
+SEARCH_URL_PATTERNS = ("/search?", "/zoeken?", "?q=", "/search/", "/zoek")
+NOT_FOUND_TERMS = ("pagina niet gevonden", "sorry, deze pagina bestaat niet", "page not found", "not found")
+SEARCH_TITLES = ("zoeken", "search")
+MIN_CONTENT_CHARS = 300
+
+
+def is_search_page(url: str, title: str = "", text: str = "") -> bool:
+    url_l = str(url or "").lower()
+    title_l = str(title or "").strip().lower()
+    if any(pattern in url_l for pattern in SEARCH_URL_PATTERNS):
+        return True
+    if title_l in SEARCH_TITLES or title_l.startswith("zoeken ") or title_l.startswith("search "):
+        return True
+    if "cbs statline" in title_l and not is_relevant_web_source("", text, matched_terms=["onechte neveninschrijving", "neveninschrijving"]):
+        return True
+    return False
+
+
+def is_404_or_error_page(status_code: int | None = None, title: str = "", text: str = "") -> bool:
+    if status_code is not None and int(status_code) >= 400:
+        return True
+    haystack = f"{title} {text}".lower()
+    return "404" in str(title).lower() or any(term in haystack for term in NOT_FOUND_TERMS)
+
+
+def is_low_content_page(text: str) -> bool:
+    clean = re.sub(r"\s+", " ", str(text or "")).strip()
+    return len(clean) < MIN_CONTENT_CHARS
+
+
+def is_relevant_web_source(query: str, text: str, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None) -> bool:
+    haystack = normalize_for_relevance(text)
+    if not haystack:
+        return False
+    phrases = [normalize_for_relevance(term) for term in (matched_terms or []) if normalize_for_relevance(term)]
+    fields = [normalize_for_relevance(field.get("field_name", "")) for field in (matched_fields or [])]
+    phrases.extend(field for field in fields if field)
+    query_norm = normalize_for_relevance(query)
+    if query_norm:
+        phrases.append(query_norm)
+    if any(phrase and phrase in haystack for phrase in phrases):
+        return True
+    query_tokens = {token for token in re.findall(r"\w+", query_norm) if len(token) > 3}
+    domain_terms = {"onechte", "neveninschrijving", "neveninschrijvingen", "opleiding", "instelling", "opleiding instelling", "inschrijving", "student"}
+    relevant_tokens = query_tokens | domain_terms
+    hits = {token for token in relevant_tokens if token in haystack}
+    return len(hits) >= 3 and ("neveninschrijving" in hits or "neveninschrijvingen" in hits or "inschrijving" in hits)
+
+
+def normalize_for_relevance(value: Any) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", str(value or "").lower())).strip()
+
+
+def classify_web_candidate(candidate: dict[str, Any], query: str, *, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    url = str(candidate.get("url") or "")
+    title = str(candidate.get("title") or "")
+    text = str(candidate.get("text") or candidate.get("text_excerpt") or candidate.get("snippet") or "")
+    status_code = candidate.get("status_code")
+    classified = dict(candidate)
+    classified.setdefault("domain", domain_from_url(url))
+    classified.setdefault("source_tier", source_tier_for_url(url))
+    classified["accepted"] = False
+    if is_404_or_error_page(status_code, title, text):
+        classified["reject_reason"] = "not_found"
+    elif is_search_page(url, title, text):
+        classified["reject_reason"] = "search_page"
+    elif is_low_content_page(text):
+        classified["reject_reason"] = "low_content"
+    elif not is_relevant_web_source(query, text, matched_terms=matched_terms, matched_fields=matched_fields):
+        classified["reject_reason"] = "not_relevant"
+    else:
+        classified["accepted"] = True
+        classified["reject_reason"] = None
+        classified["used_for_answer"] = True
+    return classified
+
+
+def build_web_context_with_candidates(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None, *, allow_external_web: bool = False, provider: WebProvider | None = None) -> dict[str, Any]:
     cfg = load_web_config(); allowed = cfg["official_web_domains"]; max_results = int(cfg.get("max_results", 5))
     results = search_web_context(query, allowed_domains=allowed, max_results=max_results, provider=provider)
-    fetched = []
+    candidates = []
+    accepted = []
     for result in results:
-        meta = fetch_web_source(result.get("url", ""), provider=provider)
+        url = result.get("url", "")
+        pre = classify_web_candidate({**result, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed)}, query, matched_terms=matched_terms, matched_fields=matched_fields)
+        if not pre["accepted"] and pre.get("reject_reason") == "search_page":
+            candidates.append(pre)
+            continue
+        meta = fetch_web_source(url, provider=provider)
         if not meta:
+            failed = {**result, "url": url, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed), "accepted": False, "reject_reason": "web_fetch_failed", "used_for_answer": False}
+            candidates.append(failed)
             continue
-        if meta["source_tier"] == "external_web" and not allow_external_web:
-            continue
-        fetched.append(meta)
-    return rank_web_sources(query, fetched)[:max_results]
+        classified = classify_web_candidate(meta, query, matched_terms=matched_terms, matched_fields=matched_fields)
+        if classified["source_tier"] == "external_web" and not allow_external_web:
+            classified["accepted"] = False
+            classified["reject_reason"] = "external_web_disabled"
+        candidates.append(classified)
+        if classified.get("accepted"):
+            accepted.append(classified)
+    context = rank_web_sources(query, accepted)[:max_results]
+    rejected = [c for c in candidates if not c.get("accepted")]
+    return {"web_context": context, "web_candidates": candidates, "rejected_web_candidates": rejected}
+
+
+def build_web_context(query: str, matched_fields: list[dict[str, Any]] | None = None, matched_terms: list[str] | None = None, *, allow_external_web: bool = False, provider: WebProvider | None = None) -> list[dict[str, Any]]:
+    return build_web_context_with_candidates(query, matched_fields=matched_fields, matched_terms=matched_terms, allow_external_web=allow_external_web, provider=provider)["web_context"]
