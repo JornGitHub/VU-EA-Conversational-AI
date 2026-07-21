@@ -141,7 +141,7 @@ def run_evaluation(pseudo_path=DEFAULT_PSEUDO, overrides_path=DEFAULT_OVERRIDES,
     run_id = utc_now_iso().replace(":", ""); ts = utc_now_iso(); results=[]
     for dataset_name, case in rows:
         if dataset_name == "web_context":
-            actual = answer_deep_context_question_json(str(case.get("query") or case.get("question", "")), allow_web_sources=bool(case.get("allow_web_sources", True)), allow_external_web=bool(case.get("allow_external_web", False)))
+            actual = answer_deep_context_question_json(str(case.get("query") or case.get("question", "")), web_mode=str(case.get("web_mode") or ("fallback" if case.get("allow_web_sources", True) else "off")), allow_external_web=bool(case.get("allow_external_web", False)))
         else:
             actual = answer_func(str(case.get("question", "")))
         failures = evaluate_case(case, actual)

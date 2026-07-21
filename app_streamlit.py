@@ -245,7 +245,14 @@ st.title("📘 HO Definitiezoeker")
 st.markdown("Stel een vraag over definities, velden of databestanden uit de HO-documentatie.")
 
 debug = st.sidebar.checkbox("Toon debug-informatie")
-use_official_web = st.sidebar.checkbox("Gebruik officiële webbronnen", value=True)
+web_mode_options = {
+    "Uit": "off",
+    "Alleen bij ontbrekende lokale context": "fallback",
+    "Altijd proberen als extra context": "enhance",
+    "Forceer webcontext": "force",
+}
+web_mode_label_selected = st.sidebar.selectbox("Webcontext-modus", list(web_mode_options), index=1)
+web_mode = web_mode_options[web_mode_label_selected]
 use_external_web = st.sidebar.checkbox("Gebruik overige externe webbronnen", value=False)
 allow_llm_inference = st.sidebar.checkbox("Sta LLM-interpretatie toe", value=True)
 show_source_status = st.sidebar.checkbox("Toon bronstatus", value=True)
@@ -270,7 +277,7 @@ if not query.strip():
 else:
     if use_llm:
         with st.spinner("Antwoord formuleren met LLM..."):
-            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, deep_context=use_deep_context, allow_web_sources=use_official_web, allow_external_web=use_external_web, allow_llm_inference=allow_llm_inference)
+            result = answer_with_llm(query, model=model, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, deep_context=use_deep_context, web_mode=web_mode, allow_external_web=use_external_web, allow_llm_inference=allow_llm_inference)
 
         if result.get("llm_answer"):
             st.subheader("LLM-antwoord")
@@ -287,7 +294,7 @@ else:
                 st.code(result["prompt"])
     else:
         try:
-            result = answer_deep_context_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, allow_web_sources=use_official_web, allow_external_web=use_external_web, allow_llm_inference=allow_llm_inference) if use_deep_context else answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental)
+            result = answer_deep_context_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, web_mode=web_mode, allow_external_web=use_external_web, allow_llm_inference=allow_llm_inference) if use_deep_context else answer_definition_question_json(query, debug=debug, source_focus="primary" if focus_primary else "auto", include_supplemental=include_supplemental, web_mode=web_mode)
         except Exception as exc:  # noqa: BLE001 - show useful diagnostics during development.
             st.error("Er ging iets mis bij het zoeken in de definitiebestanden.")
             st.exception(exc)

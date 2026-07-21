@@ -2,6 +2,7 @@ web_sources:
   allow_paid_apis: false
   allow_api_key_based_search: false
   provider: free_only
+  web_mode_default: fallback
   official_web_only: true
   external_web_enabled: false
   max_results: 5

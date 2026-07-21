@@ -21,7 +21,7 @@ from typing import Any
 
 from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
 from src.definitions.context_pack import build_context_pack
-from src.definitions.web_sources import SOURCE_TIERS, build_web_context
+from src.definitions.web_sources import SOURCE_TIERS, WEB_MODE_DEFAULT, WEB_MODES, build_web_context
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -591,7 +591,43 @@ def match_catalog_fields(query: str, limit: int = 4, min_score: float = 18.0) ->
 
 
 
-def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_inference: dict[str, Any] | None = None, has_supplemental: bool = False, manual_knowledge_used: bool = False) -> list[str]:
+def web_mode_label(web_mode: str) -> str:
+    return {
+        "off": "uit",
+        "fallback": "alleen bij ontbrekende lokale context",
+        "enhance": "altijd proberen als extra context",
+        "force": "forceer webcontext",
+    }.get(web_mode, web_mode)
+
+
+def web_decision_label(reason: str, attempted: bool, used: bool) -> str:
+    if reason == "web_disabled":
+        return "Web uitgeschakeld."
+    if reason == "local_context_sufficient":
+        return "Web niet geprobeerd, omdat lokale documentatie voldoende context gaf."
+    if used:
+        return "Webbronnen gebruikt."
+    if attempted and reason == "no_free_official_web_context_found":
+        return "Geen gratis officiële webbron gevonden/gebruikt."
+    if attempted:
+        return "Web geprobeerd."
+    return "Web niet geprobeerd."
+
+
+def should_attempt_web(web_mode: str, local_sufficient: bool, missing: list[str], confidence: str, answer_text: str = "") -> tuple[bool, str]:
+    if web_mode not in WEB_MODES:
+        web_mode = WEB_MODE_DEFAULT
+    if web_mode == "off":
+        return False, "web_disabled"
+    if web_mode in {"enhance", "force"}:
+        return True, "web_forced" if web_mode == "force" else "enhance_requested"
+    insufficient_text = any(phrase in normalize_text(answer_text) for phrase in ["onvoldoende context", "ontbrekende bron", "geen betrouwbare definitie"])
+    if (not local_sufficient) or missing or confidence == "low" or insufficient_text:
+        return True, "local_context_insufficient"
+    return False, "local_context_sufficient"
+
+
+def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_inference: dict[str, Any] | None = None, has_supplemental: bool = False, manual_knowledge_used: bool = False, web_mode: str = WEB_MODE_DEFAULT, web_attempted: bool = False, web_decision_reason: str = "local_context_sufficient") -> list[str]:
     labels = ["Lokale officiële documentatie gebruikt."]
     if has_supplemental:
         labels.append("Aanvullende lokale documentatie gebruikt.")
@@ -604,6 +640,8 @@ def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_in
         labels.append("Geen webbronnen gebruikt.")
     if llm_inference and str(llm_inference.get("text") or "").strip():
         labels.append("LLM-interpretatie gebruikt.")
+    labels.append(f"Webmodus: {web_mode_label(web_mode)}.")
+    labels.append(web_decision_label(web_decision_reason, web_attempted, bool(web_context)))
     if not manual_knowledge_used:
         labels.append("Niet bevestigd door interne/mondelinge kennis.")
     return labels
@@ -672,11 +710,19 @@ def answer_deep_context_question_json(
     include_supplemental: bool = True,
     include_manual_knowledge: bool = True,
     allow_llm_inference: bool = True,
-    allow_web_sources: bool = True,
+    web_mode: str = WEB_MODE_DEFAULT,
+    official_web_only: bool = True,
     allow_external_web: bool = False,
+    allow_web_sources: bool | None = None,
     debug: bool = False,
 ) -> dict[str, Any]:
     """Answer source-aware field/context questions with references followed."""
+    if allow_web_sources is not None:
+        web_mode = "fallback" if allow_web_sources else "off"
+    if web_mode not in WEB_MODES:
+        web_mode = WEB_MODE_DEFAULT
+    if official_web_only:
+        allow_external_web = False
     q = normalize_text(query)
     fields = match_catalog_fields(query, limit=6)
     # Common elliptical comparison: "opleiding historisch" vs "opleiding actueel".
@@ -698,7 +744,10 @@ def answer_deep_context_question_json(
             if payload["llm_inference"]:
                 payload["source_tiers_used"] = unique_preserve_order(payload["source_tiers_used"] + ["llm_inference"])
         payload["llm_inference_used"] = bool(payload.get("llm_inference"))
-        payload["bronstatus"] = bronstatus_labels(web_context=payload.get("web_context"), llm_inference=payload.get("llm_inference"))
+        payload["web_mode"] = web_mode
+        payload["web_attempted"] = False
+        payload["web_decision_reason"] = "web_disabled" if web_mode == "off" else "local_context_sufficient"
+        payload["bronstatus"] = bronstatus_labels(web_context=payload.get("web_context"), llm_inference=payload.get("llm_inference"), web_mode=web_mode, web_attempted=False, web_decision_reason=payload["web_decision_reason"])
         return payload
 
     if "verwijs" in q or "verwijzing" in q or "waar naar" in q:
@@ -720,12 +769,17 @@ def answer_deep_context_question_json(
     has_supp = bool(pack["supplemental_context"])
     missing = pack["missing_references"]
     local_sufficient = _local_context_sufficient(fields, pack, refs)
+    confidence = "high" if has_supp else ("medium" if not refs else "low")
+    web_attempted, web_decision_reason = should_attempt_web(web_mode, local_sufficient, missing, confidence)
     web_context = []
     web_unavailable_message = ""
-    if allow_web_sources and not local_sufficient:
+    if web_attempted:
         web_context = build_web_context(query, matched_fields=fields, matched_terms=refs, allow_external_web=allow_external_web)
-        if not web_context:
-            web_unavailable_message = "Geen aanvullende gratis webbron gevonden/gebruikt."
+        if web_context:
+            web_decision_reason = "web_context_found"
+        else:
+            web_decision_reason = "no_free_official_web_context_found"
+            web_unavailable_message = "Geen gratis officiële webbron gevonden/gebruikt."
     official_web = [w for w in web_context if w.get("source_tier") == "official_web"]
     external_web = [w for w in web_context if w.get("source_tier") == "external_web"]
     source_tiers_used = ["official_documentation"]
@@ -768,7 +822,7 @@ def answer_deep_context_question_json(
         elif any("internationale student" in normalize_text(f["field_name"]) for f in fields):
             lines += ["", "Conclusie / verschil:", "De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven als internationale student geregistreerd als dat toen zo was. In beide gevallen hoort bij de kern dat de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding vóór het HO heeft."]
     if not any(line == "Bronstatus:" for line in lines):
-        lines += ["", "Bronstatus:"] + [f"- {label}" for label in bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False)]
+        lines += ["", "Bronstatus:"] + [f"- {label}" for label in bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False, web_mode=web_mode, web_attempted=web_attempted, web_decision_reason=web_decision_reason)]
     answer = "\n".join(lines)
     payload = {
         "query": query,
@@ -784,7 +838,7 @@ def answer_deep_context_question_json(
         "supplemental_sources": pack["supplemental_sources_used"],
         "missing_references": missing,
         "references": refs,
-        "confidence": "high" if has_supp else ("medium" if not refs else "low"),
+        "confidence": confidence,
         "evidence": pack["primary_evidence"] + pack["supplemental_context"],
         "context_pack": pack,
         "datasets": [PRIMARY_DATASET],
@@ -792,12 +846,15 @@ def answer_deep_context_question_json(
         "notes": [n for f in fields for n in (f.get("notes") or [])],
         "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
         "source_tiers": SOURCE_TIERS,
+        "web_mode": web_mode,
+        "web_attempted": web_attempted,
+        "web_decision_reason": web_decision_reason,
         "web_sources_used": bool(web_context),
         "web_context": web_context,
         "source_tiers_used": unique_preserve_order(source_tiers_used),
         "llm_inference": llm_inference,
         "llm_inference_used": bool(llm_inference),
-        "bronstatus": bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False),
+        "bronstatus": bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False, web_mode=web_mode, web_attempted=web_attempted, web_decision_reason=web_decision_reason),
         "manual_knowledge_used": False,
         "web_unavailable_message": web_unavailable_message,
     }
@@ -1345,7 +1402,7 @@ def debug_match_payload(result: Result) -> dict[str, Any]:
     }
 
 
-def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True) -> dict[str, Any]:
+def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True, web_mode: str = WEB_MODE_DEFAULT) -> dict[str, Any]:
     """Return structured retrieval output for LLM/chatbot grounding.
 
     The JSON-style dictionary separates the user query, detected intent, final
@@ -1359,7 +1416,7 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
     if primary_relevant and intent in {"all_fields", "dataset_layout"}:
         return build_all_fields_payload(query, debug, "primary_only")
     if primary_relevant and intent in {"field_comparison", "field_reference", "field_values"} and match_catalog_fields(query, limit=1):
-        return answer_deep_context_question_json(query, source_focus=source_focus, include_supplemental=include_supplemental, debug=debug)
+        return answer_deep_context_question_json(query, source_focus=source_focus, include_supplemental=include_supplemental, debug=debug, web_mode=web_mode)
     if primary_relevant and intent in {"source_selection", "transformation", "comparison"}:
         return build_primary_context_payload(query, intent, debug, "primary_only")
     field = find_catalog_field(query) if primary_relevant else None
@@ -1425,22 +1482,28 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         tiers = ["official_documentation"]
         llm = _build_llm_inference(query, tiers, [], True, official_answer=str(payload.get("definition") or payload.get("answer") or ""))
         payload.update({
+            "web_mode": web_mode,
+            "web_attempted": False,
+            "web_decision_reason": "web_disabled" if web_mode == "off" else "local_context_sufficient",
             "web_context": [],
             "web_sources_used": False,
             "source_tiers_used": unique_preserve_order(tiers + (["llm_inference"] if llm else [])),
             "llm_inference": llm,
             "llm_inference_used": bool(llm),
-            "bronstatus": bronstatus_labels(web_context=[], llm_inference=llm),
+            "bronstatus": bronstatus_labels(web_context=[], llm_inference=llm, web_mode=web_mode, web_attempted=False, web_decision_reason="web_disabled" if web_mode == "off" else "local_context_sufficient"),
         })
         if llm:
             payload["answer"] = payload["answer"].rstrip() + "\n\nLLM-interpretatie:\n" + llm["text"] + "\n\nBronstatus:\n" + "\n".join(f"- {label}" for label in payload["bronstatus"])
     else:
+        payload.setdefault("web_mode", web_mode)
+        payload.setdefault("web_attempted", False)
+        payload.setdefault("web_decision_reason", "web_disabled" if web_mode == "off" else "local_context_sufficient")
         payload.setdefault("web_context", [])
         payload.setdefault("web_sources_used", False)
         payload.setdefault("source_tiers_used", [])
         payload.setdefault("llm_inference", None)
         payload.setdefault("llm_inference_used", False)
-        payload.setdefault("bronstatus", bronstatus_labels(web_context=[], llm_inference=None))
+        payload.setdefault("bronstatus", bronstatus_labels(web_context=[], llm_inference=None, web_mode=web_mode, web_attempted=False, web_decision_reason=payload["web_decision_reason"]))
 
     if debug:
         payload["debug_matches"] = [debug_match_payload(result) for result in results]

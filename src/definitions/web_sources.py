@@ -20,6 +20,12 @@ import requests
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "web_sources.yaml"
 CACHE_DIR = PROJECT_ROOT / "data" / "web_cache"
+WEB_MODE_DEFAULT = "fallback"
+WEB_MODES = {"off", "fallback", "enhance", "force"}
+OFFICIAL_WEB_ONLY_DEFAULT = True
+ALLOW_EXTERNAL_WEB_DEFAULT = False
+ALLOW_PAID_APIS = False
+ALLOW_API_KEY_BASED_SEARCH = False
 
 SOURCE_TIERS = [
     "official_documentation",
@@ -31,9 +37,10 @@ SOURCE_TIERS = [
 ]
 
 DEFAULT_CONFIG = {
-    "allow_paid_apis": False,
-    "allow_api_key_based_search": False,
+    "allow_paid_apis": ALLOW_PAID_APIS,
+    "allow_api_key_based_search": ALLOW_API_KEY_BASED_SEARCH,
     "provider": "free_only",
+    "web_mode_default": WEB_MODE_DEFAULT,
     "official_web_only": True,
     "external_web_enabled": False,
     "max_results": 5,

@@ -19,6 +19,7 @@ class WebSourcesTests(unittest.TestCase):
         self.assertIs(cfg["allow_paid_apis"], False)
         self.assertIs(cfg["allow_api_key_based_search"], False)
         self.assertEqual(cfg["provider"], "free_only")
+        self.assertEqual(cfg["web_mode_default"], "fallback")
         self.assertIs(cfg["external_web_enabled"], False)
 
     def test_no_required_paid_api_environment_variables(self):
@@ -48,16 +49,18 @@ class WebSourcesTests(unittest.TestCase):
         finally:
             web_sources.CACHE_DIR = original_cache
 
-    def test_web_search_not_called_when_local_context_sufficient(self):
+    def test_web_search_not_called_when_fallback_local_context_sufficient(self):
         original = search.build_web_context
         def fail(*args, **kwargs):
             raise AssertionError("web should not be called")
         search.build_web_context = fail
         try:
-            result = search.answer_deep_context_question_json("Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?", allow_web_sources=True)
+            result = search.answer_deep_context_question_json("Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?", web_mode="fallback")
         finally:
             search.build_web_context = original
+        self.assertIs(result["web_attempted"], False)
         self.assertIs(result["web_sources_used"], False)
+        self.assertEqual(result["web_decision_reason"], "local_context_sufficient")
         self.assertIn("official_documentation", result["source_tiers_used"])
 
     def test_web_search_called_when_local_context_insufficient(self):
@@ -68,7 +71,7 @@ class WebSourcesTests(unittest.TestCase):
             return [{"source_tier":"official_web","title":"DUO","url":"https://duo.nl/x","domain":"duo.nl","retrieved_at":"2026-07-21T00:00:00+00:00","text_excerpt":"aanvullende context","used_for_answer":True}]
         search.build_web_context = fake
         try:
-            result = search.answer_deep_context_question_json("Waar verwijst Opleiding actueel equivalent naar?", allow_web_sources=True)
+            result = search.answer_deep_context_question_json("Waar verwijst Opleiding actueel equivalent naar?", web_mode="fallback")
         finally:
             search.build_web_context = original
         self.assertIs(called["value"], True)
@@ -81,12 +84,49 @@ class WebSourcesTests(unittest.TestCase):
         original = search.build_web_context
         search.build_web_context = lambda *a, **k: [{"source_tier":"official_web","title":"new","url":"https://duo.nl/x","domain":"duo.nl","retrieved_at":"2026-07-21T00:00:00+00:00","text_excerpt":"conflicting web claim","used_for_answer":True}]
         try:
-            result = search.answer_deep_context_question_json("Waar verwijst Opleiding historisch equivalent naar?", allow_web_sources=True)
+            result = search.answer_deep_context_question_json("Waar verwijst Opleiding historisch equivalent naar?", web_mode="force")
         finally:
             search.build_web_context = original
         self.assertEqual(result["source_tiers_used"][0], "official_documentation")
         self.assertIn("Officiële webbronnen gebruikt.", result["bronstatus"])
         self.assertIsNone(result["llm_inference"])
+
+    def test_web_mode_off_disables_web(self):
+        original = search.build_web_context
+        search.build_web_context = lambda *a, **k: (_ for _ in ()).throw(AssertionError("web should not be called"))
+        try:
+            result = search.answer_deep_context_question_json("Waar verwijst Opleiding actueel equivalent naar?", web_mode="off")
+        finally:
+            search.build_web_context = original
+        self.assertEqual(result["web_mode"], "off")
+        self.assertIs(result["web_attempted"], False)
+        self.assertEqual(result["web_decision_reason"], "web_disabled")
+
+    def test_web_mode_enhance_attempts_without_crashing_when_empty(self):
+        original = search.build_web_context
+        called = {"value": False}
+        def empty(*args, **kwargs):
+            called["value"] = True
+            return []
+        search.build_web_context = empty
+        try:
+            result = search.answer_deep_context_question_json("Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?", web_mode="enhance")
+        finally:
+            search.build_web_context = original
+        self.assertTrue(called["value"])
+        self.assertIs(result["web_attempted"], True)
+        self.assertIs(result["web_sources_used"], False)
+        self.assertEqual(result["web_decision_reason"], "no_free_official_web_context_found")
+
+    def test_web_mode_force_attempts_without_api_keys(self):
+        original = search.build_web_context
+        search.build_web_context = lambda *a, **k: []
+        try:
+            result = search.answer_deep_context_question_json("Wat is het verschil tussen Indicatie internationale student en Indicatie internationale student op peildatum 1 oktober?", web_mode="force")
+        finally:
+            search.build_web_context = original
+        self.assertIs(result["web_attempted"], True)
+        self.assertEqual(result["web_decision_reason"], "no_free_official_web_context_found")
 
 
 class SourceAwareInterpretationRegressionTests(unittest.TestCase):

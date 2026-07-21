@@ -80,3 +80,7 @@ python scripts/run_evaluation.py --dataset web_context
 ### Weergave van interpretatie en bronstatus
 
 De UI toont `LLM-interpretatie` alleen wanneer de retrieval-laag een inhoudelijke, brongebonden interpretatietekst heeft opgebouwd. Een lege tekst of alleen een standaarddisclaimer wordt niet als aparte interpretatiesectie weergegeven. Als er geen webcontext in `web_context` staat en `web_sources_used` false is, verwijzen disclaimers naar lokale officiële documentatie en niet naar webbronnen. Technische source tiers blijven beschikbaar in JSON/debug-output, maar de normale Streamlit-weergave gebruikt leesbare Nederlandse bronstatusregels zoals “Geen webbronnen gebruikt.”
+
+### Webcontext-modus
+
+Streamlit biedt vier modi voor gratis/no-key webcontext: `off` gebruikt nooit web; `fallback` is de veilige default en probeert web alleen wanneer lokale officiële context onvoldoende is; `enhance` houdt lokale documentatie leidend maar probeert ook aanvullende officiële webcontext; `force` probeert web altijd en meldt expliciet wanneer geen gratis officiële webbron is gevonden. In alle modi blijven lokale officiële bronnen leidend en webcontext wordt apart gelabeld.

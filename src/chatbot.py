@@ -14,13 +14,14 @@ def answer_with_llm(
     source_focus: str = "primary",
     include_supplemental: bool = True,
     deep_context: bool = False,
-    allow_web_sources: bool = True,
+    web_mode: str = "fallback",
     allow_external_web: bool = False,
+    allow_web_sources: bool | None = None,
     allow_llm_inference: bool = True,
 ) -> dict:
     """Return an LLM-formulated Dutch answer grounded in retrieval output."""
     if deep_context:
-        retrieval_result = answer_deep_context_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental, allow_web_sources=allow_web_sources, allow_external_web=allow_external_web, allow_llm_inference=allow_llm_inference)
+        retrieval_result = answer_deep_context_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental, web_mode=web_mode, allow_external_web=allow_external_web, allow_llm_inference=allow_llm_inference, allow_web_sources=allow_web_sources)
     else:
         retrieval_result = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
     prompt = build_grounded_prompt(query, retrieval_result)
