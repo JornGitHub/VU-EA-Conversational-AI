@@ -155,7 +155,7 @@ def extract_pdf_text(content: bytes) -> str:
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(content))
-        return "\n".join(page.extract_text() or "" for page in reader.pages[:20])
+        return "\n".join(page.extract_text() or "" for page in reader.pages)
     except Exception:
         return ""
 
@@ -404,6 +404,58 @@ def score_web_relevance(query: str, text: str, matched_fields: list[dict[str, An
     return min(score, 1.0), matched
 
 
+def build_relevant_excerpt(text: str, query: str, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None, max_chars: int = 700) -> str:
+    clean = re.sub(r"\s+", " ", str(text or "")).strip()
+    if not clean:
+        return ""
+    priority_terms = [
+        "onechte neveninschrijving",
+        "echte neveninschrijving",
+        "hoofdinschrijving",
+        "Soort inschrijving ho",
+        "Soort inschrijving soort ho",
+        "dubbeltellingen",
+        "beslisboom",
+        "rekenregel",
+    ]
+    dynamic_terms = [str(term) for term in (matched_terms or []) if str(term).strip()]
+    dynamic_terms.extend(str(field.get("field_name", "")) for field in (matched_fields or []) if field.get("field_name"))
+    query_norm = normalize_for_relevance(query)
+    if "onechte neveninschrijving" in query_norm:
+        dynamic_terms.extend(priority_terms)
+    query_tokens = [token for token in re.findall(r"\w+", query_norm) if len(token) > 4]
+    terms = []
+    seen = set()
+    for term in dynamic_terms + query_tokens:
+        norm = normalize_for_relevance(term)
+        if norm and norm not in seen:
+            seen.add(norm); terms.append(term)
+    clean_norm = normalize_for_relevance(clean)
+    best_pos = None
+    best_len = 0
+    for term in terms:
+        norm = normalize_for_relevance(term)
+        pos = clean_norm.find(norm)
+        if pos >= 0:
+            # Map approximately back to original text by searching case-insensitively for the raw term.
+            raw_match = re.search(re.escape(str(term)), clean, flags=re.I)
+            best_pos = raw_match.start() if raw_match else min(pos, len(clean))
+            best_len = len(str(term))
+            break
+    if best_pos is None:
+        return clean[:max_chars]
+    start = max(0, best_pos - max_chars // 3)
+    end = min(len(clean), start + max_chars)
+    if end - start < max_chars:
+        start = max(0, end - max_chars)
+    excerpt = clean[start:end].strip()
+    if start > 0:
+        excerpt = "…" + excerpt
+    if end < len(clean):
+        excerpt += "…"
+    return excerpt
+
+
 def accept_or_reject_web_candidate(candidate: dict[str, Any], query: str, *, matched_terms: list[str] | None = None, matched_fields: list[dict[str, Any]] | None = None) -> dict[str, Any]:
     return classify_web_candidate(candidate, query, matched_terms=matched_terms, matched_fields=matched_fields)
 
@@ -463,6 +515,10 @@ def build_web_context_with_candidates(query: str, matched_fields: list[dict[str,
         if classified["source_tier"] == "external_web" and not allow_external_web:
             classified["accepted"] = False
             classified["reject_reason"] = "external_web_disabled"
+        if classified.get("accepted"):
+            excerpt = build_relevant_excerpt(text, query, matched_terms=classified.get("matched_terms") or matched_terms, matched_fields=matched_fields)
+            classified["text_excerpt"] = excerpt
+            classified["evidence_excerpt"] = excerpt[:500]
         classified.pop("text", None)
         candidates.append(classified)
         if classified.get("accepted"):

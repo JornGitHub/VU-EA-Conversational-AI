@@ -12,6 +12,16 @@ def build_grounded_prompt(user_query: str, retrieval_result: dict) -> str:
     instructions to formulate naturally without adding unsupported facts.
     """
     retrieval_json = json.dumps(retrieval_result, ensure_ascii=False, indent=2)
+    web_sources = retrieval_result.get("web_context") or []
+    official_web_context = ""
+    if web_sources:
+        lines = ["Officiële webbronnen:"]
+        for source in web_sources:
+            lines.extend([
+                f"- {source.get('title')} ({source.get('url')})",
+                f"  Excerpt: {source.get('evidence_excerpt') or source.get('text_excerpt') or ''}",
+            ])
+        official_web_context = "\n".join(lines)
     return f"""Je bent een assistent voor Nederlandse hoger-onderwijsdata.
 
 Beantwoord de vraag van de gebruiker uitsluitend op basis van de retrieval-output hieronder.
@@ -36,6 +46,8 @@ Regels:
 
 Gebruikersvraag:
 {user_query}
+
+{official_web_context}
 
 Retrieval-output:
 {retrieval_json}

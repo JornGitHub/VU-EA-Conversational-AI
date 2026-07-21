@@ -286,5 +286,37 @@ class WebDiscoveryPipelineTests(unittest.TestCase):
         self.assertEqual(result["web_context"], [])
         self.assertTrue(any(c.get("reject_reason") == "fetch_failed" for c in result["rejected_web_candidates"]))
 
+class WebExcerptAndDisclaimerTests(unittest.TestCase):
+    def test_relevant_excerpt_prefers_matched_passage(self):
+        intro = "Algemene intro over de Wet register onderwijsdeelnemers. " * 12
+        relevant = "Soort inschrijving ho geeft aan of sprake is van een hoofdinschrijving, echte neveninschrijving of onechte neveninschrijving. Deze rekenregel voorkomt dubbeltellingen van inschrijvingen."
+        excerpt = web_sources.build_relevant_excerpt(intro + relevant, "Wat is een onechte neveninschrijving?", matched_terms=["onechte neveninschrijving", "Soort inschrijving ho", "dubbeltellingen"])
+        self.assertIn("onechte neveninschrijving", excerpt)
+        self.assertIn("Soort inschrijving ho", excerpt)
+        self.assertIn("dubbeltellingen", excerpt)
+        self.assertNotEqual(excerpt[:40], intro[:40])
+
+    def test_disclaimer_mentions_web_only_when_web_context_used(self):
+        original = search.attempt_web_context
+        context = [{"source_tier":"official_web","title":"Toelichting op de gegevens die DUO levert","url":"https://duo.nl/zakelijk/images/toelichting-op-de-gegevens-die-duo-levert.pdf","domain":"duo.nl","retrieved_at":"2026-07-21T00:00:00+00:00","text_excerpt":"Soort inschrijving ho ... onechte neveninschrijving ... dubbeltellingen","evidence_excerpt":"Soort inschrijving ho ... onechte neveninschrijving ... dubbeltellingen","used_for_answer":True}]
+        search.attempt_web_context = lambda *a, **k: (context, context, [], ["seed_urls"], "relevant_official_web_context_found")
+        try:
+            with_web = search.answer_definition_question_json("Wat is een onechte neveninschrijving?", web_mode="force")
+        finally:
+            search.attempt_web_context = original
+        without_web = search.answer_definition_question_json("Wat is een onechte neveninschrijving?", web_mode="off")
+        self.assertIn("lokale officiële documentatie", with_web["llm_inference"]["disclaimer"])
+        self.assertIn("officiële webbron", with_web["llm_inference"]["disclaimer"])
+        self.assertIn("lokale officiële documentatie", without_web["llm_inference"]["disclaimer"])
+        self.assertNotIn("officiële webbron", without_web["llm_inference"]["disclaimer"])
+
+    def test_llm_prompt_contains_official_web_excerpt(self):
+        from src.llm.prompt_builder import build_grounded_prompt
+        result = {"web_context": [{"title":"Toelichting op de gegevens die DUO levert", "url":"https://duo.nl/zakelijk/images/toelichting-op-de-gegevens-die-duo-levert.pdf", "evidence_excerpt":"Soort inschrijving ho ... onechte neveninschrijving ... dubbeltellingen"}]}
+        prompt = build_grounded_prompt("Wat is een onechte neveninschrijving?", result)
+        self.assertIn("Officiële webbronnen:", prompt)
+        self.assertIn("Toelichting op de gegevens die DUO levert", prompt)
+        self.assertIn("onechte neveninschrijving", prompt)
+
 if __name__ == "__main__":
     unittest.main()

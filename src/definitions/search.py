@@ -703,7 +703,7 @@ def build_llm_inference_text(query: str, official_answer: str, matched_fields: l
 
 def _disclaimer_for_tiers(based_on: list[str]) -> str:
     if "official_web" in based_on or "external_web" in based_on:
-        return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en gelabelde webbronnen. Dit is geen bevestigde interne/mondelinge toelichting."
+        return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en de hierboven getoonde officiële webbron(nen). Dit is geen bevestigde interne/mondelinge toelichting."
     if "official_documentation" in based_on or "official_supplemental" in based_on:
         return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie. Dit is geen bevestigde interne/mondelinge toelichting."
     return "Deze uitleg is een LLM-interpretatie op basis van beperkt beschikbare broncontext. Dit is geen bevestigde interne/mondelinge toelichting."
@@ -1548,7 +1548,7 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         web_based_tiers = unique_preserve_order(tiers + (["official_web"] if any(w.get("source_tier") == "official_web" for w in web_context) else []) + (["external_web"] if any(w.get("source_tier") == "external_web" for w in web_context) else []))
         if llm:
             llm["based_on_sources"] = web_based_tiers
-            llm["disclaimer"] = "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en de hierboven getoonde officiële webbronnen. Dit is geen bevestigde interne/mondelinge toelichting." if web_context else _disclaimer_for_tiers(web_based_tiers)
+            llm["disclaimer"] = "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en de hierboven getoonde officiële webbron(nen). Dit is geen bevestigde interne/mondelinge toelichting." if web_context else _disclaimer_for_tiers(web_based_tiers)
         source_tiers = unique_preserve_order(web_based_tiers + (["llm_inference"] if llm else []))
         payload.update({
             "web_mode": web_mode,
