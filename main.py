@@ -75,11 +75,12 @@ def run_dry_build() -> int:
     )
 
 
-def run_query(query: str, *, as_json: bool = False, llm: bool = False, model: str = "qwen3:8b") -> int:
+def run_query(query: str, *, as_json: bool = False, llm: bool = False, model: str = "qwen3:8b", web_mode: str = "fallback") -> int:
     """Run the reusable definition search example for a single query."""
     command = [sys.executable, "zoek_definities_voorbeeld.py", query]
     if as_json:
         command.append("--json")
+    command.extend(["--web-mode", web_mode])
     if llm:
         command.extend(["--llm", "--model", model])
     return run_command(command, "Definition query")
@@ -142,6 +143,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json", action="store_true", help="Return --query output as JSON.")
     parser.add_argument("--llm", action="store_true", help="Use the local Ollama LLM layer for --query.")
     parser.add_argument("--model", default="qwen3:8b", help="Ollama model name for --llm queries.")
+    parser.add_argument("--web-mode", choices=["off", "fallback", "enhance", "force"], default="fallback", help="Free-only web context mode for --query.")
     parser.add_argument("--streamlit", action="store_true", help="Start app_streamlit.py for manual UI testing.")
     parser.add_argument("--archive-root-leftovers", action="store_true", help="Archive generated artifacts left in the project root.")
     parser.add_argument("--check-hygiene", action="store_true", help="Warn about generated artifacts left in the project root.")
@@ -174,7 +176,7 @@ def main() -> int:
         if args.dry_build:
             statuses.append(run_dry_build())
         if args.query:
-            statuses.append(run_query(args.query, as_json=args.json, llm=args.llm, model=args.model))
+            statuses.append(run_query(args.query, as_json=args.json, llm=args.llm, model=args.model, web_mode=args.web_mode))
         if args.streamlit:
             statuses.append(run_streamlit())
         if args.archive_root_leftovers:

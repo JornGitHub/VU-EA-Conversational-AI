@@ -44,6 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--json", action="store_true", help="Geef het antwoord terug als gestructureerde JSON.")
     parser.add_argument("--llm", action="store_true", help="Formuleer het antwoord met een lokale Ollama-LLM.")
     parser.add_argument("--model", default="qwen3:8b", help="Ollama-model voor --llm.")
+    parser.add_argument("--web-mode", choices=["off", "fallback", "enhance", "force"], default="fallback", help="Gratis webcontextmodus voor JSON/LLM retrieval.")
     parser.add_argument("--demo", action="store_true", help="Draai een expliciete demoquery over internationale studenten.")
     return parser.parse_args()
 
@@ -58,7 +59,7 @@ def main() -> None:
     if args.llm:
         from src.chatbot import answer_with_llm
 
-        payload = answer_with_llm(query, model=args.model, debug=args.debug)
+        payload = answer_with_llm(query, model=args.model, debug=args.debug, web_mode=args.web_mode)
         if payload.get("llm_answer"):
             print(payload["llm_answer"])
         else:
@@ -67,7 +68,7 @@ def main() -> None:
             print("\nTerugval naar het normale retrieval-antwoord:\n")
             print(answer_definition_question(query, debug=args.debug))
     elif args.json:
-        payload = answer_definition_question_json(query, debug=args.debug)
+        payload = answer_definition_question_json(query, debug=args.debug, web_mode=args.web_mode)
         print(json.dumps(payload, ensure_ascii=False, indent=2))
     else:
         print(answer_definition_question(query, debug=args.debug))

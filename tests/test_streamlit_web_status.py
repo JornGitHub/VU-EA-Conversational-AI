@@ -12,6 +12,7 @@ class StreamlitWebStatusTests(unittest.TestCase):
         self.assertIn("Alleen bij ontbrekende lokale context", text)
         self.assertIn("Altijd proberen als extra context", text)
         self.assertIn("Forceer webcontext", text)
+        self.assertIn('"Forceer webcontext": "force"', text)
 
 if __name__ == "__main__":
     unittest.main()

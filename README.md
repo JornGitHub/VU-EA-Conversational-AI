@@ -84,3 +84,9 @@ De UI toont `LLM-interpretatie` alleen wanneer de retrieval-laag een inhoudelijk
 ### Webcontext-modus
 
 Streamlit biedt vier modi voor gratis/no-key webcontext: `off` gebruikt nooit web; `fallback` is de veilige default en probeert web alleen wanneer lokale officiële context onvoldoende is; `enhance` houdt lokale documentatie leidend maar probeert ook aanvullende officiële webcontext; `force` probeert web altijd en meldt expliciet wanneer geen gratis officiële webbron is gevonden. In alle modi blijven lokale officiële bronnen leidend en webcontext wordt apart gelabeld.
+
+CLI-gebruik kan dezelfde webmodus meegeven, bijvoorbeeld:
+
+```bash
+python main.py --skip-install --query "Wat is een onechte neveninschrijving?" --json --web-mode force
+```

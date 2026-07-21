@@ -128,6 +128,18 @@ class WebSourcesTests(unittest.TestCase):
         self.assertIs(result["web_attempted"], True)
         self.assertEqual(result["web_decision_reason"], "no_free_official_web_context_found")
 
+    def test_definition_force_does_not_report_local_context_sufficient(self):
+        original = search.build_web_context
+        search.build_web_context = lambda *a, **k: []
+        try:
+            result = search.answer_definition_question_json("Wat is een onechte neveninschrijving?", web_mode="force")
+        finally:
+            search.build_web_context = original
+        self.assertEqual(result["web_mode"], "force")
+        self.assertIs(result["web_attempted"], True)
+        self.assertEqual(result["web_decision_reason"], "no_free_official_web_context_found")
+        self.assertNotIn("Web niet geprobeerd, omdat lokale documentatie voldoende context gaf.", result["bronstatus"])
+
 
 class SourceAwareInterpretationRegressionTests(unittest.TestCase):
     def test_onechte_neveninschrijving_has_contentful_interpretation_and_primary_fields(self):
