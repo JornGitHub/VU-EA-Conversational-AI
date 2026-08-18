@@ -66,9 +66,13 @@ def is_ollama_installed() -> bool:
     return shutil.which("ollama") is not None
 
 
+# Ollama always runs locally, so proxy environment variables must not apply.
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 def _api_get(path: str, base_url: str, timeout: float) -> dict:
     url = base_url.rstrip("/") + path
-    with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310 - fixed localhost URL.
+    with _OPENER.open(url, timeout=timeout) as response:  # noqa: S310 - fixed localhost URL.
         payload = response.read().decode("utf-8")
     parsed = json.loads(payload)
     return parsed if isinstance(parsed, dict) else {}

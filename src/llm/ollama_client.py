@@ -4,6 +4,22 @@ from __future__ import annotations
 
 import requests
 
+_SESSION: requests.Session | None = None
+
+
+def _session() -> requests.Session:
+    """Return a session that ignores proxy environment variables.
+
+    Ollama runs on localhost; routing those calls through a corporate proxy set
+    in HTTP(S)_PROXY makes the LLM layer fail for no reason.
+    """
+    global _SESSION
+    if _SESSION is None:
+        session = requests.Session()
+        session.trust_env = False
+        _SESSION = session
+    return _SESSION
+
 
 def generate_with_ollama(
     prompt: str,
@@ -21,7 +37,7 @@ def generate_with_ollama(
     }
 
     try:
-        response = requests.post(url, json=payload, timeout=timeout)
+        response = _session().post(url, json=payload, timeout=timeout)
         response.raise_for_status()
     except requests.exceptions.HTTPError as exc:
         detail = exc.response.text if exc.response is not None else str(exc)

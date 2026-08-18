@@ -41,6 +41,11 @@ from src.definitions.corpus import (
     prepared_corpus,
     prepared_for,
 )
+from src.definitions.semantic import (
+    DEFAULT_MIN_SCORE as SEMANTIC_MIN_SCORE,
+    index_exists as semantic_index_exists,
+    semantic_search,
+)
 from src.definitions.text_utils import (
     CANONICAL_TERM_ALIASES,
     STOPWORDS,
@@ -637,6 +642,57 @@ def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow
     }
 
 
+SEMANTIC_TOP_K = 3
+
+
+def format_semantic_block(hits: list[dict[str, Any]]) -> str:
+    """Render semantic hits as a clearly labelled, non-authoritative section."""
+    lines = [
+        "Semantisch gevonden fragmenten uit de lokale officiële documentatie "
+        "(geen opgeschoonde definitie; ter oriëntatie):"
+    ]
+    for hit in hits:
+        location = hit.get("source_document") or hit.get("term") or "Documentfragment"
+        page = f", p. {hit['page']}" if hit.get("page") else ""
+        lines.append(f"- {location}{page} (gelijkenis {hit.get('score')}): {hit.get('preview', '')}")
+    return "\n".join(lines)
+
+
+def attach_semantic_fallback(
+    payload: dict[str, Any],
+    query: str,
+    *,
+    enabled: bool = True,
+    top_k: int = SEMANTIC_TOP_K,
+    min_score: float = SEMANTIC_MIN_SCORE,
+) -> dict[str, Any]:
+    """Add locally embedded fragments when lexical retrieval found no answer.
+
+    The semantic layer never overrides a lexical definition: it only fills the
+    gap where the answer would otherwise be "niet gevonden". Hits are labelled
+    as semantic so the UI and the LLM prompt can present them as orientation
+    rather than as an official definition.
+    """
+    payload.setdefault("semantic_context", [])
+    if not enabled:
+        payload["semantic_status"] = "disabled"
+        return payload
+    if not semantic_index_exists():
+        payload["semantic_status"] = "no_index"
+        return payload
+
+    hits, status = semantic_search(query, top_k=top_k, min_score=min_score)
+    payload["semantic_status"] = status
+    payload["semantic_context"] = hits
+    if hits:
+        payload["answer"] = str(payload.get("answer", "")).rstrip() + "\n\n" + format_semantic_block(hits)
+        payload["bronstatus"] = unique_preserve_order(
+            list(payload.get("bronstatus") or [])
+            + ["Semantische zoeklaag gebruikt op lokale officiële documentatie."]
+        )
+    return payload
+
+
 def answer_deep_context_question_json(
     query: str,
     source_focus: str = "primary",
@@ -648,6 +704,7 @@ def answer_deep_context_question_json(
     allow_external_web: bool = False,
     allow_web_sources: bool | None = None,
     debug: bool = False,
+    use_semantic: bool = True,
 ) -> dict[str, Any]:
     """Answer source-aware field/context questions with references followed."""
     web_mode_requested = web_mode
@@ -821,6 +878,11 @@ def answer_deep_context_question_json(
         "manual_knowledge_used": False,
         "web_unavailable_message": web_unavailable_message,
     }
+    if not fields:
+        attach_semantic_fallback(payload, query, enabled=use_semantic)
+    else:
+        payload.setdefault("semantic_context", [])
+        payload.setdefault("semantic_status", "not_needed")
     if debug:
         payload["debug"] = {"matched_field_scores": [(field_term_score(query, f), f["field_name"]) for f in fields], "web_decision": web_debug_payload(requested=web_mode_requested, effective=web_mode, attempted=web_attempted, reason=web_decision_reason)}
     return payload
@@ -1424,7 +1486,7 @@ def debug_match_payload(result: Result) -> dict[str, Any]:
     }
 
 
-def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True, web_mode: str = WEB_MODE_DEFAULT) -> dict[str, Any]:
+def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True, web_mode: str = WEB_MODE_DEFAULT, use_semantic: bool = True) -> dict[str, Any]:
     """Return structured retrieval output for LLM/chatbot grounding.
 
     The JSON-style dictionary separates the user query, detected intent, final
@@ -1553,6 +1615,12 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
     if debug:
         payload["debug_matches"] = [debug_match_payload(result) for result in results]
         payload.setdefault("debug", {})["web_decision"] = web_debug_payload(requested=web_mode_requested, effective=web_mode, attempted=bool(payload.get("web_attempted")), reason=str(payload.get("web_decision_reason")))
+
+    if payload.get("main_term") is None:
+        attach_semantic_fallback(payload, query, enabled=use_semantic)
+    else:
+        payload.setdefault("semantic_context", [])
+        payload.setdefault("semantic_status", "not_needed")
 
     return payload
 

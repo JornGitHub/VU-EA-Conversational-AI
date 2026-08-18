@@ -12,6 +12,15 @@ def build_grounded_prompt(user_query: str, retrieval_result: dict) -> str:
     instructions to formulate naturally without adding unsupported facts.
     """
     retrieval_json = json.dumps(retrieval_result, ensure_ascii=False, indent=2)
+    semantic_context = ""
+    semantic_hits = retrieval_result.get("semantic_context") or []
+    if semantic_hits:
+        lines = ["Semantisch gevonden fragmenten (lokale officiële documentatie, geen opgeschoonde definitie):"]
+        for hit in semantic_hits:
+            location = hit.get("source_document") or hit.get("term") or "Documentfragment"
+            page = f", p. {hit['page']}" if hit.get("page") else ""
+            lines.append(f"- {location}{page}: {hit.get('preview', '')}")
+        semantic_context = "\n".join(lines)
     web_sources = retrieval_result.get("official_web_sources") or retrieval_result.get("web_context") or []
     official_web_context = ""
     if web_sources:
@@ -41,12 +50,15 @@ Regels:
 - Noem waar relevant: definitie, relevante velden, databestanden en aandachtspunten.
 - Maak het antwoord natuurlijker dan de ruwe JSON, maar blijf feitelijk trouw aan de JSON.
 - Beantwoord alleen met informatie uit de meegegeven context. Als de context een verwijzing bevat naar een ontbrekende bron, zeg dat de primaire bron het verschil niet volledig uitlegt en noem welke bron nodig is. Als aanvullende broncontext aanwezig is, gebruik die om het verschil uit te leggen en label dit als aanvullende context.
+- Semantisch gevonden fragmenten zijn zoekresultaten uit de lokale documentatie, geen vastgestelde definitie: gebruik ze alleen als oriëntatie, benoem ze als documentatiefragment en presenteer ze nooit als officiële definitie.
 - Gebruik lokale officiële documentatie als leidend. Gebruik officiële webbronnen alleen als aanvullende context. Als je webcontext gebruikt, benoem dat als officiële webbron en niet als interne/mondelinge bevestiging.
 - Voor deep-context antwoorden gebruik je altijd herkenbare kopjes: "Uit het primaire document", "Aanvullende context", "Conclusie / verschil" en, indien relevant, "Onzekerheid of ontbrekende bron".
 - Laat bij internationale student nooit de nuance "geen Nederlandse vooropleiding voor het HO" weg als die in de retrieval-output staat.
 
 Gebruikersvraag:
 {user_query}
+
+{semantic_context}
 
 {official_web_context}
 
