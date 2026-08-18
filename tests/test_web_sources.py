@@ -307,12 +307,15 @@ class WebExcerptAndDisclaimerTests(unittest.TestCase):
         without_web = search.answer_definition_question_json("Wat is een onechte neveninschrijving?", web_mode="off")
         self.assertIn("lokale officiële documentatie", with_web["llm_inference"]["disclaimer"])
         self.assertIn("officiële webbron", with_web["llm_inference"]["disclaimer"])
+        self.assertIn("geen bevestigde interne/mondelinge toelichting", with_web["llm_inference"]["disclaimer"])
         self.assertIn("lokale officiële documentatie", without_web["llm_inference"]["disclaimer"])
         self.assertNotIn("officiële webbron", without_web["llm_inference"]["disclaimer"])
+        self.assertEqual(search.build_llm_inference_disclaimer(True), with_web["llm_inference"]["disclaimer"])
+        self.assertEqual(search.build_llm_inference_disclaimer(False), without_web["llm_inference"]["disclaimer"])
 
     def test_llm_prompt_contains_official_web_excerpt(self):
         from src.llm.prompt_builder import build_grounded_prompt
-        result = {"web_context": [{"title":"Toelichting op de gegevens die DUO levert", "url":"https://duo.nl/zakelijk/images/toelichting-op-de-gegevens-die-duo-levert.pdf", "evidence_excerpt":"Soort inschrijving ho ... onechte neveninschrijving ... dubbeltellingen"}]}
+        result = {"official_web_sources": [{"title":"Toelichting op de gegevens die DUO levert", "url":"https://duo.nl/zakelijk/images/toelichting-op-de-gegevens-die-duo-levert.pdf", "evidence_excerpt":"Soort inschrijving ho ... onechte neveninschrijving ... dubbeltellingen"}]}
         prompt = build_grounded_prompt("Wat is een onechte neveninschrijving?", result)
         self.assertIn("Officiële webbronnen:", prompt)
         self.assertIn("Toelichting op de gegevens die DUO levert", prompt)
@@ -333,6 +336,7 @@ class WebExcerptAndDisclaimerTests(unittest.TestCase):
         self.assertIn("status van een inschrijving", text)
         self.assertTrue("rekenregel" in text or "beslisboom" in text)
         self.assertIn("DUO", text)
+        self.assertIn("dubbeltellingen", text)
 
     def test_clean_web_excerpt_removes_table_prefix(self):
         messy = "Kences Nee SK123 Nee Veldnaam Soort inschrijving ho Beschrijving Indicatie die de status van de inschrijving in het domein ho aangeeft (hoofdinschrijving, echte neveninschrijving, inschrijving is niet actief op peildatum 1 oktober, onechte neveninschrijving, opleiding telt niet mee). Afgeleid door DUO IP Ja Rekenregel Een beslisboom o.b.v. veel velden..."
@@ -342,6 +346,8 @@ class WebExcerptAndDisclaimerTests(unittest.TestCase):
         self.assertIn("onechte neveninschrijving", cleaned)
         self.assertIn("Rekenregel", cleaned)
         self.assertIn("Beschrijving:", cleaned)
+        self.assertIn("dubbeltellingen", web_sources.clean_web_excerpt("Veldnaam Soort inschrijving ho Beschrijving tekst. Het doel is om dubbeltellingen van inschrijvingen te voorkomen."))
+        self.assertNotIn("dubbel tel", web_sources.clean_web_excerpt("Veldnaam Soort inschrijving ho Beschrijving tekst. Het doel is om dubbeltellingen van inschrijvingen te voorkomen."))
 
 
 if __name__ == "__main__":

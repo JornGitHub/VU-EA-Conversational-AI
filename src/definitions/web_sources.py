@@ -471,8 +471,11 @@ def clean_web_excerpt(text: str) -> str:
     clean = re.sub(r"\bAfgeleid door DUO IP\b", "Afgeleid door DUO IP.", clean, count=1, flags=re.I)
     clean = re.sub(r"\s+([.,;:])", r"\1", clean)
     clean = re.sub(r"\bAfgeleid door DUO IP\.\s*\.", "Afgeleid door DUO IP.", clean, flags=re.I)
-    clean = re.sub(r"\bo\.\s*b\.\s*v\.", "o.b.v.", clean, flags=re.I)
     clean = re.sub(r"([.:])(?=\S)", r"\1 ", clean)
+    clean = re.sub(r"\bo\.\s*b\.?\s*v\.?", "o.b.v.", clean, flags=re.I)
+    clean = re.sub(r"dubbel\s+tellingen", "dubbeltellingen", clean, flags=re.I)
+    clean = re.sub(r"\bdomein ho\b", "domein HO", clean, flags=re.I)
+    clean = re.sub(r"\bvan ho\b", "van HO", clean, flags=re.I)
     clean = re.sub(r"\s+", " ", clean).strip(" .")
     if len(clean) > 700:
         boundary = max(clean.rfind(". ", 0, 700), clean.rfind(") ", 0, 700))
@@ -544,7 +547,7 @@ def build_web_context_with_candidates(query: str, matched_fields: list[dict[str,
         if classified.get("accepted"):
             excerpt = clean_web_excerpt(build_relevant_excerpt(text, query, matched_terms=classified.get("matched_terms") or matched_terms, matched_fields=matched_fields))
             classified["text_excerpt"] = excerpt
-            classified["evidence_excerpt"] = excerpt[:500]
+            classified["evidence_excerpt"] = excerpt
         classified.pop("text", None)
         candidates.append(classified)
         if classified.get("accepted"):

@@ -688,13 +688,14 @@ def is_meaningful_llm_inference(llm_inference: dict[str, Any] | None) -> bool:
     return bool(text) and text != generic and "disclaimer" not in text
 
 
-def build_llm_inference_text(query: str, official_answer: str, matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None, web_context: list[dict[str, Any]] | None = None) -> str:
+def build_llm_inference_text(query: str, official_answer: str, matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None, web_context: list[dict[str, Any]] | None = None, web_sources_used: bool | None = None) -> str:
     text = normalize_text(" ".join([query, official_answer]))
+    web_sources_used = bool(web_context) if web_sources_used is None else web_sources_used
     web_blob = normalize_text(" ".join(str(w.get("title", "")) + " " + str(w.get("text_excerpt", "")) + " " + str(w.get("evidence_excerpt", "")) for w in (web_context or [])))
     if "onechte neveninschrijving" in text:
-        interpretation = "Praktisch betekent dit waarschijnlijk dat de inschrijving administratief wel bestaat als neveninschrijving, maar voorzichtig geïnterpreteerd moet worden als zelfstandige extra inschrijving, omdat dezelfde combinatie van opleiding en instelling al voorkomt bij een andere inschrijving van dezelfde student."
-        if web_context and ("soort inschrijving ho" in web_blob or "rekenregel" in web_blob or "beslisboom" in web_blob or "duo" in web_blob):
-            interpretation += " De aanvullende DUO-bron plaatst dit binnen het veld `Soort inschrijving ho`, dat de status van een inschrijving in het HO-domein aangeeft en via een rekenregel/beslisboom door DUO wordt afgeleid."
+        interpretation = "Praktisch betekent dit waarschijnlijk dat de inschrijving administratief wel bestaat als neveninschrijving, maar voorzichtig geïnterpreteerd moet worden als zelfstandige extra inschrijving. De lokale documentatie zegt dat dezelfde combinatie van opleiding en instelling al voorkomt bij een andere inschrijving van dezelfde student."
+        if web_sources_used and ("soort inschrijving ho" in web_blob or "rekenregel" in web_blob or "beslisboom" in web_blob or "duo" in web_blob or "dubbeltelling" in web_blob):
+            interpretation += " De aanvullende DUO-bron plaatst dit binnen het veld `Soort inschrijving ho`, dat de status van een inschrijving in het HO-domein aangeeft. DUO beschrijft dit veld als afgeleid via een rekenregel/beslisboom, met als doel om dubbeltellingen van inschrijvingen te voorkomen."
         return interpretation
     if "echte neveninschrijving" in text:
         return "Praktisch betekent dit waarschijnlijk dat de inschrijving als afzonderlijke neveninschrijving kan meetellen, omdat de relevante combinatie niet al bij een andere inschrijving van dezelfde student voorkomt."
@@ -705,12 +706,14 @@ def build_llm_inference_text(query: str, official_answer: str, matched_fields: l
     return ""
 
 
-def _disclaimer_for_tiers(based_on: list[str]) -> str:
-    if "official_web" in based_on or "external_web" in based_on:
+def build_llm_inference_disclaimer(web_sources_used: bool) -> str:
+    if web_sources_used:
         return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en de hierboven getoonde officiële webbron(nen). Dit is geen bevestigde interne/mondelinge toelichting."
-    if "official_documentation" in based_on or "official_supplemental" in based_on:
-        return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie. Dit is geen bevestigde interne/mondelinge toelichting."
-    return "Deze uitleg is een LLM-interpretatie op basis van beperkt beschikbare broncontext. Dit is geen bevestigde interne/mondelinge toelichting."
+    return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie. Dit is geen bevestigde interne/mondelinge toelichting."
+
+
+def _disclaimer_for_tiers(based_on: list[str]) -> str:
+    return build_llm_inference_disclaimer("official_web" in based_on or "external_web" in based_on)
 
 
 def primary_aggregate_fields_for_term(term: Any, fields: list[str]) -> list[str]:
@@ -723,11 +726,12 @@ def _local_context_sufficient(fields: list[dict[str, Any]], pack: dict[str, Any]
     return bool(fields) and (not refs or bool(pack.get("supplemental_context")))
 
 
-def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow_llm_inference: bool, *, official_answer: str = "", matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None, web_context: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow_llm_inference: bool, *, official_answer: str = "", matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None, web_context: list[dict[str, Any]] | None = None, web_sources_used: bool | None = None) -> dict[str, Any] | None:
     if not allow_llm_inference:
         return None
     based_on = [tier for tier in tiers if tier != "llm_inference"]
-    text = build_llm_inference_text(query, official_answer, matched_fields, context_pack, web_context)
+    web_sources_used = bool(web_context) if web_sources_used is None else web_sources_used
+    text = build_llm_inference_text(query, official_answer, matched_fields, context_pack, web_context, web_sources_used)
     if not text:
         return None
     if missing:
@@ -737,7 +741,7 @@ def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow
         "based_on_sources": based_on,
         "text": text,
         "confidence": "low_to_medium",
-        "disclaimer": _disclaimer_for_tiers(based_on),
+        "disclaimer": build_llm_inference_disclaimer(web_sources_used),
     }
 
 
@@ -775,6 +779,7 @@ def answer_deep_context_question_json(
     if not fields:
         payload = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
         payload.setdefault("web_context", [])
+        payload.setdefault("official_web_sources", [])
         payload.setdefault("web_candidates", [])
         payload.setdefault("rejected_web_candidates", [])
         payload.setdefault("web_sources_used", False)
@@ -796,9 +801,15 @@ def answer_deep_context_question_json(
         payload["web_attempted"] = attempted
         payload["web_decision_reason"] = reason
         payload["web_context"] = web_context
+        payload["official_web_sources"] = [w for w in web_context if w.get("source_tier") == "official_web"]
         payload["web_candidates"] = web_candidates
         payload["rejected_web_candidates"] = rejected_web_candidates
         payload["web_sources_used"] = any(w.get("used_for_answer", True) for w in web_context)
+        if payload["web_sources_used"]:
+            payload["source_tiers_used"] = unique_preserve_order(payload.get("source_tiers_used", []) + ["official_web"] + (["llm_inference"] if payload.get("llm_inference") else []))
+            if allow_llm_inference:
+                payload["llm_inference"] = _build_llm_inference(query, [tier for tier in payload["source_tiers_used"] if tier != "llm_inference"], [], allow_llm_inference, official_answer=str(payload.get("definition") or payload.get("answer") or ""), web_context=web_context, web_sources_used=True)
+                payload["llm_inference_used"] = bool(payload.get("llm_inference"))
         payload["web_discovery_strategies_used"] = web_discovery_strategies_used
         payload["bronstatus"] = bronstatus_labels(web_context=web_context, llm_inference=payload.get("llm_inference"), web_mode=web_mode, web_attempted=attempted, web_decision_reason=reason)
         if debug:
@@ -845,7 +856,8 @@ def answer_deep_context_question_json(
     if external_web:
         source_tiers_used.append("external_web")
     official_answer_summary = " ".join([str(f.get("description", "")) for f in fields])
-    llm_inference = _build_llm_inference(query, source_tiers_used, missing, allow_llm_inference, official_answer=official_answer_summary, matched_fields=fields, context_pack=pack, web_context=web_context)
+    web_sources_used = any(w.get("used_for_answer", True) for w in web_context)
+    llm_inference = _build_llm_inference(query, source_tiers_used, missing, allow_llm_inference, official_answer=official_answer_summary, matched_fields=fields, context_pack=pack, web_context=web_context, web_sources_used=web_sources_used)
     if llm_inference:
         source_tiers_used.append("llm_inference")
     lines = ["Antwoord:", "Uit lokale officiële documentatie:"]
@@ -906,6 +918,7 @@ def answer_deep_context_question_json(
         "web_decision_reason": web_decision_reason,
         "web_sources_used": any(w.get("used_for_answer", True) for w in web_context),
         "web_context": web_context,
+        "official_web_sources": [w for w in web_context if w.get("source_tier") == "official_web"],
         "web_candidates": web_candidates,
         "rejected_web_candidates": rejected_web_candidates,
         "web_discovery_strategies_used": web_discovery_strategies_used,
@@ -1549,16 +1562,18 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         if attempted:
             web_context, web_candidates, rejected_web_candidates, web_discovery_strategies_used, reason = attempt_web_context(query, [], [], allow_external_web=False)
         web_based_tiers = unique_preserve_order(tiers + (["official_web"] if any(w.get("source_tier") == "official_web" for w in web_context) else []) + (["external_web"] if any(w.get("source_tier") == "external_web" for w in web_context) else []))
-        llm = _build_llm_inference(query, web_based_tiers, [], True, official_answer=str(payload.get("definition") or payload.get("answer") or ""), web_context=web_context)
+        web_sources_used = any(w.get("used_for_answer", True) for w in web_context)
+        llm = _build_llm_inference(query, web_based_tiers, [], True, official_answer=str(payload.get("definition") or payload.get("answer") or ""), web_context=web_context, web_sources_used=web_sources_used)
         if llm:
             llm["based_on_sources"] = web_based_tiers
-            llm["disclaimer"] = _disclaimer_for_tiers(web_based_tiers)
+            llm["disclaimer"] = build_llm_inference_disclaimer(web_sources_used)
         source_tiers = unique_preserve_order(web_based_tiers + (["llm_inference"] if llm else []))
         payload.update({
             "web_mode": web_mode,
             "web_attempted": attempted,
             "web_decision_reason": reason,
             "web_context": web_context,
+            "official_web_sources": [w for w in web_context if w.get("source_tier") == "official_web"],
             "web_candidates": web_candidates,
             "rejected_web_candidates": rejected_web_candidates,
             "web_sources_used": any(w.get("used_for_answer", True) for w in web_context),
@@ -1575,6 +1590,7 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         payload.setdefault("web_attempted", False)
         payload.setdefault("web_decision_reason", "web_disabled" if web_mode == "off" else "local_context_sufficient")
         payload.setdefault("web_context", [])
+        payload.setdefault("official_web_sources", [])
         payload.setdefault("web_candidates", [])
         payload.setdefault("rejected_web_candidates", [])
         payload.setdefault("web_sources_used", False)
