@@ -11,3 +11,7 @@ data/archive/
 
 # Generated local knowledge indexes
 data/*.db
+
+# Generated evaluation output
+data/evaluation/evaluation_report.md
+data/evaluation/evaluation_results.jsonl

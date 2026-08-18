@@ -5,6 +5,11 @@ transparent lexical heuristics, groups related technical variants, and builds
 text or JSON answers. Future chatbots should import ``answer_definition_question_json``
 and use the returned fields as source material instead of inventing definitions.
 
+Loading and text primitives live in ``corpus.py`` and ``text_utils.py``; both are
+re-exported here so existing imports from ``src.definitions.search`` keep working.
+Ranking itself is unchanged - it now runs on entries whose text features were
+prepared once instead of once per question.
+
 Example:
     from src.definitions.search import answer_definition_question_json
 
@@ -13,34 +18,50 @@ Example:
 
 from __future__ import annotations
 
-import json
 import re
+from dataclasses import dataclass
 from difflib import SequenceMatcher
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
 from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
 from src.definitions.context_pack import build_context_pack
+from src.definitions.corpus import (
+    CHUNKS_PATH,
+    CURATED_PATH,
+    INDEX_PATH,
+    PreparedEntry,
+    corpus_stats,
+    load_chunks,
+    load_curated_definitions,
+    load_index_definitions,
+    prepare_entries,
+    prepare_entry,
+    prepared_corpus,
+    prepared_for,
+)
+from src.definitions.text_utils import (
+    CANONICAL_TERM_ALIASES,
+    STOPWORDS,
+    as_list,
+    canonical_aliases_for,
+    canonical_preference,
+    canonical_term,
+    entry_search_text,
+    normalize_text,
+    singularize_token,
+    tokenize,
+    unique_preserve_order,
+)
 from src.definitions.web_sources import SOURCE_TIERS, WEB_MODE_DEFAULT, WEB_MODES, build_web_context, build_web_context_with_candidates
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
-CURATED_PATH = DATA_DIR / "ho_definities_curated.json"
-INDEX_PATH = DATA_DIR / "ho_definities_index.jsonl"
-CHUNKS_PATH = DATA_DIR / "chunks.jsonl"
 FIELD_CATALOG_PATH = DATA_DIR / "inschrijvingen_aggr_2025_field_catalog.json"
 PRIMARY_SOURCE_DOCUMENT = "Aggregaatbestand inschrijvingen_1cHO2025.docx"
 PRIMARY_DATASET = "Inschrijvingen_aggr_UNL_2025.csv"
 DEMO_QUERY = "waar vind ik internationale studenten"
-
-CANONICAL_TERM_ALIASES = {
-    "internationale studenten": "Internationale student",
-    "internationale student": "Internationale student",
-    "eer studenten": "EER-student",
-    "eer student": "EER-student",
-    "eer-studenten": "EER-student",
-    "eer-student": "EER-student",
-}
 
 DATASET_EXTENSIONS = (".csv", ".asc", ".txt", ".xlsx", ".json", ".jsonl", ".pdf")
 DATASET_NAME_RE = re.compile(r"\b[\w*().-]+\.(?:csv|asc|txt|xlsx|jsonl?|pdf)\b", re.I)
@@ -78,37 +99,6 @@ CANONICAL_RELATED_TERMS = {
     "Gediplomeerdencohort",
 }
 
-STOPWORDS = {
-    "als",
-    "data",
-    "de",
-    "een",
-    "en",
-    "er",
-    "het",
-    "ik",
-    "in",
-    "is",
-    "over",
-    "te",
-    "telt",
-    "van",
-    "waar",
-    "wat",
-    "wie",
-    "vind",
-    "voor",
-    "betekent",
-    "definitie",
-    "wordt",
-    "wanneer",
-    "welke",
-    "welk",
-    "bestand",
-    "bestanden",
-    "dataset",
-}
-
 MIN_SCORE_FOR_ANSWER = 14.0
 NO_ANSWER_TEMPLATE = (
     'Antwoord:\n'
@@ -128,119 +118,6 @@ GROUP_IGNORE_WORDS = {
 
 Result = dict[str, Any]
 Entry = dict[str, Any]
-
-
-def load_curated_definitions(path: Path = CURATED_PATH) -> list[Entry]:
-    """Load automatically cleaned/high-confidence conversational definitions from data/.
-
-    "Curated" is a legacy file name and does not imply manual approval.
-    """
-    data = json.loads(path.read_text(encoding="utf-8"))
-    if isinstance(data, list):
-        return data
-    return data.get("entries", [])
-
-
-def load_index_definitions(path: Path = INDEX_PATH) -> list[Entry]:
-    """Load raw field/documentation definitions from JSONL."""
-    entries: list[Entry] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            entries.append(json.loads(line))
-    return entries
-
-
-
-def load_chunks(path: Path = CHUNKS_PATH) -> list[Entry]:
-    """Load offline-generated chunks for optional low-priority fallback search."""
-    if not path.exists():
-        return []
-    entries: list[Entry] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            chunk = json.loads(line)
-            entries.append(
-                {
-                    "term": chunk.get("source_document", "Documentfragment"),
-                    "definition": str(chunk.get("text", ""))[:500],
-                    "source_document": chunk.get("source_document"),
-                    "source_path": chunk.get("source_path"),
-                    "page": chunk.get("page"),
-                    "chunk_id": chunk.get("chunk_id"),
-                    "entry_type": "chunk",
-                    "text": chunk.get("text", ""),
-                }
-            )
-    return entries
-
-def normalize_text(text: Any) -> str:
-    """Normalize text for matching while preserving Dutch accented letters."""
-    return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", str(text).lower())).strip()
-
-
-def singularize_token(token: str) -> str:
-    """Very small Dutch-ish singularization helper for query/term matching."""
-    if len(token) > 4 and token.endswith("en"):
-        return token[:-2]
-    if len(token) > 3 and token.endswith("s"):
-        return token[:-1]
-    return token
-
-
-def tokenize(text: Any, *, remove_stopwords: bool = True) -> list[str]:
-    tokens = [singularize_token(token) for token in normalize_text(text).split()]
-    if remove_stopwords:
-        tokens = [token for token in tokens if token and token not in STOPWORDS]
-    return tokens
-
-
-
-
-def canonical_term(term: Any) -> str:
-    """Return the protected/canonical display term for known source variants."""
-    raw = str(term or "").strip()
-    return CANONICAL_TERM_ALIASES.get(normalize_text(raw), raw)
-
-
-def canonical_aliases_for(entry: Entry) -> list[str]:
-    """Return configured aliases when an entry is already the canonical term."""
-    term = str(entry.get("term", ""))
-    canonical = canonical_term(term)
-    aliases = list(as_list(entry.get("aliases")))
-    if normalize_text(term) == normalize_text(canonical):
-        aliases.extend(
-            alias
-            for alias, target in CANONICAL_TERM_ALIASES.items()
-            if normalize_text(target) == normalize_text(canonical)
-        )
-    return unique_preserve_order(aliases)
-
-
-def canonical_preference(entry: Entry) -> int:
-    """Prefer protected canonical terms over plural/source variants."""
-    term = str(entry.get("term", ""))
-    canonical = canonical_term(term)
-    if normalize_text(term) == normalize_text(canonical) and canonical:
-        return 1
-    return 0
-
-def as_list(value: Any) -> list[Any]:
-    if value is None or value == "":
-        return []
-    if isinstance(value, list):
-        return value
-    return [value]
-
-
-def unique_preserve_order(values: list[Any]) -> list[Any]:
-    seen: set[str] = set()
-    unique: list[Any] = []
-    for value in values:
-        key = normalize_text(value)
-        if key and key not in seen:
-            seen.add(key)
-            unique.append(value)
-    return unique
 
 
 def looks_like_dataset_name(value: str) -> bool:
@@ -304,7 +181,6 @@ def sanitize_field_name(value: Any) -> str:
 
 def sanitize_fields(fields: list[Any]) -> list[str]:
     return unique_preserve_order([clean for field in fields if (clean := sanitize_field_name(field))])
-
 
 
 def filter_fields_for_main_term(main_term: Any, fields: list[str]) -> list[str]:
@@ -392,7 +268,6 @@ def metadata_values(group: Result, field: str) -> list[Any]:
     return values
 
 
-
 def is_internationalisation_term(main_term: Any) -> bool:
     tokens = set(tokenize(main_term))
     text = normalize_text(main_term)
@@ -413,8 +288,20 @@ def sanitize_notes(notes: list[Any], main_term: Any) -> list[str]:
         clean.append(text)
     return unique_preserve_order(clean)
 
+_FIELD_CATALOG_ENTRIES: tuple[list[Any], list[Entry]] | None = None
+
+
 def load_field_catalog_entries() -> list[Entry]:
-    """Load the primary inschrijvingen field catalog as high-priority entries."""
+    """Load the primary inschrijvingen field catalog as high-priority entries.
+
+    The derived entry list is cached alongside the catalog it was built from, so
+    repeated questions reuse both the parsed catalog and its prepared features.
+    """
+    global _FIELD_CATALOG_ENTRIES
+    catalog = load_catalog()
+    if _FIELD_CATALOG_ENTRIES is not None and _FIELD_CATALOG_ENTRIES[0] is catalog:
+        return _FIELD_CATALOG_ENTRIES[1]
+
     entries: list[Entry] = []
     for field in load_catalog():
         entries.append({
@@ -433,7 +320,14 @@ def load_field_catalog_entries() -> list[Entry]:
             "references": field.get("references", []),
             "transformations": field.get("transformations", []),
         })
+    _FIELD_CATALOG_ENTRIES = (catalog, entries)
     return entries
+
+
+@lru_cache(maxsize=512)
+def catalog_title_entry(field_name: str, aliases: tuple[str, ...]) -> PreparedEntry:
+    """Prepare the title features of one catalog field once per process."""
+    return prepare_entry({"term": field_name, "aliases": list(aliases)}, "index")
 
 
 def is_primary_query(query: str) -> bool:
@@ -447,7 +341,7 @@ def catalog_match_score(query: str, field: Entry) -> float:
     q = normalize_text(query)
     name = normalize_text(detail.get("field_name", ""))
     aliases = [normalize_text(a) for a in detail.get("aliases", [])]
-    score = title_match_score(query, {"term": detail.get("field_name", ""), "aliases": detail.get("aliases", [])})
+    score = prepared_title_score(query_features(query), catalog_title_entry(str(detail.get("field_name", "")), tuple(detail.get("aliases", []) or [])))
     if name and name in q:
         score += 100 + len(name.split())
     for alias in aliases:
@@ -513,7 +407,6 @@ def build_all_fields_payload(query: str, debug: bool, source_policy: str) -> dic
         "source_policy": source_policy, "primary_source_used": True, "supplemental_sources": [], "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
         "selection_info": SELECTION_INFO,
     }
-
 
 
 def build_primary_context_payload(query: str, intent: str, debug: bool, source_policy: str) -> dict[str, Any]:
@@ -588,7 +481,6 @@ def match_catalog_fields(query: str, limit: int = 4, min_score: float = 18.0) ->
         if len(matches) >= limit:
             break
     return matches
-
 
 
 def web_mode_label(web_mode: str) -> str:
@@ -993,25 +885,6 @@ def topic_label_from_group(group: Result | None) -> str:
     return pluralize_person_phrase(term)
 
 
-def entry_search_text(entry: Entry) -> str:
-    searchable_fields = [
-        "term",
-        "definition",
-        "aliases",
-        "source_terms",
-        "related_fields",
-        "related_field_names",
-        "available_in_datasets",
-        "tags",
-        "source_terms",
-        "field_name",
-        "dataset_or_file",
-        "text",
-        "source_document",
-    ]
-    return " ".join(str(entry.get(field, "")) for field in searchable_fields)
-
-
 def conceptual_bonus(entry: Entry, source: str) -> float:
     """Prefer concept/general definitions over raw technical field entries.
 
@@ -1042,6 +915,127 @@ def conceptual_bonus(entry: Entry, source: str) -> float:
     return score
 
 
+FUZZY_TITLE_THRESHOLD = 0.65
+
+
+@dataclass(frozen=True)
+class QueryFeatures:
+    """Query text prepared once per question instead of once per entry."""
+
+    raw: str
+    norm: str
+    tokens: tuple[str, ...]
+    token_set: frozenset[str]
+    length: int
+
+
+@lru_cache(maxsize=1024)
+def query_features(query: str) -> QueryFeatures:
+    """Return cached normalisation/tokenisation for one query string."""
+    norm = normalize_text(query)
+    tokens = tuple(tokenize(query))
+    return QueryFeatures(query, norm, tokens, frozenset(tokens), len(norm))
+
+
+def static_bonus(prepared: PreparedEntry) -> float:
+    """Return the query-independent part of the score, computed once per entry."""
+    if prepared.static_bonus is None:
+        prepared.static_bonus = conceptual_bonus(prepared.entry, prepared.source) + (
+            4.0 * prepared.canonical_preference if prepared.source == "curated" else 0.0
+        )
+    return prepared.static_bonus
+
+
+def prepared_title_score(features: QueryFeatures, prepared: PreparedEntry) -> float:
+    """Title/alias score using precomputed candidates and difflib upper bounds.
+
+    ``SequenceMatcher.ratio()`` is the expensive part of ranking, so it is only
+    computed when difflib's own cheap upper bounds (``real_quick_ratio`` and
+    ``quick_ratio``, both guaranteed to be >= ``ratio``) can still reach the
+    threshold. The resulting score is identical to the direct computation.
+    """
+    best = 0.0
+    matcher: SequenceMatcher | None = None
+
+    for title in prepared.titles:
+        score = 0.0
+        if title.norm in features.norm or features.norm in title.norm:
+            score += 10.0
+
+        overlap = features.token_set & title.tokens
+        coverage = len(overlap) / max(len(title.tokens), 1)
+        score += coverage * 8.0
+
+        total_length = features.length + title.length
+        upper_bound = (2.0 * min(features.length, title.length) / total_length) if total_length else 0.0
+        if upper_bound >= FUZZY_TITLE_THRESHOLD:
+            if matcher is None:
+                matcher = SequenceMatcher(None, features.norm, title.norm)
+            else:
+                matcher.set_seq2(title.norm)
+            if matcher.quick_ratio() >= FUZZY_TITLE_THRESHOLD:
+                ratio = matcher.ratio()
+                if ratio >= FUZZY_TITLE_THRESHOLD:
+                    score += ratio * 4.0
+
+        best = max(best, score)
+
+    return best
+
+
+def can_score(features: QueryFeatures, prepared: PreparedEntry) -> bool:
+    """Return False only for entries that provably score 0 for this query.
+
+    ``score_prepared`` returns 0 unless a query token occurs in the entry text or
+    a title candidate matches. Every string the scorer inspects is part of
+    ``filter_blob``, so an entry without a single query-token hit can only score
+    when a title is contained in the query, or through the fuzzy title branch,
+    which needs comparable string lengths.
+    """
+    if not features.tokens:
+        return True
+
+    blob = prepared.filter_blob
+    for token in features.tokens:
+        if token in blob:
+            return True
+
+    for title in prepared.titles:
+        # A short title can be contained in the query even without a token hit
+        # ("inst" inside "wat is instroom"), which scores through containment.
+        if title.norm in features.norm:
+            return True
+        total_length = features.length + title.length
+        if total_length and (2.0 * min(features.length, title.length) / total_length) >= FUZZY_TITLE_THRESHOLD:
+            return True
+    return False
+
+
+def score_prepared(features: QueryFeatures, prepared: PreparedEntry) -> float:
+    """Score one prepared entry; identical arithmetic to the original scorer."""
+    curated = prepared.source == "curated"
+    haystack = prepared.haystack
+    term_tokens = prepared.term_tokens
+    token_score = 0.0
+
+    # Token scoring keeps broad search behavior intact: definitions, tags and
+    # dataset names still matter, but term/title hits are weighted more heavily.
+    for token in features.tokens:
+        if token in haystack:
+            token_score += 1.5 if curated else 1.0
+        if token in term_tokens:
+            token_score += 3.0 if curated else 2.0
+
+    title_score = prepared_title_score(features, prepared)
+
+    # Conceptual bonuses should reorder matching rows, not make every curated
+    # definition match every query. This keeps the index fallback meaningful.
+    if title_score == 0 and token_score == 0:
+        return 0.0
+
+    return static_bonus(prepared) + title_score + token_score
+
+
 def title_match_score(query: str, entry: Entry) -> float:
     """Add score when query text closely matches a term/title or alias.
 
@@ -1049,56 +1043,12 @@ def title_match_score(query: str, entry: Entry) -> float:
     phrase matches get a large boost, token coverage gets a medium boost, and
     difflib catches near matches such as singular/plural variants.
     """
-    query_norm = normalize_text(query)
-    query_tokens = set(tokenize(query))
-    candidates = [entry.get("term", ""), *canonical_aliases_for(entry)]
-    best = 0.0
-
-    for candidate in candidates:
-        candidate_norm = normalize_text(candidate)
-        candidate_tokens = set(tokenize(candidate))
-        if not candidate_norm or not candidate_tokens:
-            continue
-
-        score = 0.0
-        if candidate_norm in query_norm or query_norm in candidate_norm:
-            score += 10.0
-
-        overlap = query_tokens & candidate_tokens
-        coverage = len(overlap) / max(len(candidate_tokens), 1)
-        score += coverage * 8.0
-
-        ratio = SequenceMatcher(None, query_norm, candidate_norm).ratio()
-        if ratio >= 0.65:
-            score += ratio * 4.0
-
-        best = max(best, score)
-
-    return best
+    return prepared_title_score(query_features(query), prepare_entry(entry, "index"))
 
 
 def score_entry(query: str, entry: Entry, source: str) -> float:
-    query_tokens = tokenize(query)
-    haystack = normalize_text(entry_search_text(entry))
-    term_tokens = set(tokenize(canonical_term(entry.get("term", ""))))
-
-    title_score = title_match_score(query, entry)
-    token_score = 0.0
-
-    # Token scoring keeps broad search behavior intact: definitions, tags and
-    # dataset names still matter, but term/title hits are weighted more heavily.
-    for token in query_tokens:
-        if token in haystack:
-            token_score += 1.5 if source == "curated" else 1.0
-        if token in term_tokens:
-            token_score += 3.0 if source == "curated" else 2.0
-
-    # Conceptual bonuses should reorder matching rows, not make every curated
-    # definition match every query. This keeps the index fallback meaningful.
-    if title_score == 0 and token_score == 0:
-        return 0.0
-
-    return conceptual_bonus(entry, source) + (4.0 * canonical_preference(entry) if source == "curated" else 0.0) + title_score + token_score
+    """Score a single raw entry (convenience wrapper around ``score_prepared``)."""
+    return score_prepared(query_features(query), prepare_entry(entry, source))
 
 
 def search_definitions(
@@ -1115,22 +1065,23 @@ def search_definitions(
     supplied as either a flat list of entries or ``[(source, entries), ...]``.
     """
     if entries is None:
-        grouped_entries: list[tuple[str, list[Entry]]] = [
-            ("curated", load_curated_definitions()),
-            ("index", load_index_definitions()),
-            ("chunk", load_chunks()),
-        ]
+        grouped_entries: list[tuple[str, list[PreparedEntry]]] = prepared_corpus()
     elif entries and isinstance(entries[0], tuple):
-        grouped_entries = entries  # type: ignore[assignment]
+        grouped_entries = [
+            (source, prepared_for(source, rows)) for source, rows in entries  # type: ignore[misc]
+        ]
     else:
-        grouped_entries = [("index", entries or [])]  # type: ignore[list-item]
+        grouped_entries = [("index", prepare_entries(entries or [], "index"))]  # type: ignore[arg-type]
 
+    features = query_features(query)
     results: list[Result] = []
     for source, rows in grouped_entries:
-        for entry in rows:
-            score = score_entry(query, entry, source)
+        for prepared in rows:
+            if not can_score(features, prepared):
+                continue
+            score = score_prepared(features, prepared)
             if score > 0:
-                results.append({"score": score, "source": source, "entry": entry})
+                results.append({"score": score, "source": source, "entry": prepared.entry})
 
     # Stable tie-breakers: curated first, conceptual terms before Indicatie fields,
     # then alphabetically for deterministic debug output.
@@ -1613,8 +1564,7 @@ def build_response_payload(query: str, debug: bool = False) -> dict[str, Any]:
 
 def answer_definition_question(query: str, debug: bool = False) -> str:
     """Return the final answer string for chatbot, web-app or CLI integration."""
-    entries = [("curated", load_curated_definitions()), ("index", load_index_definitions()), ("chunk", load_chunks())]
-    results = search_definitions(query, entries)
+    results = search_definitions(query)
     grouped_results = group_related_results(results)
     answer = build_answer(grouped_results, query)
     if debug:
