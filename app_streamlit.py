@@ -1,8 +1,10 @@
 """Streamlit UI for the reusable HO definition retrieval module.
 
-Install and run manually with:
-    pip install streamlit
-    streamlit run app_streamlit.py
+Preferred start (installs dependencies and Ollama models first):
+    python main.py
+
+Manual start when the environment is already prepared:
+    python -m streamlit run app_streamlit.py
 """
 
 import json
@@ -11,6 +13,7 @@ import streamlit as st
 
 from src.chatbot import answer_with_llm
 from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json, is_meaningful_llm_inference
+from src.llm.ollama_setup import DEFAULT_BASE_URL, DEFAULT_OLLAMA_MODEL, is_server_running
 
 
 EXAMPLE_QUESTIONS = [
@@ -263,7 +266,12 @@ use_external_web = st.sidebar.checkbox("Gebruik overige externe webbronnen", val
 allow_llm_inference = st.sidebar.checkbox("Sta LLM-interpretatie toe", value=True)
 show_source_status = st.sidebar.checkbox("Toon bronstatus", value=True)
 use_llm = st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False)
-model = st.sidebar.text_input("Ollama-model", value="qwen3:8b")
+model = st.sidebar.text_input("Ollama-model", value=DEFAULT_OLLAMA_MODEL)
+if use_llm and not is_server_running(DEFAULT_BASE_URL):
+    st.sidebar.warning(
+        f"Ollama lijkt niet te draaien op {DEFAULT_BASE_URL}. "
+        "Start de app met `python main.py` of draai `ollama serve`."
+    )
 focus_primary = st.sidebar.checkbox("Focus op Aggregaatbestand inschrijvingen_1cHO2025.docx", value=True)
 include_supplemental = st.sidebar.checkbox("Volg verwijzingen naar aanvullende documentatie", value=True)
 use_deep_context = st.sidebar.checkbox("Gebruik LLM voor deep-context antwoorden", value=True)

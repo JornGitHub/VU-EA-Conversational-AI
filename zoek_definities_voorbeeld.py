@@ -15,6 +15,7 @@ from src.definitions.search import (
     answer_definition_question,
     answer_definition_question_json,
 )
+from src.llm.ollama_setup import DEFAULT_OLLAMA_MODEL
 
 USAGE_TEXT = """Gebruik:
   python zoek_definities_voorbeeld.py "wat is een internationale student?"
@@ -43,7 +44,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--debug", action="store_true", help="Toon ook ruwe, gerankte zoekmatches met scores.")
     parser.add_argument("--json", action="store_true", help="Geef het antwoord terug als gestructureerde JSON.")
     parser.add_argument("--llm", action="store_true", help="Formuleer het antwoord met een lokale Ollama-LLM.")
-    parser.add_argument("--model", default="qwen3:8b", help="Ollama-model voor --llm.")
+    parser.add_argument("--model", default=DEFAULT_OLLAMA_MODEL, help="Ollama-model voor --llm.")
     parser.add_argument("--web-mode", choices=["off", "fallback", "enhance", "force"], default="fallback", help="Gratis webcontextmodus voor JSON/LLM retrieval.")
     parser.add_argument("--demo", action="store_true", help="Draai een expliciete demoquery over internationale studenten.")
     return parser.parse_args()

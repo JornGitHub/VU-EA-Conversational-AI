@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
 from src.llm.ollama_client import generate_with_ollama
+from src.llm.ollama_setup import DEFAULT_OLLAMA_MODEL
 from src.llm.prompt_builder import build_grounded_prompt
 
 
 def answer_with_llm(
     query: str,
-    model: str = "qwen3:30b-instruct",
+    model: str = DEFAULT_OLLAMA_MODEL,
     debug: bool = False,
     source_focus: str = "primary",
     include_supplemental: bool = True,
