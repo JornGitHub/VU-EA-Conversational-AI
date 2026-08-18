@@ -86,8 +86,9 @@ class MetadataSanitizationTests(unittest.TestCase):
         result = answer_definition_question_json("wat is een onechte neveninschrijving?")
 
         self.assertIn("Soort inschrijving type ho binnen soort ho", result["fields"])
-        self.assertIn("Sleutel domein hoger onderwijs", result["fields"])
-        self.assertIn("Sleutel domein actuele opleiding-instelling", result["fields"])
+        self.assertIn("Soort inschrijving actuele opleiding-instelling", result["fields"])
+        self.assertNotIn("Sleutel domein hoger onderwijs", result["fields"])
+        self.assertNotIn("Sleutel domein actuele opleiding-instelling", result["fields"])
         self.assert_no_noisy_metadata(result["datasets"], ["2 of 4 Mogelijke waarden", "overige inschrijvingen Verblijfsjaar"])
 
     def test_related_terms_are_canonical_curated_terms_only(self):

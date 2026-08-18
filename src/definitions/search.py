@@ -21,6 +21,7 @@ from typing import Any
 
 from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
 from src.definitions.context_pack import build_context_pack
+from src.definitions.web_sources import SOURCE_TIERS, WEB_MODE_DEFAULT, WEB_MODES, build_web_context, build_web_context_with_candidates
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -589,8 +590,181 @@ def match_catalog_fields(query: str, limit: int = 4, min_score: float = 18.0) ->
     return matches
 
 
-def answer_deep_context_question_json(query: str, source_focus: str = "primary", include_supplemental: bool = True, debug: bool = False) -> dict[str, Any]:
+
+def web_mode_label(web_mode: str) -> str:
+    return {
+        "off": "uit",
+        "fallback": "alleen bij ontbrekende lokale context",
+        "enhance": "altijd proberen als extra context",
+        "force": "forceer webcontext",
+    }.get(web_mode, web_mode)
+
+
+def web_decision_label(reason: str, attempted: bool, used: bool) -> str:
+    if reason == "web_disabled":
+        return "Web uitgeschakeld."
+    if reason == "local_context_sufficient":
+        return "Web niet geprobeerd, omdat lokale documentatie voldoende context gaf."
+    if used:
+        return "Bruikbare officiële webbron gevonden."
+    if attempted and reason == "no_relevant_official_web_context_found":
+        return "Geen bruikbare officiële webbron gevonden."
+    if attempted and reason == "no_free_official_web_context_found":
+        return "Geen gratis officiële webbron gevonden/gebruikt."
+    if attempted and reason == "web_fetch_failed":
+        return "Web geprobeerd, maar ophalen van gratis webcontext is mislukt."
+    if attempted:
+        return "Web geprobeerd."
+    return "Web niet geprobeerd."
+
+
+def should_attempt_web(web_mode: str, local_sufficient: bool, missing: list[str], confidence: str, answer_text: str = "") -> tuple[bool, str]:
+    if web_mode not in WEB_MODES:
+        web_mode = WEB_MODE_DEFAULT
+    if web_mode == "off":
+        return False, "web_disabled"
+    if web_mode in {"enhance", "force"}:
+        return True, "web_forced" if web_mode == "force" else "enhance_requested"
+    insufficient_text = any(phrase in normalize_text(answer_text) for phrase in ["onvoldoende context", "ontbrekende bron", "geen betrouwbare definitie"])
+    if (not local_sufficient) or missing or confidence == "low" or insufficient_text:
+        return True, "local_context_insufficient"
+    return False, "local_context_sufficient"
+
+
+def attempt_web_context(query: str, fields: list[dict[str, Any]] | None, refs: list[str] | None, *, allow_external_web: bool) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[str], str]:
+    try:
+        result = build_web_context_with_candidates(query, matched_fields=fields or [], matched_terms=refs or [], allow_external_web=allow_external_web)
+    except Exception:
+        return [], [], [], [], "web_fetch_failed"
+    context = result.get("web_context", [])
+    candidates = result.get("web_candidates", [])
+    rejected = result.get("rejected_web_candidates", [])
+    strategies = result.get("web_discovery_strategies_used", [])
+    if context:
+        return context, candidates, rejected, strategies, "relevant_official_web_context_found"
+    if candidates or rejected:
+        return [], candidates, rejected, strategies, "no_relevant_official_web_context_found"
+    return [], candidates, rejected, strategies, "no_free_official_web_context_found"
+
+
+def web_debug_payload(*, requested: str, effective: str, attempted: bool, reason: str) -> dict[str, Any]:
+    return {
+        "web_mode_requested": requested,
+        "web_mode_effective": effective,
+        "web_attempted": attempted,
+        "web_decision_reason": reason,
+        "web_provider": "free_only",
+        "web_provider_available": True,
+    }
+
+
+def bronstatus_labels(*, web_context: list[dict[str, Any]] | None = None, llm_inference: dict[str, Any] | None = None, has_supplemental: bool = False, manual_knowledge_used: bool = False, web_mode: str = WEB_MODE_DEFAULT, web_attempted: bool = False, web_decision_reason: str = "local_context_sufficient") -> list[str]:
+    labels = ["Lokale officiële documentatie gebruikt."]
+    if has_supplemental:
+        labels.append("Aanvullende lokale documentatie gebruikt.")
+    web_context = web_context or []
+    if any(w.get("source_tier") == "official_web" and w.get("used_for_answer", True) for w in web_context):
+        labels.append("Officiële webbronnen gebruikt.")
+    if any(w.get("source_tier") == "external_web" for w in web_context):
+        labels.append("Externe webbronnen gebruikt als lager geprioriteerde context.")
+    if not web_context:
+        labels.append("Geen webbronnen gebruikt.")
+    if llm_inference and str(llm_inference.get("text") or "").strip():
+        labels.append("LLM-interpretatie gebruikt.")
+    labels.append(f"Webmodus: {web_mode_label(web_mode)}.")
+    if web_attempted:
+        labels.append("Web geprobeerd.")
+    labels.append(web_decision_label(web_decision_reason, web_attempted, bool(web_context)))
+    if not manual_knowledge_used:
+        labels.append("Niet bevestigd door interne/mondelinge kennis.")
+    return labels
+
+
+def is_meaningful_llm_inference(llm_inference: dict[str, Any] | None) -> bool:
+    if not llm_inference:
+        return False
+    text = normalize_text(llm_inference.get("text"))
+    generic = normalize_text("Deze uitleg is een voorzichtige LLM-interpretatie op basis van de hierboven gelabelde bronlagen; bij conflicten blijft lokale officiële documentatie leidend.")
+    return bool(text) and text != generic and "disclaimer" not in text
+
+
+def build_llm_inference_text(query: str, official_answer: str, matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None, web_context: list[dict[str, Any]] | None = None, web_sources_used: bool | None = None) -> str:
+    text = normalize_text(" ".join([query, official_answer]))
+    web_sources_used = bool(web_context) if web_sources_used is None else web_sources_used
+    web_blob = normalize_text(" ".join(str(w.get("title", "")) + " " + str(w.get("text_excerpt", "")) + " " + str(w.get("evidence_excerpt", "")) for w in (web_context or [])))
+    if "onechte neveninschrijving" in text:
+        interpretation = "Praktisch betekent dit waarschijnlijk dat de inschrijving administratief wel bestaat als neveninschrijving, maar voorzichtig geïnterpreteerd moet worden als zelfstandige extra inschrijving. De lokale documentatie zegt dat dezelfde combinatie van opleiding en instelling al voorkomt bij een andere inschrijving van dezelfde student."
+        if web_sources_used and ("soort inschrijving ho" in web_blob or "rekenregel" in web_blob or "beslisboom" in web_blob or "duo" in web_blob or "dubbeltelling" in web_blob):
+            interpretation += " De aanvullende DUO-bron plaatst dit binnen het veld `Soort inschrijving ho`, dat de status van een inschrijving in het HO-domein aangeeft. DUO beschrijft dit veld als afgeleid via een rekenregel/beslisboom, met als doel om dubbeltellingen van inschrijvingen te voorkomen."
+        return interpretation
+    if "echte neveninschrijving" in text:
+        return "Praktisch betekent dit waarschijnlijk dat de inschrijving als afzonderlijke neveninschrijving kan meetellen, omdat de relevante combinatie niet al bij een andere inschrijving van dezelfde student voorkomt."
+    if "hoofdinschrijving" in text:
+        return "Praktisch betekent dit waarschijnlijk dat dit de inschrijving is die administratief als belangrijkste of eerst leidende inschrijving wordt behandeld binnen de betreffende telling."
+    if "overige inschrijving" in text or "overige inschrijvingen" in text:
+        return "Praktisch betekent dit waarschijnlijk dat de inschrijving niet in de hoofd- of specifieke neveninschrijvingscategorie valt en daarom apart en voorzichtig als restcategorie moet worden geïnterpreteerd."
+    return ""
+
+
+def build_llm_inference_disclaimer(web_sources_used: bool) -> str:
+    if web_sources_used:
+        return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie en de hierboven getoonde officiële webbron(nen). Dit is geen bevestigde interne/mondelinge toelichting."
+    return "Deze uitleg is een LLM-interpretatie op basis van lokale officiële documentatie. Dit is geen bevestigde interne/mondelinge toelichting."
+
+
+def _disclaimer_for_tiers(based_on: list[str]) -> str:
+    return build_llm_inference_disclaimer("official_web" in based_on or "external_web" in based_on)
+
+
+def primary_aggregate_fields_for_term(term: Any, fields: list[str]) -> list[str]:
+    if "onechte neveninschrijving" not in normalize_text(term):
+        return fields
+    catalog_names = [f["field_name"] for f in catalog_fields() if normalize_text(f.get("field_name", "")).startswith("soort inschrijving")]
+    return catalog_names or [field for field in fields if normalize_text(field).startswith("soort inschrijving")]
+
+def _local_context_sufficient(fields: list[dict[str, Any]], pack: dict[str, Any], refs: list[str]) -> bool:
+    return bool(fields) and (not refs or bool(pack.get("supplemental_context")))
+
+
+def _build_llm_inference(query: str, tiers: list[str], missing: list[str], allow_llm_inference: bool, *, official_answer: str = "", matched_fields: list[dict[str, Any]] | None = None, context_pack: dict[str, Any] | None = None, web_context: list[dict[str, Any]] | None = None, web_sources_used: bool | None = None) -> dict[str, Any] | None:
+    if not allow_llm_inference:
+        return None
+    based_on = [tier for tier in tiers if tier != "llm_inference"]
+    web_sources_used = bool(web_context) if web_sources_used is None else web_sources_used
+    text = build_llm_inference_text(query, official_answer, matched_fields, context_pack, web_context, web_sources_used)
+    if not text:
+        return None
+    if missing:
+        text += " Ontbrekende broncontext blijft onzeker: " + ", ".join(missing) + "."
+    return {
+        "status": "unverified_interpretation",
+        "based_on_sources": based_on,
+        "text": text,
+        "confidence": "low_to_medium",
+        "disclaimer": build_llm_inference_disclaimer(web_sources_used),
+    }
+
+
+def answer_deep_context_question_json(
+    query: str,
+    source_focus: str = "primary",
+    include_supplemental: bool = True,
+    include_manual_knowledge: bool = True,
+    allow_llm_inference: bool = True,
+    web_mode: str = WEB_MODE_DEFAULT,
+    official_web_only: bool = True,
+    allow_external_web: bool = False,
+    allow_web_sources: bool | None = None,
+    debug: bool = False,
+) -> dict[str, Any]:
     """Answer source-aware field/context questions with references followed."""
+    web_mode_requested = web_mode
+    if allow_web_sources is not None:
+        web_mode = "fallback" if allow_web_sources else "off"
+    if web_mode not in WEB_MODES:
+        web_mode = WEB_MODE_DEFAULT
+    if official_web_only:
+        allow_external_web = False
     q = normalize_text(query)
     fields = match_catalog_fields(query, limit=6)
     # Common elliptical comparison: "opleiding historisch" vs "opleiding actueel".
@@ -603,7 +777,44 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
         by_name = {f["field_name"]: f for f in catalog_fields()}
         fields = [by_name[name] for name in wanted if name in by_name]
     if not fields:
-        return answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
+        payload = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental)
+        payload.setdefault("web_context", [])
+        payload.setdefault("official_web_sources", [])
+        payload.setdefault("web_candidates", [])
+        payload.setdefault("rejected_web_candidates", [])
+        payload.setdefault("web_sources_used", False)
+        payload.setdefault("source_tiers_used", ["official_documentation"] if payload.get("curated_definition_found") else [])
+        if allow_llm_inference:
+            payload["llm_inference"] = _build_llm_inference(query, payload["source_tiers_used"], [], allow_llm_inference, official_answer=str(payload.get("definition") or payload.get("answer") or ""))
+            if payload["llm_inference"]:
+                payload["source_tiers_used"] = unique_preserve_order(payload["source_tiers_used"] + ["llm_inference"])
+        payload["llm_inference_used"] = bool(payload.get("llm_inference"))
+        local_sufficient = bool(payload.get("curated_definition_found") or payload.get("definition"))
+        attempted, reason = should_attempt_web(web_mode, local_sufficient, [], "medium" if local_sufficient else "low", str(payload.get("answer", "")))
+        web_context = []
+        web_candidates = []
+        rejected_web_candidates = []
+        web_discovery_strategies_used = []
+        if attempted:
+            web_context, web_candidates, rejected_web_candidates, web_discovery_strategies_used, reason = attempt_web_context(query, [], [], allow_external_web=allow_external_web)
+        payload["web_mode"] = web_mode
+        payload["web_attempted"] = attempted
+        payload["web_decision_reason"] = reason
+        payload["web_context"] = web_context
+        payload["official_web_sources"] = [w for w in web_context if w.get("source_tier") == "official_web"]
+        payload["web_candidates"] = web_candidates
+        payload["rejected_web_candidates"] = rejected_web_candidates
+        payload["web_sources_used"] = any(w.get("used_for_answer", True) for w in web_context)
+        if payload["web_sources_used"]:
+            payload["source_tiers_used"] = unique_preserve_order(payload.get("source_tiers_used", []) + ["official_web"] + (["llm_inference"] if payload.get("llm_inference") else []))
+            if allow_llm_inference:
+                payload["llm_inference"] = _build_llm_inference(query, [tier for tier in payload["source_tiers_used"] if tier != "llm_inference"], [], allow_llm_inference, official_answer=str(payload.get("definition") or payload.get("answer") or ""), web_context=web_context, web_sources_used=True)
+                payload["llm_inference_used"] = bool(payload.get("llm_inference"))
+        payload["web_discovery_strategies_used"] = web_discovery_strategies_used
+        payload["bronstatus"] = bronstatus_labels(web_context=web_context, llm_inference=payload.get("llm_inference"), web_mode=web_mode, web_attempted=attempted, web_decision_reason=reason)
+        if debug:
+            payload.setdefault("debug", {})["web_decision"] = web_debug_payload(requested=web_mode_requested, effective=web_mode, attempted=attempted, reason=reason)
+        return payload
 
     if "verwijs" in q or "verwijzing" in q or "waar naar" in q:
         intent = "field_reference"
@@ -623,7 +834,33 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
     refs = sorted({r for f in fields for r in (f.get("references") or [])}, key=str.lower)
     has_supp = bool(pack["supplemental_context"])
     missing = pack["missing_references"]
-    lines = ["Antwoord:", "Uit het primaire document:"]
+    local_sufficient = _local_context_sufficient(fields, pack, refs)
+    confidence = "high" if has_supp else ("medium" if not refs else "low")
+    web_attempted, web_decision_reason = should_attempt_web(web_mode, local_sufficient, missing, confidence)
+    web_context = []
+    web_candidates = []
+    rejected_web_candidates = []
+    web_discovery_strategies_used = []
+    web_unavailable_message = ""
+    if web_attempted:
+        web_context, web_candidates, rejected_web_candidates, web_discovery_strategies_used, web_decision_reason = attempt_web_context(query, fields, refs, allow_external_web=allow_external_web)
+        if not web_context:
+            web_unavailable_message = "Geen bruikbare officiële webbron gevonden." if web_decision_reason == "no_relevant_official_web_context_found" else "Geen gratis officiële webbron gevonden/gebruikt."
+    official_web = [w for w in web_context if w.get("source_tier") == "official_web"]
+    external_web = [w for w in web_context if w.get("source_tier") == "external_web"]
+    source_tiers_used = ["official_documentation"]
+    if has_supp:
+        source_tiers_used.append("official_supplemental")
+    if official_web:
+        source_tiers_used.append("official_web")
+    if external_web:
+        source_tiers_used.append("external_web")
+    official_answer_summary = " ".join([str(f.get("description", "")) for f in fields])
+    web_sources_used = any(w.get("used_for_answer", True) for w in web_context)
+    llm_inference = _build_llm_inference(query, source_tiers_used, missing, allow_llm_inference, official_answer=official_answer_summary, matched_fields=fields, context_pack=pack, web_context=web_context, web_sources_used=web_sources_used)
+    if llm_inference:
+        source_tiers_used.append("llm_inference")
+    lines = ["Antwoord:", "Uit lokale officiële documentatie:"]
     for field in fields:
         lines.append(f"- {field['field_name']} (veld {field['field_number']}): {field.get('description','')}")
         if field.get("possible_values"):
@@ -633,9 +870,17 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
     if refs:
         lines += ["", "Verwijzingen naar andere documentatie:"] + [f"- Bestandsbeschrijving {r}" if r.startswith("hoacth") else f"- {r}" for r in refs]
     if has_supp:
-        lines += ["", "Aanvullende context:"] + [f"- {c.get('source_document')}: {c.get('text')}" for c in pack["supplemental_context"][:2]]
+        lines += ["", "Aanvullende lokale documentatie:"] + [f"- {c.get('source_document')}: {c.get('text')}" for c in pack["supplemental_context"][:2]]
     elif refs:
-        lines += ["", "Aanvullende context:", "- Er is geen aanvullende broncontext gevonden in de huidige repo/chunk-index voor deze verwijzingen."]
+        lines += ["", "Aanvullende lokale documentatie:", "- Er is geen aanvullende broncontext gevonden in de huidige repo/chunk-index voor deze verwijzingen."]
+    if official_web or web_unavailable_message:
+        lines += ["", "Uit officiële webbronnen:"]
+        lines += [f"- {w.get('title')} ({w.get('domain')}): {w.get('text_excerpt')}" for w in official_web[:3]] or [f"- {web_unavailable_message}"]
+    if external_web:
+        lines += ["", "Let op: onderstaande aanvullende context komt uit externe webbronnen en is lager geprioriteerd dan officiële documentatie.", "Externe webbronnen:"]
+        lines += [f"- {w.get('title')} ({w.get('domain')}): {w.get('text_excerpt')}" for w in external_web[:3]]
+    if llm_inference:
+        lines += ["", "LLM-interpretatie:", llm_inference["text"]]
     if missing:
         lines += ["", "Onzekerheid of ontbrekende bron:"] + [f"- {r}" for r in missing]
     if intent == "field_comparison":
@@ -643,6 +888,8 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
             lines += ["", "Conclusie / verschil:", "Het primaire document toont dat beide opleidingsvelden bestaan, maar bevat zelf alleen de verwijzing naar Bestandsbeschrijving hoacth.csv/hoacth_vest.csv. Daardoor kan het inhoudelijke verschil niet volledig uit het primaire document alleen worden verklaard."]
         elif any("internationale student" in normalize_text(f["field_name"]) for f in fields):
             lines += ["", "Conclusie / verschil:", "De actuele variant gebruikt de actuele eerste nationaliteit en kan door naturalisatie met terugwerkende kracht wijzigen. De peildatumvariant gebruikt de eerste nationaliteit op peildatum 1 oktober; jaren vóór naturalisatie blijven als internationale student geregistreerd als dat toen zo was. In beide gevallen hoort bij de kern dat de student geen Nederlandse nationaliteit en geen Nederlandse vooropleiding vóór het HO heeft."]
+    if not any(line == "Bronstatus:" for line in lines):
+        lines += ["", "Bronstatus:"] + [f"- {label}" for label in bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False, web_mode=web_mode, web_attempted=web_attempted, web_decision_reason=web_decision_reason)]
     answer = "\n".join(lines)
     payload = {
         "query": query,
@@ -658,16 +905,32 @@ def answer_deep_context_question_json(query: str, source_focus: str = "primary",
         "supplemental_sources": pack["supplemental_sources_used"],
         "missing_references": missing,
         "references": refs,
-        "confidence": "high" if has_supp else ("medium" if not refs else "low"),
+        "confidence": confidence,
         "evidence": pack["primary_evidence"] + pack["supplemental_context"],
         "context_pack": pack,
         "datasets": [PRIMARY_DATASET],
         "fields": [f["field_name"] for f in fields],
         "notes": [n for f in fields for n in (f.get("notes") or [])],
         "primary_source_document": PRIMARY_SOURCE_DOCUMENT,
+        "source_tiers": SOURCE_TIERS,
+        "web_mode": web_mode,
+        "web_attempted": web_attempted,
+        "web_decision_reason": web_decision_reason,
+        "web_sources_used": any(w.get("used_for_answer", True) for w in web_context),
+        "web_context": web_context,
+        "official_web_sources": [w for w in web_context if w.get("source_tier") == "official_web"],
+        "web_candidates": web_candidates,
+        "rejected_web_candidates": rejected_web_candidates,
+        "web_discovery_strategies_used": web_discovery_strategies_used,
+        "source_tiers_used": unique_preserve_order(source_tiers_used),
+        "llm_inference": llm_inference,
+        "llm_inference_used": bool(llm_inference),
+        "bronstatus": bronstatus_labels(web_context=web_context, llm_inference=llm_inference, has_supplemental=has_supp, manual_knowledge_used=False, web_mode=web_mode, web_attempted=web_attempted, web_decision_reason=web_decision_reason),
+        "manual_knowledge_used": False,
+        "web_unavailable_message": web_unavailable_message,
     }
     if debug:
-        payload["debug"] = {"matched_field_scores": [(field_term_score(query, f), f["field_name"]) for f in fields]}
+        payload["debug"] = {"matched_field_scores": [(field_term_score(query, f), f["field_name"]) for f in fields], "web_decision": web_debug_payload(requested=web_mode_requested, effective=web_mode, attempted=web_attempted, reason=web_decision_reason)}
     return payload
 
 def detect_intent(query: str) -> str:
@@ -1122,7 +1385,9 @@ def build_answer(grouped_results: list[Result], query: str) -> str:
     best_entry = group["best"]["entry"]
     title = best_entry.get("term", "Gevonden definitie")
     definition = best_definition(group)
-    fields = filter_fields_for_main_term(title, [field for field in sanitize_fields(metadata_values(group, "fields") + group["fields"]) if normalize_text(field) != normalize_text(title)])
+    if "onechte neveninschrijving" in normalize_text(title):
+        definition = definition.replace("sleutel-domeinvelden en soort-inschrijvingsvelden", "soort-inschrijvingsvelden")
+    fields = primary_aggregate_fields_for_term(title, filter_fields_for_main_term(title, [field for field in sanitize_fields(metadata_values(group, "fields") + group["fields"]) if normalize_text(field) != normalize_text(title)]))
     datasets = sanitize_datasets(metadata_values(group, "datasets") + group["datasets"], title)
     notes = sanitize_notes(notes_for_group(group), title)
     has_curated_definition = curated_definition_found(group)
@@ -1208,7 +1473,7 @@ def debug_match_payload(result: Result) -> dict[str, Any]:
     }
 
 
-def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True) -> dict[str, Any]:
+def answer_definition_question_json(query: str, debug: bool = False, source_focus: str = "primary", include_supplemental: bool = True, web_mode: str = WEB_MODE_DEFAULT) -> dict[str, Any]:
     """Return structured retrieval output for LLM/chatbot grounding.
 
     The JSON-style dictionary separates the user query, detected intent, final
@@ -1216,13 +1481,16 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
     A future LLM should treat this payload as source material and avoid adding
     unsupported definitions from its own prior knowledge.
     """
+    web_mode_requested = web_mode
+    if web_mode not in WEB_MODES:
+        web_mode = WEB_MODE_DEFAULT
     intent = detect_intent(query)
     primary_relevant = source_focus == "primary" and (is_primary_query(query) or intent in {"field_comparison", "field_reference", "field_values"} or bool(match_catalog_fields(query, limit=2)))
     source_policy = "primary_preferred" if primary_relevant else "no_difference"
     if primary_relevant and intent in {"all_fields", "dataset_layout"}:
         return build_all_fields_payload(query, debug, "primary_only")
-    if primary_relevant and intent in {"field_comparison", "field_reference", "field_values"}:
-        return answer_deep_context_question_json(query, source_focus=source_focus, include_supplemental=include_supplemental, debug=debug)
+    if primary_relevant and intent in {"field_comparison", "field_reference", "field_values"} and match_catalog_fields(query, limit=1):
+        return answer_deep_context_question_json(query, source_focus=source_focus, include_supplemental=include_supplemental, debug=debug, web_mode=web_mode)
     if primary_relevant and intent in {"source_selection", "transformation", "comparison"}:
         return build_primary_context_payload(query, intent, debug, "primary_only")
     field = find_catalog_field(query) if primary_relevant else None
@@ -1258,12 +1526,12 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
         payload.update(
             {
                 "main_term": canonical_term(group["best"]["entry"].get("term")),
-                "definition": best_definition(group),
-                "fields": filter_fields_for_main_term(group["best"]["entry"].get("term", ""), [
+                "definition": best_definition(group).replace("sleutel-domeinvelden en soort-inschrijvingsvelden", "soort-inschrijvingsvelden") if "onechte neveninschrijving" in normalize_text(group["best"]["entry"].get("term")) else best_definition(group),
+                "fields": primary_aggregate_fields_for_term(group["best"]["entry"].get("term", ""), filter_fields_for_main_term(group["best"]["entry"].get("term", ""), [
                     field
                     for field in sanitize_fields(metadata_values(group, "fields") + group["fields"])
                     if normalize_text(field) != normalize_text(group["best"]["entry"].get("term", ""))
-                ]),
+                ])),
                 "datasets": sanitize_datasets(metadata_values(group, "datasets") + group["datasets"], group["best"]["entry"].get("term", "")),
                 "notes": sanitize_notes(notes_for_group(group), group["best"]["entry"].get("term", "")),
                 "related_terms": sanitize_related_terms([
@@ -1284,8 +1552,56 @@ def answer_definition_question_json(query: str, debug: bool = False, source_focu
             }
         )
 
+    if payload.get("curated_definition_found"):
+        tiers = ["official_documentation"]
+        attempted, reason = should_attempt_web(web_mode, True, [], "medium", str(payload.get("answer", "")))
+        web_context = []
+        web_candidates = []
+        rejected_web_candidates = []
+        web_discovery_strategies_used = []
+        if attempted:
+            web_context, web_candidates, rejected_web_candidates, web_discovery_strategies_used, reason = attempt_web_context(query, [], [], allow_external_web=False)
+        web_based_tiers = unique_preserve_order(tiers + (["official_web"] if any(w.get("source_tier") == "official_web" for w in web_context) else []) + (["external_web"] if any(w.get("source_tier") == "external_web" for w in web_context) else []))
+        web_sources_used = any(w.get("used_for_answer", True) for w in web_context)
+        llm = _build_llm_inference(query, web_based_tiers, [], True, official_answer=str(payload.get("definition") or payload.get("answer") or ""), web_context=web_context, web_sources_used=web_sources_used)
+        if llm:
+            llm["based_on_sources"] = web_based_tiers
+            llm["disclaimer"] = build_llm_inference_disclaimer(web_sources_used)
+        source_tiers = unique_preserve_order(web_based_tiers + (["llm_inference"] if llm else []))
+        payload.update({
+            "web_mode": web_mode,
+            "web_attempted": attempted,
+            "web_decision_reason": reason,
+            "web_context": web_context,
+            "official_web_sources": [w for w in web_context if w.get("source_tier") == "official_web"],
+            "web_candidates": web_candidates,
+            "rejected_web_candidates": rejected_web_candidates,
+            "web_sources_used": any(w.get("used_for_answer", True) for w in web_context),
+            "web_discovery_strategies_used": web_discovery_strategies_used,
+            "source_tiers_used": source_tiers,
+            "llm_inference": llm,
+            "llm_inference_used": bool(llm),
+            "bronstatus": bronstatus_labels(web_context=web_context, llm_inference=llm, web_mode=web_mode, web_attempted=attempted, web_decision_reason=reason),
+        })
+        if llm:
+            payload["answer"] = payload["answer"].rstrip() + "\n\nLLM-interpretatie:\n" + llm["text"] + "\n\nBronstatus:\n" + "\n".join(f"- {label}" for label in payload["bronstatus"])
+    else:
+        payload.setdefault("web_mode", web_mode)
+        payload.setdefault("web_attempted", False)
+        payload.setdefault("web_decision_reason", "web_disabled" if web_mode == "off" else "local_context_sufficient")
+        payload.setdefault("web_context", [])
+        payload.setdefault("official_web_sources", [])
+        payload.setdefault("web_candidates", [])
+        payload.setdefault("rejected_web_candidates", [])
+        payload.setdefault("web_sources_used", False)
+        payload.setdefault("source_tiers_used", [])
+        payload.setdefault("llm_inference", None)
+        payload.setdefault("llm_inference_used", False)
+        payload.setdefault("bronstatus", bronstatus_labels(web_context=[], llm_inference=None, web_mode=web_mode, web_attempted=False, web_decision_reason=payload["web_decision_reason"]))
+
     if debug:
         payload["debug_matches"] = [debug_match_payload(result) for result in results]
+        payload.setdefault("debug", {})["web_decision"] = web_debug_payload(requested=web_mode_requested, effective=web_mode, attempted=bool(payload.get("web_attempted")), reason=str(payload.get("web_decision_reason")))
 
     return payload
 

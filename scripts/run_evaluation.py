@@ -9,7 +9,7 @@ from typing import Any, Callable
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path: sys.path.insert(0, str(ROOT))
 from scripts.evaluation_utils import load_cases_with_overrides, read_jsonl, utc_now_iso, write_jsonl
-from src.definitions.search import answer_definition_question_json
+from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
 
 EVAL_DIR = ROOT / "data/evaluation"
 DEFAULT_GOLD_CORE = EVAL_DIR / "gold_core_questions.jsonl"
@@ -23,6 +23,7 @@ DATASET_PATHS = {
     "gold_core": DEFAULT_GOLD_CORE,
     "pseudo_gold": DEFAULT_PSEUDO,
     "candidates": DEFAULT_CANDIDATES,
+    "web_context": EVAL_DIR / "web_context_cases.jsonl",
 }
 
 
@@ -55,6 +56,11 @@ def evaluate_case(case: dict[str, Any], actual: dict[str, Any]) -> list[str]:
         if list_contains(actual.get("fields", []) or [], field): failures.append("forbidden_fields")
     for dataset in case.get("forbidden_datasets", []) or []:
         if list_contains(actual.get("datasets", []) or [], dataset): failures.append("forbidden_datasets")
+    for snippet in case.get("must_include", []) or []:
+        if not contains(answer, snippet): failures.append("must_include")
+    tiers = actual.get("source_tiers_used", []) or []
+    for tier in case.get("source_tiers_disallowed", []) or []:
+        if tier in tiers: failures.append("source_tiers_disallowed")
     answer_plus_definition = f"{actual.get('answer', '')} {actual.get('definition', '')}"
     for expected in case.get("expected_values", []) or []:
         value = str(expected.get("value", ""))
@@ -134,7 +140,10 @@ def run_evaluation(pseudo_path=DEFAULT_PSEUDO, overrides_path=DEFAULT_OVERRIDES,
         write_report(Path(report_path), read_jsonl(Path(results_path))); return 0
     run_id = utc_now_iso().replace(":", ""); ts = utc_now_iso(); results=[]
     for dataset_name, case in rows:
-        actual = answer_func(str(case.get("question", "")))
+        if dataset_name == "web_context":
+            actual = answer_deep_context_question_json(str(case.get("query") or case.get("question", "")), web_mode=str(case.get("web_mode") or ("fallback" if case.get("allow_web_sources", True) else "off")), allow_external_web=bool(case.get("allow_external_web", False)))
+        else:
+            actual = answer_func(str(case.get("question", "")))
         failures = evaluate_case(case, actual)
         results.append(result_row(run_id, case, actual, failures, ts, dataset_name))
     write_jsonl(Path(results_path), results); write_report(Path(report_path), results)
@@ -148,7 +157,7 @@ def main(argv=None) -> int:
     p.add_argument("--fail-on", action="append", choices=["pseudo_generated", "developer_corrected", "pseudo_uncertain"], default=[])
     p.add_argument("--case-type"); p.add_argument("--limit", type=int); p.add_argument("--report-only", action="store_true")
     p.add_argument("--include-candidates", action="store_true")
-    p.add_argument("--dataset", choices=["default", "gold_core", "pseudo_gold", "candidates", "all"], default="default")
+    p.add_argument("--dataset", choices=["default", "gold_core", "pseudo_gold", "candidates", "web_context", "all"], default="default")
     args = p.parse_args(argv)
     fail_on = args.fail_on or ["developer_corrected"]
     code = run_evaluation(case_type=args.case_type, limit=args.limit, report_only=args.report_only, fail_on=fail_on, dataset=args.dataset, include_candidates=args.include_candidates)

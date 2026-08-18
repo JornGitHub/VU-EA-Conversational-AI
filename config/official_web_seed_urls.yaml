@@ -1,0 +1,23 @@
+official_seed_urls:
+  - id: "duo_toelichting_gegevens_die_duo_levert"
+    title: "Toelichting op de gegevens die DUO levert"
+    url: "https://duo.nl/zakelijk/images/toelichting-op-de-gegevens-die-duo-levert.pdf"
+    domain: "duo.nl"
+    source_tier: "official_web"
+    topics:
+      - "soort inschrijving ho"
+      - "soort inschrijving soort ho"
+      - "onechte neveninschrijving"
+      - "echte neveninschrijving"
+      - "hoofdinschrijving"
+      - "dubbeltellingen"
+      - "beslisboom"
+      - "rekenregel"
+    related_fields:
+      - "Soort inschrijving hoger onderwijs"
+      - "Soort inschrijving soort ho"
+      - "Soort inschrijving type ho binnen soort ho"
+      - "Soort inschrijving opleiding actueel equivalent"
+      - "Soort inschrijving actuele instelling"
+      - "Soort inschrijving actuele opleiding-instelling"
+    enabled: true
