@@ -7,6 +7,9 @@ import main
 from src.llm import ollama_setup
 
 
+READY_REPORT = ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)
+
+
 class ModelMatchingTests(unittest.TestCase):
     def test_exact_tag_match(self) -> None:
         self.assertTrue(ollama_setup.model_is_installed("qwen3:8b", ["qwen3:8b", "llama3:8b"]))
@@ -80,9 +83,10 @@ class RunnerFlowTests(unittest.TestCase):
         with patch("sys.argv", ["main.py", *argv]):
             return main.parse_args()
 
-    def test_default_run_installs_models_and_starts_streamlit(self) -> None:
+    def test_default_run_installs_models_indexes_and_starts_streamlit(self) -> None:
         with patch.object(main, "install_requirements", return_value=0) as install, \
-             patch.object(main, "setup_ollama", return_value=0) as ollama, \
+             patch.object(main, "setup_ollama", return_value=ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
              patch("sys.argv", ["main.py"]):
             status = main.main()
@@ -90,11 +94,68 @@ class RunnerFlowTests(unittest.TestCase):
         self.assertEqual(0, status)
         install.assert_called_once()
         ollama.assert_called_once()
+        embeddings.assert_called_once()
         streamlit.assert_called_once()
+
+    def test_embedding_build_is_skipped_when_ollama_is_unavailable(self) -> None:
+        report = ollama_setup.OllamaSetupReport(cli_installed=False, server_running=False)
+        with patch.object(main, "install_requirements", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=report), \
+             patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
+             patch.object(main, "run_streamlit", return_value=0), \
+             patch("sys.argv", ["main.py"]):
+            main.main()
+
+        self.assertFalse(embeddings.call_args.kwargs["ollama_available"])
+
+    def test_build_embeddings_flag_forces_a_rebuild_without_starting_the_app(self) -> None:
+        with patch.object(main, "install_requirements", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)), \
+             patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
+             patch.object(main, "run_streamlit", return_value=0) as streamlit, \
+             patch("sys.argv", ["main.py", "--build-embeddings", "--skip-install"]):
+            main.main()
+
+        self.assertTrue(embeddings.call_args.kwargs["force"])
+        streamlit.assert_not_called()
+
+    def test_benchmark_flag_runs_the_benchmark_only(self) -> None:
+        with patch.object(main, "install_requirements", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
+             patch.object(main, "run_benchmark", return_value=0) as benchmark, \
+             patch.object(main, "run_streamlit", return_value=0) as streamlit, \
+             patch("sys.argv", ["main.py", "--benchmark", "--skip-install"]):
+            main.main()
+
+        benchmark.assert_called_once()
+        ollama.assert_not_called()
+        embeddings.assert_not_called()
+        streamlit.assert_not_called()
+
+    def test_skip_embeddings_leaves_the_index_alone(self) -> None:
+        with patch.object(main, "install_requirements", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)), \
+             patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
+             patch.object(main, "run_streamlit", return_value=0), \
+             patch("sys.argv", ["main.py", "--skip-embeddings"]):
+            main.main()
+
+        embeddings.assert_not_called()
+
+    def test_embedding_model_is_pulled_alongside_the_chat_model(self) -> None:
+        args = self.parse([])
+        self.assertIn(ollama_setup.DEFAULT_EMBED_MODEL, main.selected_models(args))
+        self.assertIn(ollama_setup.DEFAULT_OLLAMA_MODEL, main.selected_models(args))
+
+    def test_skip_embeddings_drops_the_embedding_model_from_the_pull_list(self) -> None:
+        args = self.parse(["--skip-embeddings"])
+        self.assertNotIn(ollama_setup.DEFAULT_EMBED_MODEL, main.selected_models(args))
 
     def test_tests_run_does_not_download_models_or_start_app(self) -> None:
         with patch.object(main, "install_requirements", return_value=0), \
-             patch.object(main, "setup_ollama", return_value=0) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "run_unit_tests", return_value=0) as tests, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
              patch("sys.argv", ["main.py", "--tests"]):
@@ -103,11 +164,13 @@ class RunnerFlowTests(unittest.TestCase):
         self.assertEqual(0, status)
         tests.assert_called_once()
         ollama.assert_not_called()
+        embeddings.assert_not_called()
         streamlit.assert_not_called()
 
     def test_skip_flags_disable_setup_steps(self) -> None:
         with patch.object(main, "install_requirements", return_value=0) as install, \
-             patch.object(main, "setup_ollama", return_value=0) as ollama, \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0), \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
              patch("sys.argv", ["main.py", "--skip-install", "--skip-models"]):
             status = main.main()
@@ -119,7 +182,8 @@ class RunnerFlowTests(unittest.TestCase):
 
     def test_setup_only_does_not_start_streamlit(self) -> None:
         with patch.object(main, "install_requirements", return_value=0) as install, \
-             patch.object(main, "setup_ollama", return_value=0) as ollama, \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0), \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
              patch("sys.argv", ["main.py", "--setup"]):
             status = main.main()
@@ -131,7 +195,8 @@ class RunnerFlowTests(unittest.TestCase):
 
     def test_failed_install_stops_before_streamlit(self) -> None:
         with patch.object(main, "install_requirements", return_value=1), \
-             patch.object(main, "setup_ollama", return_value=0) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
              patch("sys.argv", ["main.py"]):
             status = main.main()
@@ -142,7 +207,8 @@ class RunnerFlowTests(unittest.TestCase):
 
     def test_llm_query_prepares_models(self) -> None:
         with patch.object(main, "install_requirements", return_value=0), \
-             patch.object(main, "setup_ollama", return_value=0) as ollama, \
+             patch.object(main, "setup_embeddings", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "run_query", return_value=0) as query, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
              patch("sys.argv", ["main.py", "--query", "wat is instroom?", "--llm"]):
@@ -153,8 +219,12 @@ class RunnerFlowTests(unittest.TestCase):
         query.assert_called_once()
         streamlit.assert_not_called()
 
-    def test_model_flag_selects_single_model(self) -> None:
+    def test_model_flag_selects_that_chat_model(self) -> None:
         args = self.parse(["--model", "qwen3:4b"])
+        self.assertEqual("qwen3:4b", main.selected_models(args)[0])
+
+    def test_model_flag_with_skip_embeddings_selects_only_that_model(self) -> None:
+        args = self.parse(["--model", "qwen3:4b", "--skip-embeddings"])
         self.assertEqual(["qwen3:4b"], main.selected_models(args))
 
     def test_default_models_come_from_setup_module(self) -> None:

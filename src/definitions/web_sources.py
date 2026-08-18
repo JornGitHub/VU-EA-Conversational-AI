@@ -152,11 +152,21 @@ def _cache_path(url: str) -> Path:
 
 
 def extract_pdf_text(content: bytes) -> str:
+    """Return the text of a PDF, or "" when extraction is not possible.
+
+    ``pypdf`` is optional and pulls in native dependencies (cryptography/cffi)
+    that can be broken in a given Python environment. Such an import can raise a
+    non-``Exception`` error from native code, which would otherwise escape every
+    caller and break an answer that does not even need the PDF, so the catch is
+    deliberately wide.
+    """
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(content))
         return "\n".join(page.extract_text() or "" for page in reader.pages)
-    except Exception:
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException:  # noqa: BLE001 - see docstring: native import failures.
         return ""
 
 
