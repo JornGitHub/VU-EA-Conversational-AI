@@ -1,0 +1,12 @@
+{
+  "source_tier": "official_web",
+  "title": "CBS Statline",
+  "url": "https://opendata.cbs.nl/search?q=Wat+is+een+onechte+neveninschrijving%3F",
+  "domain": "opendata.cbs.nl",
+  "retrieved_at": "2026-07-21T11:28:33.873680+00:00",
+  "snippet": "CBS Statline",
+  "text_excerpt": "CBS Statline",
+  "content_hash": "0937b5123d2a385da301e613abcfbd82ea9c9bc4be2000c5623afdff6e030fe3",
+  "relevance_score": 0.0,
+  "used_for_answer": true
+}
