@@ -143,3 +143,37 @@ def canonical_preference(entry: Entry) -> int:
 def entry_search_text(entry: Entry) -> str:
     """Concatenate the searchable fields of an entry into one haystack string."""
     return " ".join(str(entry.get(field, "")) for field in SEARCHABLE_FIELDS)
+
+
+# Phrases that only occur in file-layout tables, not in definitions. A curated
+# definition that starts with one of these is a dumped table, not an answer.
+LAYOUT_DUMP_MARKERS = (
+    "lay out bestand",
+    "layout bestand",
+    "variabele nummer",
+    "naam veld bron",
+    "type veld",
+    "bestandsbeschrijving lay out",
+)
+MAX_DIGIT_RATIO = 0.15
+MIN_LENGTH_FOR_DIGIT_RULE = 200
+
+
+def looks_like_layout_dump(text: Any) -> bool:
+    """Return True when a "definition" is really a dumped layout/field table.
+
+    The 1cHO documents contain large field-layout tables. Text extraction can
+    turn such a table into one long paragraph that then looks like a definition
+    of whatever term stood above it. Those are never usable answers.
+    """
+    raw = str(text or "")
+    if not raw.strip():
+        return False
+    normalized = normalize_text(raw)
+    if any(marker in normalized for marker in LAYOUT_DUMP_MARKERS):
+        return True
+    if len(raw) >= MIN_LENGTH_FOR_DIGIT_RULE:
+        digits = sum(character.isdigit() for character in raw)
+        if digits / len(raw) > MAX_DIGIT_RATIO:
+            return True
+    return False

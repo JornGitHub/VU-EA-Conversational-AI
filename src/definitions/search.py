@@ -48,6 +48,7 @@ from src.definitions.semantic import (
 )
 from src.definitions.text_utils import (
     CANONICAL_TERM_ALIASES,
+    looks_like_layout_dump,
     STOPWORDS,
     as_list,
     canonical_aliases_for,
@@ -1252,20 +1253,38 @@ def curated_definition_found(group: Result) -> bool:
     return any(result["source"] == "curated" and result["entry"].get("definition") for result in group["results"])
 
 
+def usable_definition(text: Any) -> bool:
+    """Return True when a stored definition is fit to show to a user.
+
+    Extraction can capture a dumped field-layout table as the "definition" of the
+    heading above it. Such rows stay in the data (they are still evidence of the
+    source), but they must never be served as the answer while a real sentence
+    is available.
+    """
+    definition = str(text or "").strip()
+    return bool(definition) and not looks_like_layout_dump(definition)
+
+
 def best_definition(group: Result) -> str:
     curated_definitions = [
         result["entry"].get("definition", "")
         for result in group["results"]
         if result["source"] == "curated" and result["entry"].get("definition")
     ]
-    if curated_definitions:
-        return str(curated_definitions[0]).strip()
-
     definitions = [
         result["entry"].get("definition", "")
         for result in group["results"]
         if result["entry"].get("definition")
     ]
+
+    for candidates in (curated_definitions, definitions):
+        for definition in candidates:
+            if usable_definition(definition):
+                return str(definition).strip()
+
+    # Nothing usable: keep the old behaviour rather than inventing an answer.
+    if curated_definitions:
+        return str(curated_definitions[0]).strip()
     if definitions:
         return str(definitions[0]).strip()
     return "Ik heb geen uitgeschreven definitie gevonden, maar wel relevante velden en datasets."
