@@ -12,7 +12,6 @@ data/archive/
 # Generated local knowledge indexes
 data/*.db
 
-# Generated evaluation output
-data/evaluation/evaluation_report.md
-data/evaluation/evaluation_results.jsonl
+# Local semantic vector index: machine- and model-specific, rebuild with
+# `python main.py --build-embeddings` instead of committing it.
 data/semantic_index/
