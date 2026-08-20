@@ -64,6 +64,44 @@ class LabelQualityAuditTests(unittest.TestCase):
             self.assertTrue((root/"report.md").exists())
             self.assertTrue((root/"rejected.jsonl").exists())
             self.assertTrue(read_jsonl(root/"rejected.jsonl"))
+    def test_audit_function_does_not_print(self):
+        """A failing fixture must not print "audit failed" into a passing test run."""
+        import contextlib, io
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_jsonl(root/"gold.jsonl", [BASE_CASE])
+            write_jsonl(root/"pseudo.jsonl", [])
+            write_jsonl(root/"candidates.jsonl", [])
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                code = audit_label_quality(
+                    gold_core_path=root/"gold.jsonl", pseudo_gold_path=root/"pseudo.jsonl", candidate_path=root/"candidates.jsonl",
+                    developer_overrides_path=root/"missing_dev.jsonl", developer_corrected_path=root/"missing_corrected.jsonl",
+                    report_path=root/"report.md", rejected_path=root/"rejected.jsonl",
+                    answer_func=lambda q: {"main_term":"Wrong", "answer":"", "fields":[], "datasets":[], "curated_definition_found":False},
+                )
+        self.assertEqual(code, 1)
+        self.assertEqual("", buffer.getvalue())
+
+    def test_cli_main_reports_the_verdict(self):
+        import contextlib, io
+        from scripts.audit_label_quality import main as audit_main
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            write_jsonl(root/"gold.jsonl", [])
+            write_jsonl(root/"pseudo.jsonl", [])
+            write_jsonl(root/"candidates.jsonl", [])
+            buffer = io.StringIO()
+            with contextlib.redirect_stdout(buffer):
+                code = audit_main([
+                    "--gold-core", str(root/"gold.jsonl"), "--pseudo-gold", str(root/"pseudo.jsonl"),
+                    "--candidates", str(root/"candidates.jsonl"), "--developer-overrides", str(root/"dev.jsonl"),
+                    "--developer-corrected", str(root/"corrected.jsonl"), "--report", str(root/"report.md"),
+                    "--rejected", str(root/"rejected.jsonl"),
+                ])
+        self.assertEqual(code, 0)
+        self.assertIn("Label quality audit passed", buffer.getvalue())
+
     def test_verify_all_calls_label_quality_audit(self):
         text = Path("scripts/verify_all.py").read_text(encoding="utf-8")
         self.assertIn("scripts/audit_label_quality.py", text)

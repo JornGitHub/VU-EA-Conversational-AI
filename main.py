@@ -55,6 +55,27 @@ STREAMLIT_APP = "app_streamlit.py"
 DEFAULT_QUERY = "wat is een internationale student?"
 CORE_MODULES = ("streamlit", "requests", "docx", "pypdf", "fitz")
 
+# A Windows console (or a redirected stdout) often uses a legacy code page that
+# cannot encode check marks. Never let a status line crash the run.
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(errors="replace")
+    except (AttributeError, OSError, ValueError):  # pragma: no cover - stream without reconfigure
+        pass
+
+
+def console_supports(text: str) -> bool:
+    """Return True when stdout can encode ``text`` as-is."""
+    encoding = getattr(sys.stdout, "encoding", None) or "ascii"
+    try:
+        text.encode(encoding)
+    except (LookupError, UnicodeError):
+        return False
+    return True
+
+
+OK_MARK, FAIL_MARK = ("✓", "✗") if console_supports("✓✗") else ("[OK]", "[FAIL]")
+
 
 def print_header(title: str) -> None:
     """Print a readable section header."""
@@ -67,9 +88,9 @@ def run_command(command: list[str], description: str) -> int:
     print("$ " + " ".join(command))
     completed = subprocess.run(command, cwd=ROOT)
     if completed.returncode == 0:
-        print(f"✓ {description} completed")
+        print(f"{OK_MARK} {description} completed")
     else:
-        print(f"✗ {description} failed with exit code {completed.returncode}")
+        print(f"{FAIL_MARK} {description} failed with exit code {completed.returncode}")
     return completed.returncode
 
 
@@ -120,7 +141,7 @@ def setup_ollama(models: list[str], base_url: str = DEFAULT_BASE_URL):
     report = ensure_models(models, base_url=base_url)
     for message in report.messages:
         print(f"! {message}")
-    marker = "✓" if report.llm_available else "!"
+    marker = OK_MARK if report.llm_available else "!"
     print(f"{marker} {report.summary()}")
     return report
 
@@ -147,7 +168,7 @@ def setup_embeddings(
         return 0
     if index_exists() and not force:
         status = semantic_status()
-        print(f"✓ Semantische index aanwezig: {status.get('items')} vectoren ({status.get('model')})")
+        print(f"{OK_MARK} Semantische index aanwezig: {status.get('items')} vectoren ({status.get('model')})")
         if status.get("stale"):
             print("! De kennisbestanden zijn gewijzigd na de laatste build.")
             print("  Herbouw met: python main.py --build-embeddings")
@@ -163,7 +184,7 @@ def setup_embeddings(
         print(f"! Zorg dat Ollama draait en het model aanwezig is: ollama pull {model}")
         print("! De app werkt gewoon door met de lexicale zoeklaag.")
         return 0
-    print("✓ Semantische index gereed")
+    print(f"{OK_MARK} Semantische index gereed")
     return 0
 
 
@@ -256,6 +277,18 @@ def print_test_guide() -> None:
         "skip_semantic_index_build": "add --skip-embeddings to any command",
     }
     print(json.dumps(guide, ensure_ascii=False, indent=2))
+
+
+def print_run_summary(results: list[tuple[str, int]], *, launching_app: bool) -> None:
+    """Close a check run with a readable summary and the command to start the app."""
+    if not results:
+        return
+    print_header("Samenvatting")
+    for label, code in results:
+        print(f"{OK_MARK if code == 0 else FAIL_MARK} {label}")
+    if not launching_app:
+        print("\nDit waren checks in de terminal; ze starten de app niet.")
+        print("Start de VU EA Conversational AI-app met:\n  python main.py")
 
 
 def parse_args() -> argparse.Namespace:
@@ -356,31 +389,33 @@ def main() -> int:
         print("\nSetup klaar. Start de app met:\n  python main.py")
         return 0
 
-    statuses: list[int] = []
+    results: list[tuple[str, int]] = []
     if args.all:
-        statuses.append(run_unit_tests())
-        statuses.append(run_dry_build())
+        results.append(("Unit tests", run_unit_tests()))
+        results.append(("Knowledge-base dry run", run_dry_build()))
         if args.archive_root_leftovers:
-            statuses.append(run_archive_root_leftovers())
-        statuses.append(run_query(DEFAULT_QUERY))
+            results.append(("Archive root leftovers", run_archive_root_leftovers()))
+        results.append(("Voorbeeldvraag", run_query(DEFAULT_QUERY)))
     else:
         if args.tests:
-            statuses.append(run_unit_tests())
+            results.append(("Unit tests", run_unit_tests()))
         if args.dry_build:
-            statuses.append(run_dry_build())
+            results.append(("Knowledge-base dry run", run_dry_build()))
         if args.query:
-            statuses.append(run_query(args.query, as_json=args.json, llm=args.llm, model=args.model or DEFAULT_OLLAMA_MODEL, web_mode=args.web_mode))
+            results.append((f"Vraag: {args.query}", run_query(args.query, as_json=args.json, llm=args.llm, model=args.model or DEFAULT_OLLAMA_MODEL, web_mode=args.web_mode)))
         if args.archive_root_leftovers:
-            statuses.append(run_archive_root_leftovers())
+            results.append(("Archive root leftovers", run_archive_root_leftovers()))
         if args.check_hygiene:
-            statuses.append(run_hygiene_check())
+            results.append(("Project hygiene", run_hygiene_check()))
         if args.benchmark:
-            statuses.append(run_benchmark())
+            results.append(("Retrieval benchmark", run_benchmark()))
+
+    print_run_summary(results, launching_app=launching_app)
 
     if launching_app:
-        statuses.append(run_streamlit())
+        results.append(("Streamlit app", run_streamlit()))
 
-    return 0 if all(status == 0 for status in statuses) else 1
+    return 0 if all(code == 0 for _label, code in results) else 1
 
 
 if __name__ == "__main__":

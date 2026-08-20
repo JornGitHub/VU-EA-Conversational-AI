@@ -45,11 +45,29 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 python main.py
 ```
 
-`python main.py` zonder verdere argumenten installeert de dependencies, haalt het benodigde Ollama-model op en start de Streamlit-app. De app opent op <http://localhost:8501>. Stoppen doe je met `Ctrl+C`.
+`python main.py` zonder verdere argumenten installeert de dependencies, haalt de benodigde Ollama-modellen op, bouwt eenmalig de semantische index en start de app. Je browser opent op <http://localhost:8501>; opent hij niet vanzelf, klik dan op de URL die in de terminal verschijnt. Stoppen doe je met `Ctrl+C`.
 
 In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — er zijn geen extra run-configuraties, scripts of omgevingsvariabelen nodig.
 
-> **Eerste keer duurt langer.** De Python-pakketten zijn samen enkele honderden MB's en het standaard Ollama-model `qwen3:8b` is ongeveer 5 GB. Daarna is elke start snel: bestaande pakketten en modellen worden herkend en niet opnieuw gedownload.
+**Welk commando start de app, en welk niet?** Dit is de meest gestelde vraag:
+
+| Commando | Start de app in de browser? | Wat het wél doet |
+|----------|-----------------------------|------------------|
+| `python main.py` | ✅ ja | installeren, modellen, index, app starten |
+| `python main.py --streamlit` | ✅ ja | hetzelfde, expliciet |
+| `python main.py --all` | ❌ nee | tests + build-dry-run + één voorbeeldvraag, alles in de terminal |
+| `python main.py --tests` | ❌ nee | alleen de unittests |
+| `python main.py --query "..."` | ❌ nee | één vraag beantwoorden in de terminal (met `--json` als JSON) |
+| `python main.py --benchmark` | ❌ nee | retrieval-latency meten |
+| `python main.py --setup` | ❌ nee | alleen installeren + modellen + index |
+
+Elke terminal-only run eindigt met een samenvatting en de regel *"Start de VU EA Conversational AI-app met: python main.py"*, zodat je nooit hoeft te raden of er nog een browser hoort te openen.
+
+Zie je bij `python main.py` de melding *"No run option selected; use --all for the standard full check"*? Dan draai je een oudere versie van dit bestand: haal de laatste versie op (`git pull`) en probeer opnieuw.
+
+> **Eerste keer duurt langer.** De Python-pakketten zijn samen enkele honderden MB's, `qwen3:8b` is ongeveer 5 GB en `nomic-embed-text` ongeveer 0,3 GB; daarna bouwt de app eenmalig de semantische index (enkele minuten). Elke volgende start is snel: bestaande pakketten, modellen en index worden herkend en niet opnieuw gemaakt.
+
+> **Windows.** Alles werkt hetzelfde; activeer de venv met `.venv\Scripts\activate`. Kan je console geen `✓` weergeven, dan schakelt `main.py` automatisch over op `[OK]`/`[FAIL]`.
 
 > **Zonder Ollama werkt de app ook.** Als Ollama niet is geïnstalleerd, meldt `main.py` dat en start de app gewoon door. Je krijgt dan de volledige retrieval-antwoorden uit de lokale documentatie; alleen de optionele LLM-formuleerlaag is uitgeschakeld.
 
@@ -294,9 +312,9 @@ VU-EA-Conversational-AI/
 python main.py                                   # installeren + modellen + app starten
 python main.py --setup                           # alleen installeren + modellen
 python main.py --streamlit                       # expliciet de app starten
-python main.py --tests                           # unittests uit tests/
+python main.py --tests                           # unittests uit tests/ (terminal)
 python main.py --dry-build                       # buildpijplijn valideren zonder te schrijven
-python main.py --all                             # tests + dry-build + voorbeeldquery
+python main.py --all                             # tests + dry-build + voorbeeldquery (terminal)
 python main.py --query "wat is instroom?"        # één retrieval-vraag, tekstuitvoer
 python main.py --query "wat is instroom?" --json # zelfde vraag als JSON
 python main.py --query "wat is instroom?" --llm  # met lokale LLM-formulering
@@ -499,6 +517,10 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | `Installatie van dependencies is mislukt` | Systeem-Python is vaak afgeschermd (PEP 668). Maak een venv: `python -m venv .venv && source .venv/bin/activate`, daarna `python main.py`. |
 | `Streamlit is niet geïnstalleerd in deze Python-omgeving` | Je draaide met `--skip-install` in een lege omgeving. Draai `python main.py` zonder die flag. |
 | Poort 8501 is bezet | `python -m streamlit run app_streamlit.py --server.port 8502`. |
+| Er opent geen browser bij `--all`, `--tests`, `--query` of `--benchmark` | Dat klopt: dat zijn terminal-checks. De app start met `python main.py` (zie de tabel in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien)). |
+| `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
+| Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
+| Vreemde tekens of een `UnicodeEncodeError` in de Windows-terminal | `main.py` detecteert of de console `✓`/`✗` aankan en valt anders terug op `[OK]`/`[FAIL]`; output kan nooit meer crashen op een codepage. Zie je toch rare tekens, zet de console dan op UTF-8 met `chcp 65001`. |
 | Geen definitie gevonden | De score bleef onder de drempel. Probeer de exacte veld- of begripsnaam uit de documentatie, of zet de webcontext-modus op `enhance`/`force`. |
 | Antwoord lijkt verouderd na documentwijziging | Bouw de kennisbank opnieuw: `python scripts/build_knowledge_base.py --full`. |
 | PDF-extractie faalt met een `cryptography`/`_cffi_backend`-fout | `pypdf` heeft een werkende `cryptography`-installatie nodig: `pip install --upgrade cffi cryptography pypdf`. De app en de build lopen hier niet meer op vast: PDF's worden overgeslagen met een waarschuwing. |

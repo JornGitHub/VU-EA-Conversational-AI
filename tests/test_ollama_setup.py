@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import contextlib
+import io
 import unittest
 from unittest.mock import patch
 
@@ -80,7 +82,8 @@ class EnsureModelsTests(unittest.TestCase):
 
 class RunnerFlowTests(unittest.TestCase):
     def parse(self, argv: list[str]):
-        with patch("sys.argv", ["main.py", *argv]):
+        with patch("sys.argv", ["main.py", *argv]), \
+             contextlib.redirect_stdout(io.StringIO()):
             return main.parse_args()
 
     def test_default_run_installs_models_indexes_and_starts_streamlit(self) -> None:
@@ -88,7 +91,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)) as ollama, \
              patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py"]):
+             patch("sys.argv", ["main.py"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             status = main.main()
 
         self.assertEqual(0, status)
@@ -103,7 +107,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=report), \
              patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
              patch.object(main, "run_streamlit", return_value=0), \
-             patch("sys.argv", ["main.py"]):
+             patch("sys.argv", ["main.py"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             main.main()
 
         self.assertFalse(embeddings.call_args.kwargs["ollama_available"])
@@ -113,7 +118,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)), \
              patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py", "--build-embeddings", "--skip-install"]):
+             patch("sys.argv", ["main.py", "--build-embeddings", "--skip-install"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             main.main()
 
         self.assertTrue(embeddings.call_args.kwargs["force"])
@@ -125,7 +131,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
              patch.object(main, "run_benchmark", return_value=0) as benchmark, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py", "--benchmark", "--skip-install"]):
+             patch("sys.argv", ["main.py", "--benchmark", "--skip-install"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             main.main()
 
         benchmark.assert_called_once()
@@ -138,7 +145,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=ollama_setup.OllamaSetupReport(cli_installed=True, server_running=True)), \
              patch.object(main, "setup_embeddings", return_value=0) as embeddings, \
              patch.object(main, "run_streamlit", return_value=0), \
-             patch("sys.argv", ["main.py", "--skip-embeddings"]):
+             patch("sys.argv", ["main.py", "--skip-embeddings"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             main.main()
 
         embeddings.assert_not_called()
@@ -158,7 +166,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "run_unit_tests", return_value=0) as tests, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py", "--tests"]):
+             patch("sys.argv", ["main.py", "--tests"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             status = main.main()
 
         self.assertEqual(0, status)
@@ -172,7 +181,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "setup_embeddings", return_value=0), \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py", "--skip-install", "--skip-models"]):
+             patch("sys.argv", ["main.py", "--skip-install", "--skip-models"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             status = main.main()
 
         self.assertEqual(0, status)
@@ -185,7 +195,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "setup_embeddings", return_value=0), \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py", "--setup"]):
+             patch("sys.argv", ["main.py", "--setup"]), \
+             contextlib.redirect_stdout(io.StringIO()):
             status = main.main()
 
         self.assertEqual(0, status)
@@ -198,7 +209,8 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_embeddings", return_value=0), \
              patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py"]):
+             patch("sys.argv", ["main.py"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             status = main.main()
 
         self.assertEqual(1, status)
@@ -211,13 +223,47 @@ class RunnerFlowTests(unittest.TestCase):
              patch.object(main, "setup_ollama", return_value=READY_REPORT) as ollama, \
              patch.object(main, "run_query", return_value=0) as query, \
              patch.object(main, "run_streamlit", return_value=0) as streamlit, \
-             patch("sys.argv", ["main.py", "--query", "wat is instroom?", "--llm"]):
+             patch("sys.argv", ["main.py", "--query", "wat is instroom?", "--llm"]), \
+                  contextlib.redirect_stdout(io.StringIO()):
             status = main.main()
 
         self.assertEqual(0, status)
         ollama.assert_called_once()
         query.assert_called_once()
         streamlit.assert_not_called()
+
+    def test_check_run_ends_with_a_summary_and_points_to_the_app(self) -> None:
+        buffer = io.StringIO()
+        with patch.object(main, "install_requirements", return_value=0), \
+             patch.object(main, "run_unit_tests", return_value=0), \
+             patch.object(main, "run_streamlit", return_value=0), \
+             patch("sys.argv", ["main.py", "--tests", "--skip-install"]), \
+             contextlib.redirect_stdout(buffer):
+            main.main()
+
+        output = buffer.getvalue()
+        self.assertIn("Samenvatting", output)
+        self.assertIn("Unit tests", output)
+        self.assertIn("starten de app niet", output)
+        self.assertIn("python main.py", output)
+
+    def test_app_run_does_not_claim_that_nothing_started(self) -> None:
+        buffer = io.StringIO()
+        with patch.object(main, "install_requirements", return_value=0), \
+             patch.object(main, "setup_ollama", return_value=READY_REPORT), \
+             patch.object(main, "setup_embeddings", return_value=0), \
+             patch.object(main, "run_streamlit", return_value=0), \
+             patch("sys.argv", ["main.py"]), \
+             contextlib.redirect_stdout(buffer):
+            main.main()
+
+        self.assertNotIn("starten de app niet", buffer.getvalue())
+
+    def test_status_markers_fall_back_to_ascii_on_a_legacy_console(self) -> None:
+        # Windows consoles and redirected output often cannot encode check marks.
+        self.assertTrue(main.console_supports("abc"))
+        with patch.object(main.sys, "stdout", io.TextIOWrapper(io.BytesIO(), encoding="cp1252")):
+            self.assertFalse(main.console_supports("✓✗"))
 
     def test_model_flag_selects_that_chat_model(self) -> None:
         args = self.parse(["--model", "qwen3:4b"])

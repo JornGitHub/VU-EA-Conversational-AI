@@ -112,7 +112,7 @@ def format_archive_summary(result: dict[str, Any]) -> str:
         lines.append("No root-level generated artifacts found.")
         return "\n".join(lines)
     lines += [f"Dry run: {str(result.get('dry_run', False)).lower()}", "", "Moved root-level generated artifacts:"]
-    lines += [f"- {item['from']} → {item['to']}" for item in moved] or ["- none"]
+    lines += [f"- {item['from']} -> {item['to']}" for item in moved] or ["- none"]
     lines += ["", "Skipped:"]
     lines += [f"- {item}" for item in skipped] or ["- none"]
     return "\n".join(lines)
