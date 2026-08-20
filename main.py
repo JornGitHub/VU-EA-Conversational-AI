@@ -196,6 +196,14 @@ def run_benchmark(repeat: int = 3) -> int:
     )
 
 
+def run_llm_benchmark(model: str, base_url: str = DEFAULT_BASE_URL) -> int:
+    """Measure how fast the local model answers on this machine."""
+    return run_command(
+        [sys.executable, "scripts/benchmark_llm.py", "--model", model, "--base-url", base_url],
+        "LLM benchmark",
+    )
+
+
 def run_unit_tests() -> int:
     """Run all unittest test modules under tests/."""
     return run_command(
@@ -263,6 +271,7 @@ def print_test_guide() -> None:
         "setup_only": "python main.py --setup",
         "build_semantic_index": "python main.py --build-embeddings",
         "retrieval_benchmark": "python main.py --benchmark",
+        "llm_speed_benchmark": "python main.py --benchmark-llm",
         "all_default_checks": "python main.py --all",
         "unit_tests_only": "python main.py --tests",
         "ingestion_pipeline_dry_run": "python main.py --dry-build",
@@ -304,6 +313,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-embeddings", action="store_true", help="Do not build the local semantic index.")
     parser.add_argument("--build-embeddings", action="store_true", help="(Re)build the local semantic index and exit.")
     parser.add_argument("--benchmark", action="store_true", help="Measure retrieval latency and exit.")
+    parser.add_argument("--benchmark-llm", action="store_true", help="Measure how fast the local LLM answers and exit.")
     parser.add_argument("--embed-model", default=DEFAULT_EMBED_MODEL, help=f"Ollama embedding model (default: {DEFAULT_EMBED_MODEL}).")
     parser.add_argument("--setup", action="store_true", help="Only install dependencies and Ollama models; do not start the app.")
     parser.add_argument("--all", action="store_true", help="Run unit tests, a knowledge-base dry run, and a sample query.")
@@ -345,7 +355,7 @@ def needs_ollama(args: argparse.Namespace, *, launching_app: bool) -> bool:
     """Return True when this run should have a working local LLM."""
     if args.skip_models:
         return False
-    if args.setup or launching_app or args.build_embeddings:
+    if args.setup or launching_app or args.build_embeddings or args.benchmark_llm:
         return True
     return bool(args.query) and args.llm
 
@@ -366,7 +376,7 @@ def main() -> int:
 
     runs_checks = bool(
         args.all or args.tests or args.dry_build or args.query or args.archive_root_leftovers
-        or args.check_hygiene or args.benchmark or args.build_embeddings
+        or args.check_hygiene or args.benchmark or args.benchmark_llm or args.build_embeddings
     )
     launching_app = args.streamlit or not (runs_checks or args.setup)
 
@@ -409,6 +419,8 @@ def main() -> int:
             results.append(("Project hygiene", run_hygiene_check()))
         if args.benchmark:
             results.append(("Retrieval benchmark", run_benchmark()))
+        if args.benchmark_llm:
+            results.append(("LLM benchmark", run_llm_benchmark(args.model or DEFAULT_OLLAMA_MODEL, args.ollama_url)))
 
     print_run_summary(results, launching_app=launching_app)
 

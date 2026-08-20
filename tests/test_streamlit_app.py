@@ -33,9 +33,23 @@ class ChatSurfaceTests(unittest.TestCase):
         self.assertIn("def cached_retrieval", APP)
 
     def test_streaming_and_feedback_are_wired(self) -> None:
-        self.assertIn("st.write_stream", APP)
+        self.assertIn("stream_answer_with_progress", APP)
         self.assertIn("stream_llm_answer", APP)
         self.assertIn("record_interaction_feedback", APP)
+
+    def test_waiting_for_a_local_model_shows_progress_and_timing(self) -> None:
+        self.assertIn("Model denkt na", APP)
+        self.assertIn("eerste woord na", APP)
+
+    def test_model_is_warmed_up_and_selectable(self) -> None:
+        self.assertIn("def ensure_model_loaded", APP)
+        self.assertIn("warm_up", APP)
+        self.assertIn("MODEL_OPTIONS", APP)
+
+    def test_worker_thread_does_not_touch_session_state(self) -> None:
+        """Streamlit raises when a thread without script context reads session state."""
+        worker = APP.split("def produce() -> None:")[1].split("worker = threading.Thread")[0]
+        self.assertNotIn("st.session_state", worker)
 
     def test_semantic_section_is_labelled_as_orientation(self) -> None:
         self.assertIn("Semantisch gevonden fragmenten", APP)
