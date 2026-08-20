@@ -1,8 +1,12 @@
-# HO Definitiezoeker (VU EA Conversational AI)
+# VU EA Conversational AI
 
-Een lokale, gratis-only vraag-en-antwoordapp over de **1cijferHO-documentatie (1cHO 2025)**. Je stelt in gewoon Nederlands een vraag ("Wat is een internationale student?", "Waar verwijst `Opleiding historisch equivalent` naar?", "Toon alle velden van `Inschrijvingen_aggr_UNL_2025.csv`") en krijgt een antwoord dat aantoonbaar is terug te voeren op de officiële brondocumenten die in deze repository staan.
+**Vraagbaak voor de 1cijferHO-documentatie van VU Education Analytics — antwoorden met bronvermelding uit de officiële documentatie.**
+
+Een lokale, gratis-only chatassistent over de **1cijferHO-documentatie (1cHO 2025)**. Je stelt in gewoon Nederlands een vraag ("Wat is een internationale student?", "Waar verwijst `Opleiding historisch equivalent` naar?", "Toon alle velden van `Inschrijvingen_aggr_UNL_2025.csv`"), stelt vervolgvragen ("en op peildatum?") en krijgt antwoorden die aantoonbaar zijn terug te voeren op de officiële brondocumenten die in deze repository staan.
 
 Het project is **evidence-first**: elk antwoord vermeldt uit welke bron het komt, wanneer aanvullende documentatie is gebruikt, wanneer een bron ontbreekt, en wanneer een tekst slechts een LLM-interpretatie is. Er wordt niets gegokt en er is geen betaalde API of API key nodig.
+
+> **Let op:** de app beantwoordt vragen over de **documentatie** (definities, velden, codelijsten, verwijzingen). De feitelijke microdata zit er bewust nog niet in; zie [Toekomstig werk](#16-toekomstig-werk-en-volgende-stappen).
 
 ---
 
@@ -23,6 +27,7 @@ Het project is **evidence-first**: elk antwoord vermeldt uit welke bron het komt
 13. [Bronstatus en interpretatie in de UI](#13-bronstatus-en-interpretatie-in-de-ui)
 14. [Problemen oplossen](#14-problemen-oplossen)
 15. [Beperkingen](#15-beperkingen)
+16. [Toekomstig werk en volgende stappen](#16-toekomstig-werk-en-volgende-stappen)
 
 ---
 
@@ -40,11 +45,29 @@ source .venv/bin/activate          # Windows: .venv\Scripts\activate
 python main.py
 ```
 
-`python main.py` zonder verdere argumenten installeert de dependencies, haalt het benodigde Ollama-model op en start de Streamlit-app. De app opent op <http://localhost:8501>. Stoppen doe je met `Ctrl+C`.
+`python main.py` zonder verdere argumenten installeert de dependencies, haalt de benodigde Ollama-modellen op, bouwt eenmalig de semantische index en start de app. Je browser opent op <http://localhost:8501>; opent hij niet vanzelf, klik dan op de URL die in de terminal verschijnt. Stoppen doe je met `Ctrl+C`.
 
 In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — er zijn geen extra run-configuraties, scripts of omgevingsvariabelen nodig.
 
-> **Eerste keer duurt langer.** De Python-pakketten zijn samen enkele honderden MB's en het standaard Ollama-model `qwen3:8b` is ongeveer 5 GB. Daarna is elke start snel: bestaande pakketten en modellen worden herkend en niet opnieuw gedownload.
+**Welk commando start de app, en welk niet?** Dit is de meest gestelde vraag:
+
+| Commando | Start de app in de browser? | Wat het wél doet |
+|----------|-----------------------------|------------------|
+| `python main.py` | ✅ ja | installeren, modellen, index, app starten |
+| `python main.py --streamlit` | ✅ ja | hetzelfde, expliciet |
+| `python main.py --all` | ❌ nee | tests + build-dry-run + één voorbeeldvraag, alles in de terminal |
+| `python main.py --tests` | ❌ nee | alleen de unittests |
+| `python main.py --query "..."` | ❌ nee | één vraag beantwoorden in de terminal (met `--json` als JSON) |
+| `python main.py --benchmark` | ❌ nee | retrieval-latency meten |
+| `python main.py --setup` | ❌ nee | alleen installeren + modellen + index |
+
+Elke terminal-only run eindigt met een samenvatting en de regel *"Start de VU EA Conversational AI-app met: python main.py"*, zodat je nooit hoeft te raden of er nog een browser hoort te openen.
+
+Zie je bij `python main.py` de melding *"No run option selected; use --all for the standard full check"*? Dan draai je een oudere versie van dit bestand: haal de laatste versie op (`git pull`) en probeer opnieuw.
+
+> **Eerste keer duurt langer.** De Python-pakketten zijn samen enkele honderden MB's, `qwen3:8b` is ongeveer 5 GB en `nomic-embed-text` ongeveer 0,3 GB; daarna bouwt de app eenmalig de semantische index (enkele minuten). Elke volgende start is snel: bestaande pakketten, modellen en index worden herkend en niet opnieuw gemaakt.
+
+> **Windows.** Alles werkt hetzelfde; activeer de venv met `.venv\Scripts\activate`. Kan je console geen `✓` weergeven, dan schakelt `main.py` automatisch over op `[OK]`/`[FAIL]`.
 
 > **Zonder Ollama werkt de app ook.** Als Ollama niet is geïnstalleerd, meldt `main.py` dat en start de app gewoon door. Je krijgt dan de volledige retrieval-antwoorden uit de lokale documentatie; alleen de optionele LLM-formuleerlaag is uitgeschakeld.
 
@@ -52,13 +75,14 @@ In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — e
 
 ## 2. Wat `main.py` precies doet
 
-`python main.py` voert drie stappen uit, in deze volgorde:
+`python main.py` voert vier stappen uit, in deze volgorde:
 
 | # | Stap | Commando dat intern draait | Gedrag bij problemen |
 |---|------|----------------------------|----------------------|
 | 1 | **Dependencies installeren** | `python -m pip install -r requirements.txt` | Faalt pip terwijl alle pakketten al aanwezig zijn, dan gaat de run door. Ontbreken er pakketten, dan stopt de run met een venv-instructie. |
-| 2 | **Ollama-model(len) klaarzetten** | check `ollama` op PATH → zo nodig `ollama serve` in de achtergrond → `ollama pull qwen3:8b` als het model nog niet lokaal staat | Nooit fataal. Ontbrekende installatie, onbereikbare server of mislukte download worden als waarschuwing getoond; de app start alsnog. |
-| 3 | **App starten** | `python -m streamlit run app_streamlit.py` | Ontbreekt Streamlit (bijvoorbeeld na `--skip-install`), dan volgt een duidelijke instructie in plaats van een stacktrace. |
+| 2 | **Ollama-modellen klaarzetten** | check `ollama` op PATH → zo nodig `ollama serve` in de achtergrond → `ollama pull qwen3:8b` en `ollama pull nomic-embed-text` als ze nog niet lokaal staan | Nooit fataal. Ontbrekende installatie, onbereikbare server of mislukte download worden als waarschuwing getoond; de app start alsnog. |
+| 3 | **Semantische index bouwen** | `scripts/build_embeddings.py` (eenmalig, alleen als de index ontbreekt) | Geen Ollama of geen embeddingmodel? Dan wordt de stap overgeslagen met uitleg; de app werkt door op de lexicale zoeklaag. |
+| 4 | **App starten** | `python -m streamlit run app_streamlit.py` | Ontbreekt Streamlit (bijvoorbeeld na `--skip-install`), dan volgt een duidelijke instructie in plaats van een stacktrace. |
 
 Details van stap 2 (`src/llm/ollama_setup.py`):
 
@@ -70,14 +94,16 @@ Details van stap 2 (`src/llm/ollama_setup.py`):
 Stappen overslaan of aanpassen:
 
 ```bash
-python main.py --skip-install                 # niets installeren, alleen modellen + app
+python main.py --skip-install                 # niets installeren, alleen modellen + index + app
 python main.py --skip-models                  # geen Ollama-check/download, alleen app
-python main.py --setup                        # alleen stap 1 en 2, app niet starten
-python main.py --model qwen3:4b               # ander model downloaden en gebruiken
+python main.py --skip-embeddings              # geen semantische index bouwen
+python main.py --setup                        # alleen stap 1 t/m 3, app niet starten
+python main.py --model qwen3:4b               # ander chatmodel downloaden en gebruiken
+python main.py --embed-model embeddinggemma   # ander embeddingmodel
 python main.py --ollama-url http://host:11434 # Ollama draait ergens anders
 ```
 
-Checks (`--tests`, `--dry-build`, `--check-hygiene`, een `--query` zonder `--llm`) downloaden **nooit** een LLM-model: die stap wordt alleen uitgevoerd als je de app start, `--setup` gebruikt, of expliciet `--llm` vraagt.
+Checks (`--tests`, `--dry-build`, `--check-hygiene`, `--benchmark`, een `--query` zonder `--llm`) downloaden **nooit** een model en bouwen **nooit** een index: die stappen worden alleen uitgevoerd als je de app start, `--setup`/`--build-embeddings` gebruikt, of expliciet `--llm` vraagt.
 
 ---
 
@@ -87,8 +113,8 @@ Checks (`--tests`, `--dry-build`, `--check-hygiene`, een `--query` zonder `--llm
 |-----------|--------------------|
 | Python | 3.10 of nieuwer (de code gebruikt `X \| None`-typehints) |
 | pip | recent genoeg voor wheels; wordt door `main.py` aangeroepen |
-| Schijfruimte | ± 1 GB voor Python-pakketten, ± 5 GB extra voor `qwen3:8b` |
-| Ollama | **optioneel**, voor de LLM-laag — <https://ollama.com/download> |
+| Schijfruimte | ± 1 GB voor Python-pakketten, ± 5 GB voor `qwen3:8b`, ± 0,3 GB voor `nomic-embed-text` |
+| Ollama | **optioneel**, voor de LLM-laag én de semantische zoeklaag — <https://ollama.com/download> |
 | Internet | alleen nodig voor de eerste installatie, model-download en de optionele weblaag |
 
 Python-dependencies (`requirements.txt`): `requests`, `streamlit`, `python-docx`, `pypdf`, `PyMuPDF`, `pytest`. De retrieval-laag zelf (`src/definitions/`) draait op de standaardbibliotheek; de extra pakketten zijn voor de UI, documentextractie en tests.
@@ -112,8 +138,11 @@ Wat je kunt vragen:
 | Verwijzing | "Waar verwijst `Opleiding historisch equivalent` naar?" | De doelbron (bijv. `hoacth.csv`) plus context, of een expliciete melding dat de bron ontbreekt |
 | Vergelijking | "Wat is het verschil tussen opleiding historisch en actueel?" | Deep-contextantwoord over meerdere velden tegelijk |
 | Overzicht | "Toon alle velden van `Inschrijvingen_aggr_UNL_2025.csv`" | Tabel met alle 54 velden, met JSON-download |
+| Vervolgvraag | "en op peildatum?" na een eerdere vraag | Antwoord op het onderwerp van de vorige vraag; de app toont hoe ze de vraag heeft gelezen |
 
 Wat het project bewust **niet** doet: gokken. Ontbreekt een bron, dan zegt het antwoord dat expliciet ("welke aanvullende bron nodig is") in plaats van een plausibel klinkende tekst te verzinnen.
+
+Vindt de lexicale zoeklaag niets, dan zoekt de optionele semantische laag naar de dichtstbijzijnde brontekst en labelt die expliciet als *fragment ter oriëntatie*, niet als definitie.
 
 ---
 
@@ -124,14 +153,19 @@ Wat het project bewust **niet** doet: gokken. Ontbreekt een bron, dan zegt het a
 ```mermaid
 flowchart TD
     A["Brondocumenten<br/>1cHO Documentatie/ (.docx, .pdf, .txt)"] -->|scripts/build_knowledge_base.py| B["Kennisartefacten in data/<br/>curated, index, chunks, veldcatalogus, referenties"]
-    B --> C["Retrieval-laag<br/>src/definitions/search.py"]
-    Q["Vraag van de gebruiker"] --> C
+    B -->|"eenmalig, in het geheugen"| P["Corpuscache met voorbereide scorekenmerken<br/>src/definitions/corpus.py"]
+    B -->|scripts/build_embeddings.py| S["Semantische index<br/>data/semantic_index/"]
+    Q["Vraag uit de chat"] --> R["Vervolgvraag oplossen<br/>src/conversation/"]
+    R --> C["Lexicale retrieval<br/>src/definitions/search.py"]
+    P --> C
     C --> D{"Lokale context voldoende?"}
     D -->|ja| F["Antwoordpakket met bronlabels"]
-    D -->|nee, en webmodus staat het toe| E["Gratis weblaag<br/>src/definitions/web_sources.py"]
+    D -->|"nee → semantische zoeklaag"| S
+    S --> F
+    D -->|"nee, en webmodus staat het toe"| E["Gratis weblaag<br/>src/definitions/web_sources.py"]
     E --> F
-    F --> G["Optionele LLM-formulering via Ollama<br/>src/llm/"]
-    F --> H["Streamlit UI<br/>app_streamlit.py"]
+    F --> G["Optionele LLM-formulering via Ollama (streaming)<br/>src/llm/"]
+    F --> H["Chat-UI<br/>app_streamlit.py"]
     G --> H
 ```
 
@@ -157,18 +191,34 @@ flowchart TD
 | `curated_change_log.jsonl`, `last_build_report.md` | Wijzigingshistorie en laatste buildrapport |
 | `evaluation/` | Gold-core, pseudo-gold, kandidaat- en deep-contextvragen voor evaluatie |
 | `web_cache/` | Lokale cache van opgehaalde webbronnen (per URL gehasht) |
+| `semantic_index/` | Lokale vectorindex (`vectors.f32` + `meta.json`), gegenereerd en niet in git |
+
+Deze bestanden worden bij het eerste gebruik één keer per proces ingelezen en daarna hergebruikt (`src/definitions/corpus.py`), inclusief de per-fragment berekende scorekenmerken. Wijzigt een bestand op schijf, dan detecteert de cache dat via mtime/grootte en leest het opnieuw in.
 
 ### 5.4 Stap 3 — Retrieval (`src/definitions/search.py`)
 
 De zoeklaag is dependency-vrij, zodat Streamlit, een CLI, FastAPI of een chatbot dezelfde logica kunnen hergebruiken.
 
 * **Intentherkenning** — `detect_intent()` classificeert de vraag als `definition`, `location`, `field_detail`, `field_values`, `field_reference`, `field_comparison`, `transformation`, `source_selection`, `all_fields` of `general`.
-* **Kandidaten scoren** — `score_entry()` combineert titelmatch, tokenoverlap (met Nederlandse stopwoorden en simpele enkelvoudsvorming), een conceptuele bonus en een voorkeur voor curated boven index boven chunk. Onder de drempel `MIN_SCORE_FOR_ANSWER` volgt een expliciet "niet gevonden"-antwoord in plaats van een zwakke gok.
+* **Kandidaten scoren** — de scoring combineert titelmatch, tokenoverlap (met Nederlandse stopwoorden en simpele enkelvoudsvorming), een conceptuele bonus en een voorkeur voor curated boven index boven chunk. Onder de drempel `MIN_SCORE_FOR_ANSWER` volgt een expliciet "niet gevonden"-antwoord in plaats van een zwakke gok.
+* **Snel scoren zonder gedragsverandering** — elke entry heeft zijn genormaliseerde tekst, termtokens en titelkandidaten vooraf berekend (`corpus.py`). Entries die aantoonbaar 0 scoren worden overgeslagen, en difflib's eigen goedkope bovengrenzen (`real_quick_ratio`/`quick_ratio`) gaan vooraf aan de dure `ratio()`. De uitkomst is exact dezelfde ranking — dat wordt getest tegen een referentie-implementatie van de oude scorer.
+* **Definitiekwaliteit** — een "definitie" die in werkelijkheid een gedumpte veld-layouttabel is (`looks_like_layout_dump()`) wordt nooit als antwoord getoond zolang er een echte zin beschikbaar is.
 * **Groeperen** — resultaten over hetzelfde begrip worden samengevoegd, zodat definitie, velden, datasets en NB's uit meerdere fragmenten één antwoord vormen.
 * **Opschonen** — dataset- en veldnamen worden genormaliseerd; helper-/decoderbestanden en oude jaargangen worden niet als hoofddataset gepresenteerd.
 * **Deep context** — `answer_deep_context_question_json()` herkent meerdere velden tegelijk (bijvoorbeeld `Opleiding actueel equivalent` én `Opleiding historisch equivalent`), bouwt via `context_pack.py` een evidence-first contextpakket uit het primaire document en volgt veldverwijzingen naar aanvullende documentatie. Ontbrekende bronnen komen als `missing_references` in het antwoord.
 
-Beide antwoordfuncties geven een JSON-structuur terug met onder andere `answer`, `definition`, `main_term`, `fields`, `datasets`, `notes`, `matched_fields`, `supplemental_context`, `references`, `missing_references`, `web_context`, `llm_inference` en `bronstatus`.
+Beide antwoordfuncties geven een JSON-structuur terug met onder andere `answer`, `definition`, `main_term`, `fields`, `datasets`, `notes`, `matched_fields`, `supplemental_context`, `references`, `missing_references`, `web_context`, `semantic_context`, `semantic_status`, `llm_inference` en `bronstatus`.
+
+**Prestaties** (`python main.py --benchmark`, weblaag uit, corpus van 1169 fragmenten, 50 runs):
+
+| Meting | Voor de cache | Nu |
+|--------|---------------|-----|
+| Definitieantwoord (p50) | ± 177 ms | **± 27 ms** |
+| Deep-contextantwoord (p50) | ± 103 ms | **± 15 ms** |
+| Alleen ranking (p50) | ± 220 ms | **± 22 ms** |
+| Koude start (eerste vraag) | — | ± 215 ms |
+
+In de UI komt daar nog een cache per vraag+instelling overheen, zodat het omzetten van een sidebar-optie niet elk antwoord opnieuw berekent.
 
 ### 5.5 Stap 4 — Bronbeleid en bronlagen
 
@@ -187,22 +237,44 @@ Bronlagen worden in vaste prioriteit behandeld:
 
 Bij conflicten blijft lokale officiële documentatie leidend, tenzij later expliciet een nieuwere officiële webbron wordt gevonden en als nieuwer/actueler wordt gelabeld. Webresultaten worden nooit automatisch toegevoegd aan curated of gold-standard datasets.
 
-### 5.6 Stap 5 — Gratis weblaag (`src/definitions/web_sources.py`)
+### 5.6 Stap 5 — Semantische zoeklaag (`src/definitions/semantic.py`)
+
+De lexicale laag vindt wat de documentatie letterlijk zo noemt. Vragen in andere woorden ("hoeveel buitenlandse studenten tellen mee?") kunnen daardoor niets opleveren. De semantische laag vangt dat op:
+
+1. `scripts/build_embeddings.py` verzamelt alle veldbeschrijvingen, definities, indexrijen en documentfragmenten (± 860 stuks) en laat het lokale Ollama-model `nomic-embed-text` er vectoren van maken.
+2. De vectoren worden L2-genormaliseerd opgeslagen als `data/semantic_index/vectors.f32` met metadata in `meta.json`. Zoeken is dan een dotproduct (cosinus), met numpy indien aanwezig en anders in pure Python.
+3. Bij een vraag zónder lexicaal antwoord wordt de vraag ingebed en worden de dichtstbijzijnde fragmenten toegevoegd als `semantic_context`, met een expliciet label: **oriëntatie, geen definitie**. Een gevonden definitie wordt nooit overschreven.
+4. De index kent zijn eigen herkomst: wijzigen de kennisbestanden, dan meldt de status `stale` en adviseert de app een herbouw.
+
+Geen Ollama, geen embeddingmodel of geen index? Dan meldt de laag `no_index` of `embedding_unavailable` en werkt de app gewoon lexicaal verder.
+
+### 5.7 Stap 6 — Gesprekscontext (`src/conversation/`)
+
+Een chat zonder geheugen dwingt de gebruiker elke keer het onderwerp te herhalen. `resolve_followup_query()` herkent vervolgvragen ("en op peildatum?", "waarom telt die niet mee?", "geef een voorbeeld") aan hun openingswoorden, verwijswoorden en lengte, en plakt het onderwerp van het vorige antwoord erachter: `en op peildatum? (Internationale student)`. Retrieval blijft daardoor stateless en de intentherkenning ziet nog steeds de eigen formulering van de gebruiker eerst. De app toont altijd hoe ze de vraag gelezen heeft — er gebeurt niets stils. Zelfstandige vragen ("wat is uitval?") worden nooit herschreven.
+
+### 5.8 Stap 7 — Gratis weblaag (`src/definitions/web_sources.py`)
 
 Ontbreekt lokale context of vraag je er expliciet om, dan mag de app aanvullende webcontext proberen op te halen — zonder API key en zonder betaalde dienst. Iedere webbron houdt `source_tier`, titel, URL, domein, `retrieved_at`, excerpt en gebruiksstatus bij. Zie [hoofdstuk 12](#12-webbronnen-allowlist-modi-en-discovery).
 
-### 5.7 Stap 6 — LLM-laag (`src/llm/`)
+### 5.9 Stap 8 — LLM-laag (`src/llm/`)
 
 De LLM is optioneel en **formuleert alleen**; hij is geen bron.
 
 * `ollama_setup.py` — installatie-, server- en modelbootstrap die `main.py` gebruikt.
-* `prompt_builder.py` — bouwt een gegronde prompt: de volledige retrieval-JSON plus harde regels ("verzin geen definities, velden of databestanden", "antwoord uitsluitend op basis van de retrieval-output", "benoem ontbrekende bronnen als onzekerheid").
-* `ollama_client.py` — praat met `POST /api/chat` op `http://127.0.0.1:11434` en vertaalt verbindings-, HTTP- en formaatfouten naar leesbare Nederlandse meldingen.
+* `embeddings.py` — embeddings via `/api/embed` (met fallback naar het oudere `/api/embeddings`) voor de semantische laag.
+* `prompt_builder.py` — bouwt een gegronde prompt: de volledige retrieval-JSON plus harde regels ("verzin geen definities, velden of databestanden", "antwoord uitsluitend op basis van de retrieval-output", "benoem ontbrekende bronnen als onzekerheid", "semantische fragmenten zijn oriëntatie, geen definitie").
+* `ollama_client.py` — praat met `POST /api/chat` op `http://127.0.0.1:11434`, ondersteunt streaming, negeert bewust proxy-omgevingsvariabelen (Ollama draait lokaal) en vertaalt verbindings-, HTTP- en formaatfouten naar leesbare Nederlandse meldingen.
 * `src/chatbot.py` — combineert retrieval en LLM. Faalt de LLM, dan krijg je nog steeds het retrieval-antwoord plus de foutmelding; de app crasht niet.
 
-### 5.8 Stap 7 — Streamlit UI (`app_streamlit.py`)
+### 5.10 Stap 9 — Chat-UI (`app_streamlit.py`)
 
-De UI toont het antwoord in vaste secties: **Antwoord**, **Bestanden**, **Lokale officiële documentatie**, **Aanvullende lokale documentatie**, **Officiële/Externe webbronnen**, **LLM-interpretatie**, **Bronstatus**, **Verwijzingen**, **Ontbrekende bronnen**, **Veldenoverzicht/Veldkaart**, **Let op** en **Andere mogelijke relevante begrippen**. In de sidebar stuur je bronfocus, webmodus, LLM-gebruik en debugweergave. Staat de LLM-formuleerlaag aan terwijl Ollama niet draait, dan verschijnt daar meteen een waarschuwing.
+De UI is een gesprek: elke vraag en elk antwoord blijft staan, vervolgvragen werken, en met **Nieuw gesprek** begin je opnieuw. Per antwoord zie je:
+
+* het antwoord zelf (definitie, bestandenlijst of deep-contextuitleg), desgewenst live gestreamd door het lokale model;
+* een uitklapbaar **Bronnen en details**-paneel met **Lokale officiële documentatie**, **Aanvullende lokale documentatie**, **Semantisch gevonden fragmenten**, **Officiële/Externe webbronnen**, **LLM-interpretatie**, **Bronstatus**, **Verwijzingen**, **Ontbrekende bronnen**, **Veldenoverzicht/Veldkaart**, **Let op** en **Andere mogelijke relevante begrippen**;
+* 👍/👎-knoppen; een duim omlaag opent een correctieformulier dat wegschrijft naar `data/evaluation/developer_feedback_overrides.jsonl`, precies de plek die de evaluatiepijplijn al gebruikt.
+
+De sidebar bevat alle instellingen (bronfocus, webmodus, semantische laag, LLM-gebruik, debug) plus een statuspaneel met de omvang van de kennisbank, de bereikbaarheid van Ollama en de staat van de semantische index.
 
 ---
 
@@ -210,8 +282,8 @@ De UI toont het antwoord in vaste secties: **Antwoord**, **Bestanden**, **Lokale
 
 ```
 VU-EA-Conversational-AI/
-├── main.py                          # Enige startpunt: installeren, modellen, app, checks
-├── app_streamlit.py                 # Streamlit-UI
+├── main.py                          # Enige startpunt: installeren, modellen, index, app, checks
+├── app_streamlit.py                 # Chat-UI (VU EA Conversational AI)
 ├── zoek_definities_voorbeeld.py     # CLI-voorbeeld op dezelfde retrieval-laag
 ├── requirements.txt
 ├── 1cHO Documentatie/               # Brondocumenten (legacy-locatie, wordt herkend)
@@ -222,10 +294,12 @@ VU-EA-Conversational-AI/
 ├── data/                            # Gegenereerde kennisartefacten (in de repo)
 ├── src/
 │   ├── ingestion/                   # Tekstextractie, chunking, definitie-extractie, validatie, archief
-│   ├── definitions/                 # Retrieval, veldcatalogus, referenties, bronbeleid, weblaag
-│   ├── llm/                         # Ollama-bootstrap, client, promptbouw
+│   ├── definitions/                 # Retrieval, corpuscache, tekstprimitieven, semantische laag,
+│   │                                #   veldcatalogus, referenties, bronbeleid, weblaag
+│   ├── conversation/                # Vervolgvragen en gespreksgeschiedenis
+│   ├── llm/                         # Ollama-bootstrap, chatclient (streaming), embeddings, promptbouw
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
-├── scripts/                         # Build, evaluatie, audits, feedback, verificatie
+├── scripts/                         # Build, embeddings, benchmark, evaluatie, audits, feedback
 ├── tests/                           # Unit- en regressietests (unittest/pytest)
 └── docs/evaluation.md               # Uitleg over de evaluatietiers
 ```
@@ -238,12 +312,14 @@ VU-EA-Conversational-AI/
 python main.py                                   # installeren + modellen + app starten
 python main.py --setup                           # alleen installeren + modellen
 python main.py --streamlit                       # expliciet de app starten
-python main.py --tests                           # unittests uit tests/
+python main.py --tests                           # unittests uit tests/ (terminal)
 python main.py --dry-build                       # buildpijplijn valideren zonder te schrijven
-python main.py --all                             # tests + dry-build + voorbeeldquery
+python main.py --all                             # tests + dry-build + voorbeeldquery (terminal)
 python main.py --query "wat is instroom?"        # één retrieval-vraag, tekstuitvoer
 python main.py --query "wat is instroom?" --json # zelfde vraag als JSON
 python main.py --query "wat is instroom?" --llm  # met lokale LLM-formulering
+python main.py --build-embeddings                 # semantische index (her)bouwen
+python main.py --benchmark                       # retrieval-latency meten
 python main.py --check-hygiene                   # waarschuw over artefacten in de projectroot
 python main.py --archive-root-leftovers          # verplaats die artefacten naar data/archive/
 python main.py --guide                           # JSON-overzicht van handige commando's
@@ -253,8 +329,12 @@ python main.py --guide                           # JSON-overzicht van handige co
 |------|-----------|
 | `--skip-install` | Sla `pip install -r requirements.txt` over |
 | `--skip-models` | Sla de Ollama-check en model-download over |
+| `--skip-embeddings` | Bouw geen semantische index (en download het embeddingmodel niet) |
+| `--build-embeddings` | (Her)bouw de semantische index en stop daarna |
+| `--benchmark` | Meet retrieval-latency en stop daarna |
 | `--setup` | Alleen voorbereiden, app niet starten |
-| `--model NAAM` | Welk Ollama-model gedownload en gebruikt wordt (standaard `qwen3:8b`) |
+| `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
+| `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
 | `--ollama-url URL` | Basis-URL van de Ollama-server (standaard `http://127.0.0.1:11434`) |
 | `--web-mode {off,fallback,enhance,force}` | Webcontextmodus voor `--query` (standaard `fallback`) |
 | `--json` | `--query`-uitvoer als JSON |
@@ -264,24 +344,37 @@ python main.py --guide                           # JSON-overzicht van handige co
 Dezelfde retrieval-laag direct vanuit Python gebruiken:
 
 ```python
-from src.definitions.search import answer_definition_question_json
+from src.chatbot import retrieve
 
-payload = answer_definition_question_json("wat is een internationale student?")
-print(payload["definition"], payload["datasets"], payload["bronstatus"])
+payload = retrieve("wat is een internationale student?", web_mode="off")
+print(payload["answer"], payload["bronstatus"], payload["semantic_status"])
+```
+
+Vervolgvragen buiten de UI om:
+
+```python
+from src.conversation import Turn, resolve_followup_query
+
+history = [Turn("wat is een internationale student?", "...", "Internationale student")]
+query, subject = resolve_followup_query("en op peildatum?", history)
+# query == "en op peildatum? (Internationale student)"
 ```
 
 ---
 
 ## 8. Ollama-modellen beheren
 
-Standaardmodel: **`qwen3:8b`** (± 5 GB). Dit is één bron van waarheid: `src/llm/ollama_setup.py` definieert `DEFAULT_OLLAMA_MODEL`, en `main.py`, `app_streamlit.py`, `src/chatbot.py` en `zoek_definities_voorbeeld.py` gebruiken die waarde.
+Standaardmodellen: **`qwen3:8b`** (± 5 GB, formuleren) en **`nomic-embed-text`** (± 0,3 GB, semantisch zoeken). Beide staan op één plek: `src/llm/ollama_setup.py` definieert `DEFAULT_OLLAMA_MODEL`, `DEFAULT_EMBED_MODEL` en `REQUIRED_OLLAMA_MODELS`; `main.py`, `app_streamlit.py`, `src/chatbot.py`, de semantische laag en `zoek_definities_voorbeeld.py` gebruiken die waarden.
 
 ```bash
-python main.py                      # zet qwen3:8b klaar en start de app
-python main.py --model qwen3:4b     # kleiner/sneller model (minder geheugen)
+python main.py                          # zet beide modellen klaar, bouwt de index, start de app
+python main.py --model qwen3:4b         # kleiner/sneller chatmodel (minder geheugen)
 python main.py --setup --model qwen3:14b   # zwaarder model alvast downloaden
-ollama list                         # welke modellen staan lokaal
-ollama rm qwen3:8b                  # model verwijderen om ruimte vrij te maken
+python main.py --skip-embeddings        # alleen het chatmodel, geen semantische laag
+python main.py --build-embeddings       # index herbouwen na een kennisbank-build
+python scripts/build_embeddings.py --status   # status van de huidige index
+ollama list                             # welke modellen staan lokaal
+ollama rm qwen3:8b                      # model verwijderen om ruimte vrij te maken
 ```
 
 In de Streamlit-sidebar kun je bij **Ollama-model** een andere modelnaam invullen; dat model moet dan wel lokaal aanwezig zijn (`ollama pull <naam>` of `python main.py --setup --model <naam>`).
@@ -301,6 +394,12 @@ python scripts/build_knowledge_base.py --full                 # alles opnieuw ve
 python scripts/build_knowledge_base.py --archive-root-leftovers   # ook de root opruimen
 ```
 
+Bouw daarna ook de semantische index opnieuw, zodat die bij de nieuwe teksten past:
+
+```bash
+python main.py --build-embeddings
+```
+
 De build maakt back-ups in `data/backups/` voordat bestaande artefacten worden vervangen, en schrijft een rapport naar `data/last_build_report.md`. Gegenereerde artefacten horen in `data/`, niet in de projectroot; `python main.py --check-hygiene` waarschuwt daarover en `--archive-root-leftovers` verplaatst ze naar `data/archive/`.
 
 ---
@@ -308,8 +407,9 @@ De build maakt back-ups in `data/backups/` voordat bestaande artefacten worden v
 ## 10. Tests en evaluatie
 
 ```bash
-python main.py --skip-install --tests                    # alle unittests
+python main.py --skip-install --tests                    # alle unittests (195 stuks)
 pytest                                                   # zelfde tests via pytest
+python main.py --skip-install --benchmark                # retrieval-latency meten
 python scripts/run_evaluation.py                         # retrieval-evaluatie
 python scripts/run_evaluation.py --dataset gold_core     # aanbevolen benchmarkset
 python scripts/run_evaluation.py --dataset web_context   # weblaag (met gemockte providers)
@@ -317,7 +417,16 @@ python scripts/audit_label_quality.py                    # labelkwaliteit van ev
 python scripts/verify_all.py                             # end-to-end verificatie van standaardvragen
 ```
 
-De evaluatiedata is **geen** menselijke gold standard maar bronondersteunde pseudo-data plus kandidaatmining; `docs/evaluation.md` beschrijft de tiers (`gold_core`, `pseudo_gold`, `candidates`) en hoe je correcties toevoegt via `scripts/record_feedback.py`. Tests draaien zonder live internet doordat webproviders worden gemockt of de weblaag wordt gemonkeypatcht.
+De evaluatiedata is **geen** menselijke gold standard maar bronondersteunde pseudo-data plus kandidaatmining; `docs/evaluation.md` beschrijft de tiers (`gold_core`, `pseudo_gold`, `candidates`) en hoe je correcties toevoegt via `scripts/record_feedback.py`. Vanuit de chat-UI kun je hetzelfde doen met de 👎-knop onder een antwoord. Tests draaien zonder live internet doordat webproviders worden gemockt of de weblaag wordt gemonkeypatcht; de semantische laag wordt getest met een deterministische nep-embedder, dus er is ook geen Ollama nodig.
+
+Wat de tests bewaken, naast de bestaande dekking:
+
+* **Scoring-equivalentie** — de snelle scorer wordt op het volledige corpus vergeleken met een referentie-implementatie van de oorspronkelijke scorer, inclusief het bewijs dat de snelle afwijzing nooit een entry overslaat die zou scoren.
+* **Semantische laag** — bouwen, zoeken, verouderde index, ontbrekende index en ontbrekende embeddingserver.
+* **Vervolgvragen** — welke vragen wél en niet worden herschreven.
+* **Runner-flow** — welke stappen `main.py` per commando uitvoert en overslaat.
+
+De gold-core evaluatie staat op 6/8. De twee falende cases zijn labels die vragen om de tekst "waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden", terwijl de code die formulering bewust inkort tot "soort-inschrijvingsvelden". Dat is een verouderd `pseudo_generated` label, geen retrievalfout; zie [Toekomstig werk](#16-toekomstig-werk-en-volgende-stappen).
 
 ---
 
@@ -329,10 +438,11 @@ De gratis-only architectuur gebruikt:
 
 * lokale documentatie in `sources/`/`1cHO Documentatie/` en gegenereerde artefacten in `data/`;
 * optionele lokale LLM-formulering via Ollama, standaard `qwen3:8b`;
+* optionele lokale embeddings via Ollama (`nomic-embed-text`) met een vectorindex als plat bestand — geen vectordatabase-dienst;
 * optionele no-key webcontext via directe HTTP-fetches van allowlisted of bekende URL's;
-* lokale caching in `data/web_cache/`.
+* lokale caching in `data/web_cache/` en `data/semantic_index/`.
 
-Niet gebruikt of vereist: Bing Search API, Tavily, SerpAPI, Google Custom Search API, OpenAI API, Anthropic API, Azure OpenAI, Gemini API of commerciële hosted embedding-/search-/vector-API's. Draait Ollama niet, dan geeft de app retrieval-output zonder hosted fallback en crasht de zoeklaag niet.
+Niet gebruikt of vereist: Bing Search API, Tavily, SerpAPI, Google Custom Search API, OpenAI API, Anthropic API, Azure OpenAI, Gemini API, Pinecone/Weaviate/Qdrant-cloud of andere commerciële hosted embedding-/search-/vector-API's. Draait Ollama niet, dan geeft de app retrieval-output zonder hosted fallback en crasht de zoeklaag niet.
 
 ---
 
@@ -367,12 +477,14 @@ In alle modi blijven lokale officiële bronnen leidend en wordt webcontext apart
 python main.py --skip-install --query "Wat is een onechte neveninschrijving?" --json --web-mode force
 ```
 
-In Streamlit stuur je hetzelfde via de sidebar:
+In de app stuur je hetzelfde via de sidebar:
 
 * **Webcontext-modus**: standaard "alleen bij ontbrekende lokale context".
 * **Gebruik overige externe webbronnen**: standaard uit.
 * **Sta LLM-interpretatie toe**: standaard aan.
 * **Toon bronstatus**: standaard aan.
+* **Gebruik semantische zoeklaag**: standaard aan (doet niets zolang er geen index is).
+* **Gebruik LLM-formuleerlaag**: standaard uit; aanzetten streamt het antwoord van het lokale model.
 
 ### Discovery pipeline
 
@@ -398,19 +510,69 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | `Ollama-server niet bereikbaar op http://127.0.0.1:11434` | Start de server handmatig met `ollama serve`, of geef een ander adres mee met `--ollama-url`. |
 | `Kan geen verbinding maken met Ollama` in de UI | De formuleerlaag staat aan terwijl de server niet draait. Zet **Gebruik LLM-formuleerlaag** uit of start Ollama. |
 | `ollama pull` mislukt | Meestal netwerk of schijfruimte. `ollama list` toont wat er al staat; `ollama rm <model>` maakt ruimte vrij. |
+| Sidebar meldt "Semantische index: niet gebouwd" | Draai `python main.py --build-embeddings` (vereist een draaiende Ollama met `nomic-embed-text`). Zonder index werkt de app lexicaal gewoon door. |
+| Sidebar meldt "verouderd, herbouw aanbevolen" | De kennisbestanden zijn na de indexbuild gewijzigd: `python main.py --build-embeddings`. |
+| Vervolgvraag wordt verkeerd begrepen | De app toont onder het antwoord hoe ze de vraag gelezen heeft. Stel de vraag voluit als de herschrijving niet klopt. |
+| LLM-laag doet niets achter een bedrijfsproxy | De app negeert `HTTP(S)_PROXY` voor localhost. Draait Ollama op een andere host, geef die dan mee met `--ollama-url`. |
 | `Installatie van dependencies is mislukt` | Systeem-Python is vaak afgeschermd (PEP 668). Maak een venv: `python -m venv .venv && source .venv/bin/activate`, daarna `python main.py`. |
 | `Streamlit is niet geïnstalleerd in deze Python-omgeving` | Je draaide met `--skip-install` in een lege omgeving. Draai `python main.py` zonder die flag. |
 | Poort 8501 is bezet | `python -m streamlit run app_streamlit.py --server.port 8502`. |
+| Er opent geen browser bij `--all`, `--tests`, `--query` of `--benchmark` | Dat klopt: dat zijn terminal-checks. De app start met `python main.py` (zie de tabel in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien)). |
+| `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
+| Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
+| Vreemde tekens of een `UnicodeEncodeError` in de Windows-terminal | `main.py` detecteert of de console `✓`/`✗` aankan en valt anders terug op `[OK]`/`[FAIL]`; output kan nooit meer crashen op een codepage. Zie je toch rare tekens, zet de console dan op UTF-8 met `chcp 65001`. |
 | Geen definitie gevonden | De score bleef onder de drempel. Probeer de exacte veld- of begripsnaam uit de documentatie, of zet de webcontext-modus op `enhance`/`force`. |
 | Antwoord lijkt verouderd na documentwijziging | Bouw de kennisbank opnieuw: `python scripts/build_knowledge_base.py --full`. |
-| PDF-extractie faalt met een `cryptography`/`_cffi_backend`-fout | `pypdf` heeft een werkende `cryptography`-installatie nodig: `pip install --upgrade cffi cryptography pypdf`. |
+| PDF-extractie faalt met een `cryptography`/`_cffi_backend`-fout | `pypdf` heeft een werkende `cryptography`-installatie nodig: `pip install --upgrade cffi cryptography pypdf`. De app en de build lopen hier niet meer op vast: PDF's worden overgeslagen met een waarschuwing. |
 
 ---
 
 ## 15. Beperkingen
 
 * Antwoorden zijn zo goed als de documentatie in `data/`; ontbrekende bronnen worden gemeld, niet ingevuld.
+* **De feitelijke microdata zit er nog niet in.** De app kent de betekenis van velden, niet de waarden erin; zie [Toekomstig werk](#16-toekomstig-werk-en-volgende-stappen).
 * PDF-extractie werkt alleen op PDF's met een tekstlaag — er is geen OCR.
 * De evaluatiesets zijn pseudo-gold, geen menselijke gold standard (zie `docs/evaluation.md`).
 * De weblaag is bewust smal: alleen gratis, no-key fetches van allowlisted domeinen, met een relevance-drempel.
 * De LLM formuleert alleen op basis van retrieval-output; hij voegt geen kennis toe en is nooit de bron van een feit.
+* De semantische laag hangt aan een lokaal embeddingmodel: zonder Ollama valt die functie weg (de rest blijft werken), en de index is machinegebonden, dus niet in git.
+* De gesprekscontext gaat één onderwerp diep: vervolgvragen worden aan het laatst beantwoorde begrip gekoppeld, niet aan een volledig gespreksmodel.
+
+---
+
+## 16. Toekomstig werk en volgende stappen
+
+Onderstaande punten staan op volgorde van waarde-per-inspanning. Punt 1 is de grootste functionele sprong en tegelijk de stap met de zwaarste randvoorwaarden.
+
+### 16.1 De echte dataset als bron (nu bewust nog niet geïmplementeerd)
+
+**Wat de app nu doet:** vragen beantwoorden over de *documentatie* — wat een veld betekent, welke waarden het kent, in welk bestand het staat, waar het naar verwijst.
+
+**Wat er nog niet in zit:** de feitelijke 1cijferHO-microdata zelf (`Inschrijvingen_aggr_UNL_2025.csv` en verwanten). Vragen als "hoeveel internationale studenten stonden op 1 oktober 2024 ingeschreven bij de VU?" kan de app dus niet beantwoorden.
+
+**Waarom niet:** de databestanden zijn nog **niet geschoond voor privacygevoelige gegevens**. 1cijferHO bevat persoonsgebonden nummers en herleidbare combinaties van kenmerken; die mogen niet in een repository, niet in een index en niet in een promptcontext terechtkomen. Zolang die schoning niet is uitgevoerd en vastgelegd, blijft de dataset er bewust buiten. Dit is een bewuste ontwerpkeuze, geen omissie.
+
+**Wat er nodig is voordat dit kan (voorgestelde volgorde):**
+
+1. **Privacy- en juridische basis.** Bepaal met de data-eigenaar en de privacy officer welke velden onder de VU-/DUO-afspraken gebruikt mogen worden, welke verwijderd of gehasht moeten worden en welke minimale celgrootte geldt voor publicatie (bijvoorbeeld afronden of onderdrukken onder *n* = 5). Leg dat vast als een expliciete, versiebeheerde datacontract-beschrijving.
+2. **Schoningspijplijn.** Een `scripts/prepare_dataset.py` die de ruwe levering inleest, direct identificerende velden verwijdert (persoonsgebonden nummer, geboortedatum), indirect identificerende velden generaliseert (geboorteland, nationaliteit, postcode), en het resultaat als geaggregeerde tabel wegschrijft. Draai die pijplijn buiten de repository en commit alleen het resultaat als dat aantoonbaar niet-herleidbaar is.
+3. **Opslag buiten git.** Zelfs geschoonde data hoort niet standaard in de repository: houd het pad configureerbaar (`config/dataset.yaml`), gitignore de map en laat de app netjes melden dat de dataset ontbreekt in plaats van te falen — precies zoals de semantische index dat nu doet.
+4. **Query-laag in plaats van vrije tekst.** Laat de LLM géén vrije SQL genereren over persoonsdata. Een veilige route is een vaste set geparametriseerde aggregaties (tellen, groeperen, filteren op de velden uit het datacontract), waarbij de app de vraag omzet naar één van die parameterisaties en het resultaat teruggeeft mét de gebruikte filters. Gebruik voor de uitvoering `sqlite3`/`pandas` op de lokale geschoonde tabel — dat blijft binnen het gratis-only ontwerp.
+5. **Onderdrukkingsregels in de antwoordlaag.** Cellen onder de afgesproken drempel worden niet getoond maar gemeld als "te klein om te tonen"; dat hoort in de retrieval-output te zitten (als expliciete status, net als `missing_references`), niet pas in de UI.
+6. **Nieuwe bronlaag.** Voeg `official_dataset` toe aan de bronlagen in [hoofdstuk 5.5](#55-stap-4-bronbeleid-en-bronlagen), zodat een cijfermatig antwoord altijd zichtbaar gescheiden blijft van een definitie uit de documentatie, inclusief peildatum en leveringsversie.
+7. **Evaluatie met cijfers.** Breid de evaluatieset uit met vragen waarvan het juiste getal bekend is, zodat regressies in de cijferlaag net zo hard opvallen als regressies in de definitielaag.
+
+### 16.2 Kortere termijn, zonder nieuwe randvoorwaarden
+
+* **Evaluatielabels bijwerken.** Twee `gold_core`-cases verwachten nog de oude formulering "waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden". Regenereer de pseudo-gold set of leg de bewuste inkorting vast met `scripts/record_feedback.py`, zodat de evaluatie weer op 8/8 staat.
+* **Semantische laag ook bij zwakke treffers.** Nu springt de semantische zoeklaag alleen bij als er geen lexicaal antwoord is. Een logische volgende stap is hybride ranking (bijvoorbeeld Reciprocal Rank Fusion) zodra er een gold-set is die aantoont dat dit de kwaliteit verbetert in plaats van verslechtert.
+* **Antwoordkwaliteit van indexrijen.** `wat is instroom?` levert nu een NB-zin in plaats van een echte definitie, omdat de opgeschoonde set voor dat begrip geen betere zin bevat. Handmatig curateren van de ± 15 kernbegrippen levert hier de grootste kwaliteitswinst.
+* **Meer chatgeheugen.** Vervolgvragen koppelen nu aan het laatst beantwoorde begrip. Een expliciete "onderwerpstack" (met de mogelijkheid om terug te schakelen naar een eerder onderwerp) maakt langere gesprekken natuurlijker.
+* **Exporteren.** Een knop om een gesprek inclusief bronvermeldingen als Markdown of PDF op te slaan, zodat een antwoord met bronnen in een mail of notitie kan.
+* **Meertaligheid.** De documentatie is Nederlands; de UI en prompts ook. Een Engelstalige modus voor internationale collega's vraagt vooral om vertaalde UI-teksten en een prompt die in het Engels antwoordt zonder de Nederlandse brontermen te vertalen.
+
+### 16.3 Onderhoud
+
+* **Nieuwe jaargang 1cHO.** Zet de nieuwe documenten in `sources/1cHO Documentatie/`, draai `python scripts/build_knowledge_base.py --full` en daarna `python main.py --build-embeddings`. Controleer met `python scripts/run_evaluation.py --dataset gold_core` en `python main.py --skip-install --tests`.
+* **Modelupdates.** `qwen3:8b` en `nomic-embed-text` staan als constante in `src/llm/ollama_setup.py`; een nieuwer model wisselen is één regel plus een herbouw van de index (embeddings van verschillende modellen zijn niet uitwisselbaar).
+* **Afhankelijkheden.** `requirements.txt` pint majors; controleer bij een Streamlit-major of de chatcomponenten (`st.chat_input`, `st.write_stream`) nog hetzelfde gedragen.

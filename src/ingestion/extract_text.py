@@ -23,9 +23,11 @@ def extract_text(path: Path) -> dict[str, Any]:
 
 def _extract_pdf(path:Path)->list[dict[str,Any]]:
     try:
-        from pypdf import PdfReader  # optional dependency
-    except ImportError as exc:
-        raise RuntimeError('PDF extraction requires optional dependency pypdf; no OCR is performed.') from exc
+        from pypdf import PdfReader  # optional dependency with native requirements
+    except (KeyboardInterrupt, SystemExit):
+        raise
+    except BaseException as exc:  # noqa: BLE001 - a broken native install raises non-Exception errors.
+        raise RuntimeError(f'PDF extraction requires a working pypdf install; no OCR is performed. Details: {exc}') from exc
     pages=[]
     for i,page in enumerate(PdfReader(str(path)).pages, start=1):
         text=_clean(page.extract_text() or '')

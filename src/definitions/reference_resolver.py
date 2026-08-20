@@ -7,8 +7,11 @@ from __future__ import annotations
 
 import json
 import re
+from functools import lru_cache
 from pathlib import Path
 from typing import Any
+
+from src.definitions.corpus import cached_jsonl
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -34,6 +37,7 @@ def reference_aliases(reference: str) -> list[str]:
     return REFERENCE_ALIASES.get(reference, [reference])
 
 
+@lru_cache(maxsize=256)
 def find_reference_files(reference: str) -> list[Path]:
     aliases = [normalize_text(a) for a in reference_aliases(reference)]
     found: list[Path] = []
@@ -50,13 +54,8 @@ def find_reference_files(reference: str) -> list[Path]:
 
 
 def load_chunks() -> list[dict[str, Any]]:
-    if not CHUNKS_PATH.exists():
-        return []
-    rows = []
-    for line in CHUNKS_PATH.read_text(encoding="utf-8").splitlines():
-        if line.strip():
-            rows.append(json.loads(line))
-    return rows
+    """Return all chunks, cached so one deep-context answer reads the file once."""
+    return cached_jsonl(CHUNKS_PATH)
 
 
 def resolve_reference(reference: str, *, query: str = "", limit: int = 3) -> dict[str, Any]:

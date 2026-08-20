@@ -232,11 +232,10 @@ def audit_label_quality(
 
     write_jsonl(rejected_path, rejected_rows)
     write_report(report_path, rows_by_name, rejected_rows, gold_core_failures)
-    if any(row.get("dataset") == "gold_core" for row in rejected_rows):
-        print(f"Label quality audit failed; see {report_path}")
-        return 1
-    print(f"Label quality audit passed; see {report_path}")
-    return 0
+    # Return the exit code only. The verdict is printed by main(), so unit tests
+    # that deliberately audit a failing fixture do not print "audit failed" into
+    # an otherwise passing test run.
+    return 1 if any(row.get("dataset") == "gold_core" for row in rejected_rows) else 0
 
 
 def main(argv=None) -> int:
@@ -249,7 +248,7 @@ def main(argv=None) -> int:
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT)
     parser.add_argument("--rejected", type=Path, default=DEFAULT_REJECTED)
     args = parser.parse_args(argv)
-    return audit_label_quality(
+    code = audit_label_quality(
         gold_core_path=args.gold_core,
         pseudo_gold_path=args.pseudo_gold,
         candidate_path=args.candidates,
@@ -258,6 +257,9 @@ def main(argv=None) -> int:
         report_path=args.report,
         rejected_path=args.rejected,
     )
+    verdict = "failed" if code else "passed"
+    print(f"Label quality audit {verdict}; see {args.report}")
+    return code
 
 if __name__ == "__main__":
     raise SystemExit(main())

@@ -239,6 +239,9 @@ def write_catalog_and_gold(dry_run: bool = False) -> dict[str, Any]:
 
 
 def load_catalog(path: Path = FIELD_CATALOG_PATH) -> list[dict[str, Any]]:
+    """Return the inschrijvingen field catalog, cached until the file changes."""
     if not path.exists():
         return []
-    return json.loads(path.read_text(encoding="utf-8"))
+    from src.definitions.corpus import cached_json
+
+    return cached_json(path)

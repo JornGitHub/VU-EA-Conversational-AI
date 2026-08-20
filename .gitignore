@@ -11,3 +11,7 @@ data/archive/
 
 # Generated local knowledge indexes
 data/*.db
+
+# Local semantic vector index: machine- and model-specific, rebuild with
+# `python main.py --build-embeddings` instead of committing it.
+data/semantic_index/

@@ -1,4 +1,4 @@
-import tempfile, unittest
+import contextlib, io, tempfile, unittest
 from pathlib import Path
 from scripts.evaluation_utils import read_jsonl, write_jsonl
 from scripts.generate_pseudo_gold import generate_case_tiers, generate_cases, main
@@ -59,7 +59,9 @@ class PseudoGoldGenerationTests(unittest.TestCase):
             curated.write_text(__import__('json').dumps([self.fixture()]), encoding="utf-8")
             index.write_text("", encoding="utf-8"); chunks.write_text("", encoding="utf-8")
             write_jsonl(overrides, [{"id":"dev","question":"q","label_status":"developer_corrected"}])
-            main(["--curated", str(curated), "--index", str(index), "--chunks", str(chunks), "--pseudo-gold-output", str(root/"pseudo.jsonl"), "--candidate-output", str(root/"candidates.jsonl"), "--gold-core-output", str(root/"gold.jsonl"), "--overrides", str(overrides)])
+            # main() prints a generation summary; keep it out of the test output.
+            with contextlib.redirect_stdout(io.StringIO()):
+                main(["--curated", str(curated), "--index", str(index), "--chunks", str(chunks), "--pseudo-gold-output", str(root/"pseudo.jsonl"), "--candidate-output", str(root/"candidates.jsonl"), "--gold-core-output", str(root/"gold.jsonl"), "--overrides", str(overrides)])
             self.assertTrue((root/"pseudo.jsonl").exists())
             self.assertTrue((root/"candidates.jsonl").exists())
             self.assertTrue(any(row["id"] == "dev" for row in read_jsonl(root/"gold.jsonl")))

@@ -2,6 +2,7 @@ from __future__ import annotations
 import json, re
 from datetime import datetime, timezone
 from typing import Any
+from src.definitions.text_utils import looks_like_layout_dump
 DATASET_RE=re.compile(r'\b[\w*(). -]+\.(?:csv|asc|txt|pdf|xlsx|jsonl?|docx)\b', re.I)
 DEF_RE=re.compile(r'^(?P<term>[A-ZÁÉÍÓÚÄËÏÖÜ][\w /()\-]{2,80})\s*(?:[:–-]|\bis\b|\bbetekent\b|\bwordt gedefinieerd als\b|\bgeeft aan of\b)\s*(?P<definition>.{20,})', re.I)
 FIELD_RE=re.compile(r'^(?P<term>(?:Indicatie|Code|Naam|Datum|Soort|Type|Aantal|Status)[\w /()\-]{2,100})\s*(?:[:–-]|=)\s*(?P<definition>.{5,})', re.I)
@@ -109,6 +110,7 @@ def is_good_curated_definition(definition: str, entry: dict | None = None) -> bo
     if any(x in low for x in ('gestegen','gedaald','afgelopen drie jaar','groter dan in het wo','kleiner dan')) and not any(p in low for p in ('betekent','gedefinieerd','geeft aan','is een')):
         return _reject('trend_narrative_sentence')
     if re.search(r'\b(\d+[,.]?\d*%\s*){3,}', low): return _reject('table_or_numeric_noise')
+    if looks_like_layout_dump(definition): return _reject('layout_table_dump')
     return True
 
 def curated_quality_reason(entry: dict) -> str | None:

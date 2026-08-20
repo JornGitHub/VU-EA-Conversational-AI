@@ -25,7 +25,9 @@ from typing import Callable, Iterable, Sequence
 
 DEFAULT_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_OLLAMA_MODEL = "qwen3:8b"
-REQUIRED_OLLAMA_MODELS: tuple[str, ...] = (DEFAULT_OLLAMA_MODEL,)
+# Small embedding model for the semantic search layer (~270 MB).
+DEFAULT_EMBED_MODEL = "nomic-embed-text"
+REQUIRED_OLLAMA_MODELS: tuple[str, ...] = (DEFAULT_OLLAMA_MODEL, DEFAULT_EMBED_MODEL)
 INSTALL_URL = "https://ollama.com/download"
 
 Printer = Callable[[str], None]
@@ -66,9 +68,13 @@ def is_ollama_installed() -> bool:
     return shutil.which("ollama") is not None
 
 
+# Ollama always runs locally, so proxy environment variables must not apply.
+_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
 def _api_get(path: str, base_url: str, timeout: float) -> dict:
     url = base_url.rstrip("/") + path
-    with urllib.request.urlopen(url, timeout=timeout) as response:  # noqa: S310 - fixed localhost URL.
+    with _OPENER.open(url, timeout=timeout) as response:  # noqa: S310 - fixed localhost URL.
         payload = response.read().decode("utf-8")
     parsed = json.loads(payload)
     return parsed if isinstance(parsed, dict) else {}
