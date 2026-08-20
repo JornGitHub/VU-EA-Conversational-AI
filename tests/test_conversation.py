@@ -72,9 +72,23 @@ class HistoryPromptTests(unittest.TestCase):
         self.assertEqual("", format_history_for_prompt([]))
 
     def test_chat_prompt_contains_history_and_retrieval(self) -> None:
-        prompt = build_chat_prompt("en op peildatum?", {"answer": "x", "query": "y"}, HISTORY)
+        prompt = build_chat_prompt(
+            "en op peildatum?",
+            {"main_term": "Internationale student", "definition": "Een student zonder Nederlandse nationaliteit."},
+            HISTORY,
+        )
         self.assertIn("Eerdere vragen in dit gesprek", prompt)
-        self.assertIn("Retrieval-output:", prompt)
+        self.assertIn("wat is een internationale student?", prompt)
+        self.assertIn("en op peildatum?", prompt)
+        self.assertIn("Een student zonder Nederlandse nationaliteit.", prompt)
+
+    def test_chat_prompt_keeps_history_short(self) -> None:
+        """History is context for pronouns, not a transcript to re-send."""
+        long_history = [Turn(f"vraag {index}", "antwoord " * 500, "Internationale student") for index in range(10)]
+        prompt = build_chat_prompt("en dan?", {"definition": "kort"}, long_history)
+        self.assertLess(len(prompt), 3000)
+        self.assertIn("vraag 9", prompt)
+        self.assertNotIn("vraag 0", prompt)
 
     def test_chat_prompt_without_history_is_the_plain_grounded_prompt(self) -> None:
         prompt = build_chat_prompt("vraag", {"answer": "x"}, [])

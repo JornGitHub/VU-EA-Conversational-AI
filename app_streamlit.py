@@ -14,6 +14,9 @@ unsourced claim as documentation.
 from __future__ import annotations
 
 import json
+import queue
+import threading
+import time
 
 import streamlit as st
 
@@ -22,6 +25,7 @@ from src.conversation import Turn, resolve_followup_query
 from src.definitions.corpus import corpus_stats
 from src.definitions.search import is_meaningful_llm_inference
 from src.definitions.semantic import semantic_status
+from src.llm.ollama_client import warm_up
 from src.llm.ollama_setup import DEFAULT_BASE_URL, DEFAULT_OLLAMA_MODEL, is_server_running
 
 APP_TITLE = "VU EA Conversational AI"
@@ -38,6 +42,14 @@ EXAMPLE_QUESTIONS = [
     "Waar verwijst Opleiding historisch equivalent naar?",
     "Toon alle velden van Inschrijvingen_aggr_UNL_2025.csv",
 ]
+
+# Answer speed on a laptop without a GPU is dominated by model size.
+MODEL_OPTIONS = {
+    f"{DEFAULT_OLLAMA_MODEL} — standaard, beste kwaliteit": DEFAULT_OLLAMA_MODEL,
+    "qwen3:4b — sneller, iets beknopter": "qwen3:4b",
+    "qwen3:1.7b — snelst, voor trage laptops": "qwen3:1.7b",
+    "Ander model (zelf invullen)": "",
+}
 
 WEB_MODE_OPTIONS = {
     "Uit": "off",
@@ -381,7 +393,16 @@ def render_sidebar() -> dict:
         "use_semantic": st.sidebar.checkbox("Gebruik semantische zoeklaag", value=True),
         "use_llm": st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False),
     }
-    settings["model"] = st.sidebar.text_input("Ollama-model", value=DEFAULT_OLLAMA_MODEL)
+    model_label = st.sidebar.selectbox(
+        "Ollama-model",
+        list(MODEL_OPTIONS),
+        index=0,
+        help="Kleiner model = sneller antwoord. Op een laptop zonder GPU scheelt dat veel.",
+        disabled=not settings["use_llm"],
+    )
+    settings["model"] = MODEL_OPTIONS[model_label] or st.sidebar.text_input(
+        "Modelnaam", value=DEFAULT_OLLAMA_MODEL, disabled=not settings["use_llm"]
+    )
     settings["deep_context"] = st.sidebar.checkbox("Gebruik deep-context antwoorden", value=True)
     settings["focus_primary"] = st.sidebar.checkbox(
         "Focus op Aggregaatbestand inschrijvingen_1cHO2025.docx", value=True
@@ -397,6 +418,8 @@ def render_sidebar() -> dict:
             f"Ollama lijkt niet te draaien op {DEFAULT_BASE_URL}. "
             "Start de app met `python main.py` of draai `ollama serve`."
         )
+    if settings["use_llm"] and ollama_online:
+        ensure_model_loaded(settings["model"])
 
     with st.sidebar.expander("Status", expanded=False):
         stats = corpus_stats()
@@ -466,6 +489,93 @@ def render_feedback(turn_index: int, question: str, answer: str) -> None:
 # --------------------------------------------------------------------------- #
 # Chat
 # --------------------------------------------------------------------------- #
+def _seconds(value: float) -> str:
+    """Format a duration so short waits do not read as "0s"."""
+    return f"{value:.1f}s" if value < 10 else f"{value:.0f}s"
+
+
+def stream_answer_with_progress(query: str, result: dict, settings: dict) -> str:
+    """Stream the LLM answer while showing how long the user has been waiting.
+
+    A local model spends its first seconds loading and reading the prompt, during
+    which it produces nothing. Without a visible counter that is indistinguishable
+    from a hang, which is exactly how testers experienced it.
+    """
+    fragments: queue.Queue = queue.Queue()
+    placeholder = st.empty()
+    # Read session state here: a worker thread has no Streamlit script context and
+    # touching st.session_state from it raises instead of returning the history.
+    history = list(st.session_state.turns)
+    model = settings["model"]
+
+    def produce() -> None:
+        try:
+            for fragment in stream_llm_answer(query, result, model=model, history=history):
+                fragments.put(("chunk", fragment))
+        except Exception as exc:  # noqa: BLE001 - reported to the user below.
+            fragments.put(("error", exc))
+        finally:
+            fragments.put(("done", None))
+
+    worker = threading.Thread(target=produce, daemon=True)
+    worker.start()
+
+    started = time.perf_counter()
+    text = ""
+    first_token_after: float | None = None
+    error: Exception | None = None
+
+    while True:
+        try:
+            kind, value = fragments.get(timeout=0.4)
+        except queue.Empty:
+            if not text:
+                placeholder.markdown(
+                    f"⏳ Model denkt na… ({time.perf_counter() - started:.0f}s) — "
+                    "het eerste antwoord duurt langer omdat het model geladen wordt."
+                )
+            continue
+
+        if kind == "chunk":
+            if first_token_after is None:
+                first_token_after = time.perf_counter() - started
+            text += value
+            placeholder.markdown(text + " ▌")
+        elif kind == "error":
+            error = value
+        else:
+            break
+
+    total = time.perf_counter() - started
+    if error is not None:
+        placeholder.empty()
+        raise error
+    if not text:
+        placeholder.empty()
+        return ""
+
+    placeholder.markdown(text)
+    st.caption(
+        f"Lokaal gegenereerd met `{settings['model']}` — eerste woord na "
+        f"{_seconds(first_token_after or total)}, klaar in {_seconds(total)}."
+    )
+    return text
+
+
+def ensure_model_loaded(model: str) -> None:
+    """Load the model once per session so the first question is not the slowest."""
+    if not model or st.session_state.get("warmed_model") == model:
+        return
+    with st.spinner(f"Model `{model}` laden (eenmalig, kan even duren)…"):
+        loaded = warm_up(model, DEFAULT_BASE_URL, timeout=300)
+    st.session_state.warmed_model = model if loaded else None
+    if not loaded:
+        st.warning(
+            f"Model `{model}` kon niet geladen worden. Haal het op met `ollama pull {model}` "
+            "of kies een ander model in de zijbalk."
+        )
+
+
 def answer_question(question: str, settings: dict) -> dict:
     """Run retrieval for one chat turn, resolving follow-up questions first."""
     effective_query, subject = resolve_followup_query(question, st.session_state.turns)
@@ -518,14 +628,7 @@ def handle_new_question(question: str, settings: dict) -> None:
         llm_answer = ""
         if settings["use_llm"]:
             try:
-                llm_answer = st.write_stream(
-                    stream_llm_answer(
-                        result["effective_query"],
-                        result,
-                        model=settings["model"],
-                        history=st.session_state.turns,
-                    )
-                )
+                llm_answer = stream_answer_with_progress(result["effective_query"], result, settings)
             except Exception as exc:  # noqa: BLE001 - keep the app usable when Ollama fails.
                 st.warning(f"LLM-laag niet beschikbaar: {exc}")
                 st.caption("Hieronder staat het antwoord uit de lokale documentatie zonder LLM-formulering.")
@@ -554,6 +657,8 @@ def main() -> None:
         st.session_state.feedback = {}
     if "pending_question" not in st.session_state:
         st.session_state.pending_question = None
+    if "warmed_model" not in st.session_state:
+        st.session_state.warmed_model = None
 
     settings = render_sidebar()
 

@@ -260,17 +260,27 @@ Ontbreekt lokale context of vraag je er expliciet om, dan mag de app aanvullende
 
 De LLM is optioneel en **formuleert alleen**; hij is geen bron.
 
+De snelheid van deze laag wordt bepaald door drie dingen; alle drie zijn hier bewust ingesteld:
+
+| Factor | Wat er gebeurt |
+|--------|----------------|
+| **Denkmodus** | Qwen3 en andere redeneermodellen schrijven eerst een lange verborgen redenering. Ollama zet die in `message.thinking`, niet in `message.content`, dus de UI zag minutenlang niets. De client vraagt `think: false` en probeert één keer opnieuw zonder dat veld voor servers/modellen die het niet kennen. |
+| **Promptgrootte** | De prompt bevatte de volledige retrieval-JSON, waarin dezelfde veldinformatie vier keer voorkomt. Nu staan de feiten er één keer in, met een budget per sectie (~300–1.300 tokens in plaats van 3.500–10.000). |
+| **Modelgeheugen** | `keep_alive: 30m` houdt het model geladen tussen vragen, en de app doet een warme start zodra je de LLM-laag aanzet. Anders betaalt élke vraag opnieuw de laadtijd van enkele GB's. |
+
+Gemeten effect (zelfde model, zelfde vraag, CPU): eerste zichtbare woord na **32,2 s → 2,6 s**, volledig antwoord na **50,7 s → 10,4 s**. Op een groter model is het verschil navenant groter, omdat elke prompttoken daar duurder is.
+
 * `ollama_setup.py` — installatie-, server- en modelbootstrap die `main.py` gebruikt.
 * `embeddings.py` — embeddings via `/api/embed` (met fallback naar het oudere `/api/embeddings`) voor de semantische laag.
 * `prompt_builder.py` — bouwt een gegronde prompt: de volledige retrieval-JSON plus harde regels ("verzin geen definities, velden of databestanden", "antwoord uitsluitend op basis van de retrieval-output", "benoem ontbrekende bronnen als onzekerheid", "semantische fragmenten zijn oriëntatie, geen definitie").
-* `ollama_client.py` — praat met `POST /api/chat` op `http://127.0.0.1:11434`, ondersteunt streaming, negeert bewust proxy-omgevingsvariabelen (Ollama draait lokaal) en vertaalt verbindings-, HTTP- en formaatfouten naar leesbare Nederlandse meldingen.
+* `ollama_client.py` — praat met `POST /api/chat` op `http://127.0.0.1:11434`, ondersteunt streaming, zet denkmodus uit, begrenst het antwoord (`num_predict`), houdt het model geladen (`keep_alive`), heeft `warm_up()` voor een warme start, negeert bewust proxy-omgevingsvariabelen (Ollama draait lokaal) en vertaalt verbindings-, HTTP- en formaatfouten naar leesbare Nederlandse meldingen.
 * `src/chatbot.py` — combineert retrieval en LLM. Faalt de LLM, dan krijg je nog steeds het retrieval-antwoord plus de foutmelding; de app crasht niet.
 
 ### 5.10 Stap 9 — Chat-UI (`app_streamlit.py`)
 
 De UI is een gesprek: elke vraag en elk antwoord blijft staan, vervolgvragen werken, en met **Nieuw gesprek** begin je opnieuw. Per antwoord zie je:
 
-* het antwoord zelf (definitie, bestandenlijst of deep-contextuitleg), desgewenst live gestreamd door het lokale model;
+* het antwoord zelf (definitie, bestandenlijst of deep-contextuitleg), desgewenst live gestreamd door het lokale model, met een meelopende teller (“Model denkt na… (12s)”) zolang er nog geen woord is en achteraf een regel met de gemeten tijd;
 * een uitklapbaar **Bronnen en details**-paneel met **Lokale officiële documentatie**, **Aanvullende lokale documentatie**, **Semantisch gevonden fragmenten**, **Officiële/Externe webbronnen**, **LLM-interpretatie**, **Bronstatus**, **Verwijzingen**, **Ontbrekende bronnen**, **Veldenoverzicht/Veldkaart**, **Let op** en **Andere mogelijke relevante begrippen**;
 * 👍/👎-knoppen; een duim omlaag opent een correctieformulier dat wegschrijft naar `data/evaluation/developer_feedback_overrides.jsonl`, precies de plek die de evaluatiepijplijn al gebruikt.
 
@@ -320,6 +330,7 @@ python main.py --query "wat is instroom?" --json # zelfde vraag als JSON
 python main.py --query "wat is instroom?" --llm  # met lokale LLM-formulering
 python main.py --build-embeddings                 # semantische index (her)bouwen
 python main.py --benchmark                       # retrieval-latency meten
+python main.py --benchmark-llm                   # snelheid van het lokale LLM meten
 python main.py --check-hygiene                   # waarschuw over artefacten in de projectroot
 python main.py --archive-root-leftovers          # verplaats die artefacten naar data/archive/
 python main.py --guide                           # JSON-overzicht van handige commando's
@@ -332,6 +343,7 @@ python main.py --guide                           # JSON-overzicht van handige co
 | `--skip-embeddings` | Bouw geen semantische index (en download het embeddingmodel niet) |
 | `--build-embeddings` | (Her)bouw de semantische index en stop daarna |
 | `--benchmark` | Meet retrieval-latency en stop daarna |
+| `--benchmark-llm` | Meet hoe snel het lokale model antwoordt (laadtijd, eerste woord, totaal) |
 | `--setup` | Alleen voorbereiden, app niet starten |
 | `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
 | `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
@@ -377,7 +389,16 @@ ollama list                             # welke modellen staan lokaal
 ollama rm qwen3:8b                      # model verwijderen om ruimte vrij te maken
 ```
 
-In de Streamlit-sidebar kun je bij **Ollama-model** een andere modelnaam invullen; dat model moet dan wel lokaal aanwezig zijn (`ollama pull <naam>` of `python main.py --setup --model <naam>`).
+In de sidebar kies je bij **Ollama-model** een model uit een lijst (of vul je zelf een naam in); dat model moet lokaal aanwezig zijn (`ollama pull <naam>` of `python main.py --setup --model <naam>`).
+
+**Modelkeuze is de grootste knop voor snelheid.** Op een laptop zonder GPU rekent een 8B-model ongeveer twee keer zo traag als een 4B-model en vier keer zo traag als een 1,7B-model. Meet je eigen machine met:
+
+```bash
+python main.py --benchmark-llm                    # standaardmodel
+python main.py --benchmark-llm --model qwen3:4b   # vergelijk een kleiner model
+```
+
+De benchmark rapporteert de eenmalige laadtijd, de tijd tot het eerste woord en de totale tijd per vraag, en adviseert een kleiner model wanneer het eerste woord te lang op zich laat wachten.
 
 Meer modellen standaard laten downloaden? Vul `REQUIRED_OLLAMA_MODELS` in `src/llm/ollama_setup.py` aan.
 
@@ -509,6 +530,8 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | `Ollama is niet gevonden op PATH` | Ollama is niet geïnstalleerd. Installeer via <https://ollama.com/download> en draai `python main.py` opnieuw. De app werkt intussen zonder LLM. |
 | `Ollama-server niet bereikbaar op http://127.0.0.1:11434` | Start de server handmatig met `ollama serve`, of geef een ander adres mee met `--ollama-url`. |
 | `Kan geen verbinding maken met Ollama` in de UI | De formuleerlaag staat aan terwijl de server niet draait. Zet **Gebruik LLM-formuleerlaag** uit of start Ollama. |
+| Het LLM-antwoord duurt lang | De eerste keer laadt het model (enkele GB's); de app doet dat met een spinner zodra je de laag aanzet en houdt het model daarna 30 minuten geladen. Duurt het daarna nog steeds lang, kies dan een kleiner model in de sidebar en meet met `python main.py --benchmark-llm`. |
+| Ik zie helemaal niets gebeuren bij een LLM-antwoord | Dat hoort niet meer te kunnen: zolang er geen woord is, loopt er een teller (“Model denkt na… (12s)”). Zie je die niet, dan staat de LLM-laag uit en krijg je direct het retrieval-antwoord. |
 | `ollama pull` mislukt | Meestal netwerk of schijfruimte. `ollama list` toont wat er al staat; `ollama rm <model>` maakt ruimte vrij. |
 | Sidebar meldt "Semantische index: niet gebouwd" | Draai `python main.py --build-embeddings` (vereist een draaiende Ollama met `nomic-embed-text`). Zonder index werkt de app lexicaal gewoon door. |
 | Sidebar meldt "verouderd, herbouw aanbevolen" | De kennisbestanden zijn na de indexbuild gewijzigd: `python main.py --build-embeddings`. |
@@ -567,6 +590,7 @@ Onderstaande punten staan op volgorde van waarde-per-inspanning. Punt 1 is de gr
 * **Evaluatielabels bijwerken.** Twee `gold_core`-cases verwachten nog de oude formulering "waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden". Regenereer de pseudo-gold set of leg de bewuste inkorting vast met `scripts/record_feedback.py`, zodat de evaluatie weer op 8/8 staat.
 * **Semantische laag ook bij zwakke treffers.** Nu springt de semantische zoeklaag alleen bij als er geen lexicaal antwoord is. Een logische volgende stap is hybride ranking (bijvoorbeeld Reciprocal Rank Fusion) zodra er een gold-set is die aantoont dat dit de kwaliteit verbetert in plaats van verslechtert.
 * **Antwoordkwaliteit van indexrijen.** `wat is instroom?` levert nu een NB-zin in plaats van een echte definitie, omdat de opgeschoonde set voor dat begrip geen betere zin bevat. Handmatig curateren van de ± 15 kernbegrippen levert hier de grootste kwaliteitswinst.
+* **Antwoordlengte per model.** Het antwoord is begrensd op ~400 tokens. Voor een groot model op een snelle machine kan dat ruimer; dat is één constante in `src/llm/ollama_client.py`.
 * **Meer chatgeheugen.** Vervolgvragen koppelen nu aan het laatst beantwoorde begrip. Een expliciete "onderwerpstack" (met de mogelijkheid om terug te schakelen naar een eerder onderwerp) maakt langere gesprekken natuurlijker.
 * **Exporteren.** Een knop om een gesprek inclusief bronvermeldingen als Markdown of PDF op te slaan, zodat een antwoord met bronnen in een mail of notitie kan.
 * **Meertaligheid.** De documentatie is Nederlands; de UI en prompts ook. Een Engelstalige modus voor internationale collega's vraagt vooral om vertaalde UI-teksten en een prompt die in het Engels antwoordt zonder de Nederlandse brontermen te vertalen.

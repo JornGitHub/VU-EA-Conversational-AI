@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Sequence
 
-from src.conversation.context import format_history_for_prompt
 from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
 from src.llm.ollama_client import generate_with_ollama, stream_with_ollama
 from src.llm.ollama_setup import DEFAULT_OLLAMA_MODEL
@@ -28,7 +27,7 @@ def answer_with_llm(
         retrieval_result = answer_deep_context_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental, web_mode=web_mode, allow_external_web=allow_external_web, allow_llm_inference=allow_llm_inference, allow_web_sources=allow_web_sources)
     else:
         retrieval_result = answer_definition_question_json(query, debug=debug, source_focus=source_focus, include_supplemental=include_supplemental, web_mode=web_mode)
-    prompt = build_grounded_prompt(query, retrieval_result)
+    prompt = build_grounded_prompt(query, retrieval_result)  # compact, budgeted
 
     try:
         llm_answer = generate_with_ollama(prompt, model=model)
@@ -94,12 +93,12 @@ def retrieve(
 
 
 def build_chat_prompt(query: str, retrieval_result: dict[str, Any], history: Sequence[Any] | None = None) -> str:
-    """Return the grounded prompt, optionally prefixed with recent chat turns."""
-    prompt = build_grounded_prompt(query, retrieval_result)
-    conversation = format_history_for_prompt(history or [])
-    if not conversation:
-        return prompt
-    return f"{conversation}\n\n{prompt}"
+    """Return the grounded prompt, including a short conversation context.
+
+    The prompt builder keeps every section within a budget, so the prompt stays
+    small enough for a local model to process quickly.
+    """
+    return build_grounded_prompt(query, retrieval_result, history or [])
 
 
 def stream_llm_answer(

@@ -59,7 +59,9 @@ BACKREFERENCE_WORDS = {
 }
 
 SHORT_QUESTION_TOKENS = 3
-MAX_HISTORY_TURNS_IN_PROMPT = 3
+# Keep the prompt small: a local model pays for every token of context.
+MAX_HISTORY_TURNS_IN_PROMPT = 2
+MAX_HISTORY_ANSWER_CHARS = 200
 
 
 @dataclass
@@ -141,5 +143,5 @@ def format_history_for_prompt(history: Sequence[Any], limit: int = MAX_HISTORY_T
     for turn in turns[-max(1, limit):]:
         answer = " ".join(str(turn.answer).split())
         lines.append(f"- Vraag: {turn.question}")
-        lines.append(f"  Antwoord (samengevat): {answer[:300]}")
+        lines.append(f"  Antwoord (samengevat): {answer[:MAX_HISTORY_ANSWER_CHARS]}")
     return "\n".join(lines)
