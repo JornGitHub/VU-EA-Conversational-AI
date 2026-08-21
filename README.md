@@ -95,9 +95,21 @@ curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash 
 
 De controle in stap 1 staat er niet voor niets: op Windows bestaat vaak een `python.exe` die niets
 doet — de Microsoft Store-alias. Die geeft *"Program 'python.exe' failed to run: The system cannot
-find the path specified"* of opent de Store, en dan lopen alle volgende commando's ook vast. De
-startpagina legt in een uitklapblok uit hoe je dat oplost (`where.exe python`, aliassen uitzetten,
-of het volledige pad gebruiken); dezelfde uitleg staat in [Problemen oplossen](#14-problemen-oplossen).
+find the path specified"* of opent de Store, en dan lopen alle volgende commando's ook vast.
+
+Wat je dan moet doen, verschilt per laptop, dus kijk eerst met `where.exe python` (en `py -0p`) wat
+Windows precies pakt:
+
+| Wat `where.exe python` toont | Wat er aan de hand is | Wat je doet |
+|------------------------------|-----------------------|-------------|
+| **Alleen** een pad met `\WindowsApps\`, of niets (`INFO: Could not find files`) | Er staat geen Python op deze laptop; `\WindowsApps\python.exe` is een lege doorverwijzing naar de Microsoft Store | Installeer Python: `winget install -e --id Python.Python.3.12`, of via [python.org](https://www.python.org/downloads/windows/) met *"Add python.exe to PATH"* aangevinkt. Open daarna een **nieuwe** PowerShell. |
+| Een `\WindowsApps\`-pad **én** een echt pad (`...\Programs\Python\Python312\python.exe`) | Python staat er wel, maar de Store-alias staat er in PATH vóór | Zet de alias uit via **Instellingen → Apps → Geavanceerde app-instellingen → App-uitvoeringsaliassen** (`python.exe` en `python3.exe`), of gebruik het echte pad rechtstreeks: `& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv` |
+| Alleen een echt pad, maar `python --version` faalt nog steeds | Dit venster draait met de PATH van vóór de installatie | Sluit alle PowerShell-vensters en open er één nieuw. |
+
+`$env:LOCALAPPDATA` vult de gebruikersmap automatisch in, dus dat deel klopt bij iedereen; de
+versiemap (`Python312`, `Python313`, of een pad onder `C:\Program Files\`) moet je overnemen uit wat
+`py -0p` bij jou toont. Dezelfde uitleg staat op de startpagina en in
+[Problemen oplossen](#14-problemen-oplossen).
 
 Dat script controleert Python, haalt de code op (of werkt een bestaande kopie bij), maakt een virtual environment en draait daarna gewoon `python main.py`. Wie liever dubbelklikt, downloadt op dezelfde pagina `start-windows.bat` of `start-macos.command`.
 
@@ -582,7 +594,7 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
 | Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
 | "This script contains malicious content and has been blocked by your antivirus software" | De virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien (`irm … \| iex`). Dat is beleid op veel bedrijfslaptops. Gebruik de losse commando's van de startpagina: `git clone …`, `python -m venv .venv`, `.\.venv\Scripts\python.exe main.py`. |
-| `Program 'python.exe' failed to run: The system cannot find the path specified` (Windows) | Windows vindt wél een `python.exe`, maar die wijst nergens heen — bijna altijd de Microsoft Store-alias. Draai `where.exe python`; staat er een pad met `\WindowsApps\`, zet dan bij **Instellingen → Apps → Geavanceerde app-instellingen → App-uitvoeringsaliassen** de aliassen `python.exe` en `python3.exe` uit en open een nieuwe PowerShell. Toont `py -0p` een echte Python, gebruik dan dat volledige pad: `& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv`. |
+| `Program 'python.exe' failed to run: The system cannot find the path specified` (Windows) | Windows vindt wél een `python.exe`, maar die wijst nergens heen: de Microsoft Store-alias. Draai `where.exe python` en kijk wat eruit komt — dat verschilt per laptop. **Alleen** een `\WindowsApps\`-pad betekent dat er geen Python staat (installeren); staat er ook een echt pad, dan schaduwt de alias die alleen (alias uitzetten of het echte pad gebruiken). De volledige beslistabel staat in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien). |
 | Windows Security blokkeert `start-windows.bat` volledig (geen "Toch uitvoeren") | Op beheerde laptops mag een gedownload script soms helemaal niet draaien. Dat is beleid, geen fout in het bestand. Gebruik de losse commando's hierboven; die downloaden en draaien geen script en worden daarom niet geblokkeerd. |
 | "No suitable Python runtime found" (py-launcher) | De `py`-launcher staat geïnstalleerd zonder geregistreerde Python-versie. Gebruik `python` in plaats van `py`; het startscript slaat een kapotte launcher zelf over en zoekt de echte `python.exe`. |
 | Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
