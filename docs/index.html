@@ -193,36 +193,42 @@
 
     <section id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
       <p>
-        Download de starter en dubbelklik hem. Hij zoekt Python (ook als je PATH stuk is), installeert
-        Python, git en Ollama als die ontbreken, haalt de code op en opent de app. Je hoeft verder niets.
+        Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak deze twee regels. Ze
+        zoeken Python (ook als je PATH stuk is), installeren Python, git en Ollama als die ontbreken,
+        halen de code op en openen de app. Je hoeft verder niets.
       </p>
-      <div class="actions">
-        <a class="btn-primary" href="start-windows.bat" download>⬇ Starter voor Windows <span class="sz">start-windows.bat</span></a>
+      <div class="cmd">
+        <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows-script">Kopieer</button></div>
+        <pre id="code-windows-script">irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+powershell -ExecutionPolicy Bypass -File .\start.ps1</pre>
       </div>
       <p class="hint">
-        Windows toont de eerste keer SmartScreen: klik op <em>“Meer informatie”</em> → <em>“Toch uitvoeren”</em>.
-        Blijft het bestand geblokkeerd, gebruik dan de commando's hieronder — die kan geen scanner tegenhouden.
+        Dit is op VU-laptops de betrouwbaarste route: er wordt niets via de browser gedownload, en daar
+        struikelt Windows Security meestal over.
       </p>
 
       <details style="margin-top:18px">
-        <summary>Liever één commando plakken?</summary>
+        <summary>Liever dubbelklikken? (werkt niet op elke beheerde laptop)</summary>
         <p>
-          Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak dit. Het doet precies
-          hetzelfde als de starter: eerst downloaden, dan draaien, want veel bedrijfslaptops blokkeren
-          scripts die rechtstreeks vanaf internet draaien.
+          Download het startbestand, zet het op je bureaublad en dubbelklik het voortaan. Het doet precies
+          hetzelfde als de commando's hierboven.
         </p>
-        <div class="cmd">
-          <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows-script">Kopieer</button></div>
-          <pre id="code-windows-script">irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
-powershell -ExecutionPolicy Bypass -File .\start.ps1</pre>
+        <div class="actions">
+          <a class="btn-primary" href="start-windows.bat" download>⬇ Starter voor Windows <span class="sz">start-windows.bat</span></a>
         </div>
+        <p class="hint">
+          Windows toont de eerste keer SmartScreen: <em>“Meer informatie”</em> → <em>“Toch uitvoeren”</em>.
+          Verschijnt die keuze niet en wordt het bestand meteen geweigerd, dan verbiedt het beleid van je
+          organisatie het uitvoeren van gedownloade bestanden. Dat is niet te omzeilen en ook niet nodig:
+          gebruik de commando's hierboven.
+        </p>
       </details>
 
       <details style="margin-top:14px">
         <summary>Wordt alles geblokkeerd? Dan handmatig, in vier regels</summary>
         <p>
-          Op sommige beheerde laptops mag geen enkel gedownload script draaien. Deze commando's downloaden
-          niets uitvoerbaars en worden daarom niet geblokkeerd. Controleer eerst of Python werkt:
+          Lukt zelfs het startscript niet, dan doe je de stappen zelf. Deze commando's downloaden niets
+          uitvoerbaars. Controleer eerst of Python werkt — die installeer je in dit geval met de hand:
         </p>
         <div class="cmd">
           <div class="cmd-bar"><span>PowerShell — controle</span><button class="copy" type="button" data-copy="code-windows-check">Kopieer</button></div>
@@ -389,9 +395,9 @@ python3 -m venv .venv
     <p class="note">
       <strong>Waarom niet één knop die alles doet?</strong> Deze pagina start zelf niets — geen enkele
       browser laat een website programma's op je computer draaien, en dat is maar goed ook. Wat wél kan:
-      één klik geeft je de starter, en die doet vanaf daar alles automatisch. Wil je eerst zien wat hij
-      doet? De code is leesbaar: <a href="start.sh">start.sh</a> en
-      <a href="start-windows.ps1">start-windows.ps1</a>.
+      je krijgt hier de starter, in één keer plakken of in één klik downloaden, en die doet vanaf dat punt
+      alles automatisch. Wil je eerst zien wat hij doet? De code is leesbaar:
+      <a href="start.sh">start.sh</a> en <a href="start-windows.ps1">start-windows.ps1</a>.
     </p>
   </div>
 
@@ -420,7 +426,30 @@ python3 -m venv .venv
     </table>
   </div>
 
-  <h2>4. Werkt er iets niet?</h2>
+  <h2>4. Kan het op een telefoon?</h2>
+  <div class="card">
+    <p>
+      <strong>Draaien op een telefoon: nee.</strong> De app is een Python-server met een taalmodel ernaast.
+      iOS staat het niet toe dat een app zomaar programma's uitvoert, en een <code>.bat</code>-bestand is
+      sowieso Windows-only — daarom gebeurt er niets als je het op je iPhone opent. Op Android kan het
+      technisch via Termux, maar de modellen van enkele gigabytes maken dat onpraktisch.
+    </p>
+    <p>
+      <strong>Gebruiken vanaf een telefoon: ja.</strong> Laat de app op je laptop draaien en open hem op je
+      telefoon, zolang beide op hetzelfde wifi-netwerk zitten. Start hem dan zo:
+    </p>
+    <div class="cmd">
+      <div class="cmd-bar"><span>Op je laptop</span><button class="copy" type="button" data-copy="code-network">Kopieer</button></div>
+      <pre id="code-network">python main.py --network</pre>
+    </div>
+    <p class="hint">
+      De terminal toont dan een adres als <code>http://192.168.1.24:8501</code>. Typ dat in de browser van je
+      telefoon. De app en je vragen blijven op je laptop; de telefoon toont alleen het scherm. Let op:
+      iedereen op datzelfde netwerk kan de app dan openen, dus doe dit niet op openbare wifi.
+    </p>
+  </div>
+
+  <h2>5. Werkt er iets niet?</h2>
   <div class="card">
     <details>
       <summary>“python wordt niet herkend” of “command not found”</summary>
@@ -435,6 +464,15 @@ python3 -m venv .venv
         moet je die eerst installeren. Zie je daarnaast een echt pad, dan is Python er wel en staat de alias
         er alleen vóór; die zet je uit bij <strong>Instellingen → Apps → Geavanceerde app-instellingen →
         App-uitvoeringsaliassen</strong>. Het uitklapblok “Python werkt niet” bij stap 1 loopt beide gevallen af — en de starter doet dit allemaal zelf.
+      </p>
+    </details>
+    <details>
+      <summary>De .bat wordt geblokkeerd, maar de commando's werken wel — hoe kan dat?</summary>
+      <p>
+        Alles wat je browser downloadt krijgt van Windows een merkteken (“afkomstig van internet”). Veel
+        organisaties blokkeren het uitvoeren van precies díe bestanden. Het script dat je met
+        <code>irm … -OutFile</code> ophaalt wordt door PowerShell zelf weggeschreven en krijgt dat merkteken
+        niet, dus dat draait wel. Beide routes doen exact hetzelfde; gebruik gewoon degene die bij jou werkt.
       </p>
     </details>
     <details>
@@ -459,6 +497,14 @@ python3 -m venv .venv
         De <code>py</code>-launcher staat op je machine zonder geregistreerde Python. Dat is geen probleem:
         gebruik <code>python</code> in plaats van <code>py</code>, precies zoals in de commando's bij stap 1.
         Het startscript slaat een kapotte launcher sinds kort zelf over.
+      </p>
+    </details>
+    <details>
+      <summary>Ik wil de app op mijn telefoon of tablet bekijken</summary>
+      <p>
+        Start hem op je laptop met <code>python main.py --network</code> en open het adres dat de terminal
+        toont in de browser van je telefoon. Beide apparaten moeten op hetzelfde wifi-netwerk zitten. Zie
+        stap 4.
       </p>
     </details>
     <details>
