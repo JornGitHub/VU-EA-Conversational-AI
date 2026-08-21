@@ -55,6 +55,7 @@ In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — e
 |----------|-----------------------------|------------------|
 | `python main.py` | ✅ ja | installeren, modellen, index, app starten |
 | `python main.py --streamlit` | ✅ ja | hetzelfde, expliciet |
+| `python main.py --network` | ✅ ja | hetzelfde, plus bereikbaar vanaf je telefoon of tablet op hetzelfde wifi-netwerk |
 | `python main.py --all` | ❌ nee | tests + build-dry-run + één voorbeeldvraag, alles in de terminal |
 | `python main.py --tests` | ❌ nee | alleen de unittests |
 | `python main.py --query "..."` | ❌ nee | één vraag beantwoorden in de terminal (met `--json` als JSON) |
@@ -139,6 +140,27 @@ komt geen enkele website, hoe hij er ook uitziet.
 **Pages aanzetten** (eenmalig, vereist een publieke repository): GitHub → **Settings** → **Pages** → Source: *Deploy from a branch* → Branch: `main`, map `/docs` → **Save**. Na ongeveer een minuut staat de pagina online. De bestanden staan in `docs/`; wijzig je ze, dan publiceert GitHub de nieuwe versie vanzelf bij de volgende push.
 
 **Fork of eigen kopie?** De startscripts luisteren naar `VUEA_REPO_URL`, `VUEA_DIR`, `VUEA_BRANCH` en `VUEA_NO_INSTALL`, dus je kunt ze zonder aanpassing op een andere repository, map of branch richten — of ze laten melden wat er ontbreekt zonder iets te installeren.
+
+### Kan het op een telefoon?
+
+**Draaien op een telefoon: nee.** De app is een Python-server met een lokaal taalmodel ernaast. iOS staat
+niet toe dat een app zomaar programma's uitvoert, en een `.bat` is bovendien Windows-only — download je die
+op een iPhone, dan gebeurt er dus niets. Op Android kan het technisch via Termux (Python en Streamlit
+draaien daar), maar de Ollama-modellen van enkele gigabytes maken dat in de praktijk onwerkbaar.
+
+**Gebruiken vanaf een telefoon: ja.** Laat de app op je laptop draaien en open hem op je telefoon:
+
+```bash
+python main.py --network
+```
+
+De terminal toont dan een adres als `http://192.168.1.24:8501`. Typ dat in de browser van je telefoon;
+laptop en telefoon moeten op hetzelfde wifi-netwerk zitten. Zonder `--network` luistert Streamlit alleen op
+`localhost` en is de app dus alleen op de laptop zelf bereikbaar.
+
+Wat waar draait: de app, de documentatie, het taalmodel en je vragen blijven volledig op je laptop. De
+telefoon toont alleen het scherm. Let wel: met `--network` kan iedereen op datzelfde netwerk de app openen,
+dus gebruik het op je eigen wifi en niet op een openbaar netwerk.
 
 ---
 
@@ -415,6 +437,7 @@ python main.py --guide                           # JSON-overzicht van handige co
 | `--benchmark` | Meet retrieval-latency en stop daarna |
 | `--benchmark-llm` | Meet hoe snel het lokale model antwoordt (laadtijd, eerste woord, totaal) |
 | `--setup` | Alleen voorbereiden, app niet starten |
+| `--network` | Serveer de app ook op je lokale netwerk, zodat een telefoon of tablet op hetzelfde wifi hem kan openen |
 | `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
 | `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
 | `--ollama-url URL` | Basis-URL van de Ollama-server (standaard `http://127.0.0.1:11434`) |
@@ -613,6 +636,7 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | Er opent geen browser bij `--all`, `--tests`, `--query` of `--benchmark` | Dat klopt: dat zijn terminal-checks. De app start met `python main.py` (zie de tabel in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien)). |
 | `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
 | De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
+| De `.bat` wordt geblokkeerd terwijl de PowerShell-commando's wél werken | Alles wat je browser downloadt krijgt van Windows het merkteken "afkomstig van internet"; veel organisaties blokkeren het uitvoeren van precies die bestanden. Een script dat PowerShell zelf wegschrijft met `irm … -OutFile` krijgt dat merkteken niet. Beide routes doen hetzelfde — gebruik degene die bij jou werkt. |
 | Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
 | Ik wil niet dat een script software installeert | Zet `VUEA_NO_INSTALL=1`; de starter meldt dan alleen wat er ontbreekt en installeert niets. |
 | "This script contains malicious content and has been blocked by your antivirus software" | De virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien (`irm … \| iex`). Dat is beleid op veel bedrijfslaptops. Gebruik de losse commando's van de startpagina: `git clone …`, `python -m venv .venv`, `.\.venv\Scripts\python.exe main.py`. |

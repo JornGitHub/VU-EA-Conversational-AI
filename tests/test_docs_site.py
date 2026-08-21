@@ -41,21 +41,34 @@ class StartCommandTests(unittest.TestCase):
             self.assertIn(panel, PAGE_TEXT)
         self.assertIn(f"curl -fsSL {BASE_URL}/start.sh | bash", PAGE_TEXT)
 
-    def test_every_panel_leads_with_a_one_click_starter(self) -> None:
-        """The starter installs what is missing, so it is the shortest route.
+    def test_every_panel_leads_with_a_route_that_installs_everything(self) -> None:
+        """Whatever comes first must be the route that needs no manual steps."""
+        for panel, expected in (
+            # The tester's laptop blocks browser-downloaded executables outright
+            # while the pasted script runs fine, so Windows leads with the script.
+            ("panel-windows", "start-windows.ps1"),
+            ("panel-macos", "start-macos.command"),
+            ("panel-linux", "start.sh"),
+        ):
+            section = PAGE_TEXT.split(f'id="{panel}"')[1].split("</section>")[0]
+            primary = section.split("<details")[0]
+            self.assertIn(expected, primary, f"{panel} leidt niet met de automatische route")
 
-        Anything a reader has to type is a fallback and belongs behind a details
-        block, not in front of the button.
-        """
+    def test_every_panel_still_offers_the_double_click_launcher(self) -> None:
+        """Not everyone wants a terminal; the launcher stays one click away."""
         for panel, launcher in (
             ("panel-windows", "start-windows.bat"),
             ("panel-macos", "start-macos.command"),
             ("panel-linux", "start.sh"),
         ):
             section = PAGE_TEXT.split(f'id="{panel}"')[1].split("</section>")[0]
-            primary = section.split("<details")[0]
-            self.assertIn(f'href="{launcher}" download', primary, f"{panel} mist de downloadknop")
-            self.assertIn("btn-primary", primary, f"{panel}: de knop is niet de primaire actie")
+            self.assertIn(f'href="{launcher}" download', section, f"{panel} mist de downloadknop")
+            self.assertIn("btn-primary", section, f"{panel}: geen knop")
+
+    def test_page_explains_that_a_blocked_launcher_is_policy(self) -> None:
+        """The tester's .bat was refused outright, with no "run anyway" offered."""
+        self.assertIn("Toch uitvoeren", PAGE_TEXT)
+        self.assertIn("organisatie", PAGE_TEXT)
 
     def test_the_manual_windows_commands_survive_as_a_fallback(self) -> None:
         """Managed Windows laptops block every downloaded script.
@@ -247,6 +260,28 @@ class StartCommandTests(unittest.TestCase):
         self.assertIn("SawStoreStub", script)
         self.assertIn("App-uitvoeringsaliassen", script)
         self.assertIn("failed to run", script)
+
+
+class PhoneTests(unittest.TestCase):
+    """A tester downloaded the .bat on an iPhone and nothing happened."""
+
+    def test_page_says_the_app_cannot_run_on_a_phone(self) -> None:
+        self.assertIn("Kan het op een telefoon?", PAGE_TEXT)
+        self.assertIn("iOS", PAGE_TEXT)
+
+    def test_page_offers_the_network_route_instead(self) -> None:
+        self.assertIn("python main.py --network", PAGE_TEXT)
+        self.assertIn("wifi", PAGE_TEXT)
+
+    def test_network_flag_exists_and_is_off_by_default(self) -> None:
+        """The page promises this flag; main.py has to have it."""
+        source = Path("main.py").read_text(encoding="utf-8")
+        self.assertIn('"--network"', source)
+        self.assertIn("--server.address", source)
+        self.assertIn("share_on_network: bool = False", source)
+
+    def test_readme_documents_the_phone_route(self) -> None:
+        self.assertIn("--network", README_TEXT)
 
 
 class PageContentTests(unittest.TestCase):

@@ -251,17 +251,50 @@ def run_hygiene_check() -> int:
     return 0
 
 
-def run_streamlit() -> int:
-    """Start the Streamlit app in the browser."""
+def local_network_address() -> str | None:
+    """Return this machine's address on the local network, or None.
+
+    Opening a UDP socket towards a routable address makes the OS pick the
+    interface it would actually use; no packet is sent.
+    """
+    import socket
+
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.settimeout(0.2)
+            probe.connect(("8.8.8.8", 80))
+            address = probe.getsockname()[0]
+    except OSError:
+        return None
+    return address if address and not address.startswith("127.") else None
+
+
+def run_streamlit(share_on_network: bool = False) -> int:
+    """Start the Streamlit app in the browser.
+
+    With ``share_on_network`` the app also listens on the local network, so a
+    phone or tablet on the same wifi can open it. The app itself still runs
+    entirely on this machine.
+    """
     if importlib.util.find_spec("streamlit") is None:
         print_header("Streamlit app")
         print("Streamlit is niet geïnstalleerd in deze Python-omgeving.")
         print("Draai `python main.py` zonder --skip-install, of `pip install -r requirements.txt`.")
         return 1
-    return run_command(
-        [sys.executable, "-m", "streamlit", "run", STREAMLIT_APP],
-        "Streamlit app",
-    )
+
+    command = [sys.executable, "-m", "streamlit", "run", STREAMLIT_APP]
+    if share_on_network:
+        command += ["--server.address", "0.0.0.0"]
+        address = local_network_address()
+        print_header("Bereikbaar op je eigen netwerk")
+        if address:
+            print(f"Open op je telefoon of tablet:  http://{address}:8501")
+        else:
+            print("Kon het netwerkadres van deze machine niet bepalen.")
+        print("Streamlit toont hieronder zelf de exacte 'Network URL'; gebruik die als bovenstaande")
+        print("niet werkt. Telefoon en laptop moeten op hetzelfde wifi-netwerk zitten.")
+        print("Let op: iedereen op dit netwerk kan de app nu openen. Stop met Ctrl+C.")
+    return run_command(command, "Streamlit app")
 
 
 def print_test_guide() -> None:
@@ -279,6 +312,7 @@ def print_test_guide() -> None:
         "retrieval_query_json": f'python main.py --query "{DEFAULT_QUERY}" --json',
         "retrieval_query_with_local_llm": f'python main.py --query "{DEFAULT_QUERY}" --llm',
         "streamlit_ui_manual_test": "python main.py --streamlit",
+        "open_from_phone_on_same_wifi": "python main.py --network",
         "archive_root_leftovers": "python main.py --archive-root-leftovers",
         "project_hygiene_check": "python main.py --check-hygiene",
         "skip_dependency_install": "add --skip-install to any command",
@@ -326,6 +360,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ollama-url", default=DEFAULT_BASE_URL, help=f"Base URL of the local Ollama server (default: {DEFAULT_BASE_URL}).")
     parser.add_argument("--web-mode", choices=["off", "fallback", "enhance", "force"], default="fallback", help="Free-only web context mode for --query.")
     parser.add_argument("--streamlit", action="store_true", help="Start app_streamlit.py explicitly (same as running without arguments).")
+    parser.add_argument("--network", action="store_true", help="Also serve the app on the local network, so a phone or tablet on the same wifi can open it.")
     parser.add_argument("--archive-root-leftovers", action="store_true", help="Archive generated artifacts left in the project root.")
     parser.add_argument("--check-hygiene", action="store_true", help="Warn about generated artifacts left in the project root.")
     parser.add_argument("--guide", action="store_true", help="Print a JSON guide with common run/test commands.")
@@ -425,7 +460,7 @@ def main() -> int:
     print_run_summary(results, launching_app=launching_app)
 
     if launching_app:
-        results.append(("Streamlit app", run_streamlit()))
+        results.append(("Streamlit app", run_streamlit(share_on_network=args.network)))
 
     return 0 if all(code == 0 for _label, code in results) else 1
 
