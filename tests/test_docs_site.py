@@ -41,28 +41,42 @@ class StartCommandTests(unittest.TestCase):
             self.assertIn(panel, PAGE_TEXT)
         self.assertIn(f"curl -fsSL {BASE_URL}/start.sh | bash", PAGE_TEXT)
 
-    def test_windows_leads_with_commands_that_need_no_remote_script(self) -> None:
-        """Managed Windows laptops block scripts executed straight from the web.
+    def test_every_panel_leads_with_a_one_click_starter(self) -> None:
+        """The starter installs what is missing, so it is the shortest route.
 
-        The tester hit "This script contains malicious content and has been blocked
-        by your antivirus software", so the primary Windows route must be plain
-        commands: clone, venv, run.
+        Anything a reader has to type is a fallback and belongs behind a details
+        block, not in front of the button.
+        """
+        for panel, launcher in (
+            ("panel-windows", "start-windows.bat"),
+            ("panel-macos", "start-macos.command"),
+            ("panel-linux", "start.sh"),
+        ):
+            section = PAGE_TEXT.split(f'id="{panel}"')[1].split("</section>")[0]
+            primary = section.split("<details")[0]
+            self.assertIn(f'href="{launcher}" download', primary, f"{panel} mist de downloadknop")
+            self.assertIn("btn-primary", primary, f"{panel}: de knop is niet de primaire actie")
+
+    def test_the_manual_windows_commands_survive_as_a_fallback(self) -> None:
+        """Managed Windows laptops block every downloaded script.
+
+        The tester hit both "This script contains malicious content" and a hard
+        Windows Security block, so typing the commands by hand has to stay
+        available and reachable, even though it is no longer the first thing shown.
         """
         windows_panel = PAGE_TEXT.split('id="panel-windows"')[1].split("</section>")[0]
-        # Everything up to the optional script route: that is what a tester follows.
-        primary = windows_panel.split("Liever \u00e9\u00e9n regel")[0]
-        self.assertIn("git clone", primary)
-        self.assertIn("python -m venv .venv", primary)
-        self.assertIn(r".\.venv\Scripts\python.exe main.py", primary)
-        self.assertNotIn("| iex", primary)
-        self.assertNotIn("start-windows.ps1", primary)
+        fallback = windows_panel.split("Wordt alles geblokkeerd")[1]
+        self.assertIn("git clone", fallback)
+        self.assertIn("python -m venv .venv", fallback)
+        self.assertIn(r".\.venv\Scripts\python.exe main.py", fallback)
+        self.assertNotIn("| iex", fallback)
 
-    def test_windows_checks_python_before_the_install_commands(self) -> None:
+    def test_the_manual_route_checks_python_before_the_install_commands(self) -> None:
         """A dead python.exe makes every later command fail with a confusing error.
 
         The tester saw "Program 'python.exe' failed to run: The system cannot find
-        the path specified", so the page must verify Python first and explain the
-        Microsoft Store alias before handing out the clone/venv block.
+        the path specified", so whoever types the commands by hand must verify
+        Python first rather than after the clone/venv block.
         """
         windows_panel = PAGE_TEXT.split('id="panel-windows"')[1].split("</section>")[0]
         check = windows_panel.index('id="code-windows-check"')
@@ -93,23 +107,30 @@ class StartCommandTests(unittest.TestCase):
         self.assertIn("App-uitvoeringsaliassen", block)
         self.assertIn("winget install", block)
 
-    def test_the_decision_table_stacks_on_a_phone(self) -> None:
-        """Three columns of Windows paths pushed the whole page sideways at 390px.
+    def test_wide_tables_stack_on_a_phone(self) -> None:
+        """A three-column table pushed the whole page 411px sideways at 390px.
 
         The fix is a stacked layout on narrow screens, which only reads correctly
-        when every cell carries its own label.
+        when every cell carries its own label. Any table with prose in it needs
+        the treatment, not just the one that first overflowed.
         """
-        self.assertIn("table.decide thead { display: none; }", PAGE_TEXT)
+        self.assertIn("table.stacks thead { display: none; }", PAGE_TEXT)
         self.assertIn("@media (max-width: 640px)", PAGE_TEXT)
         self.assertIn("content: attr(data-label)", PAGE_TEXT)
         self.assertIn("overflow-wrap: anywhere", PAGE_TEXT)
 
-        table = PAGE_TEXT.split('<table class="decide"')[1].split("</table>")[0]
-        headers = re.findall(r"<th>([^<]+)</th>", table)
-        cells = re.findall(r"<td([^>]*)>", table)
-        self.assertEqual(len(headers) * 3, len(cells), "elke rij hoort even veel cellen te hebben")
-        for attributes in cells:
-            self.assertIn("data-label=", attributes, "cel zonder label valt weg in de gestapelde weergave")
+        tables = re.findall(r"<table([^>]*)>", PAGE_TEXT)
+        self.assertTrue(tables, "de pagina heeft geen tabellen")
+        for attributes in tables:
+            self.assertIn('class="stacks"', attributes, "tabel zonder gestapelde weergave op mobiel")
+
+        for table in PAGE_TEXT.split('<table class="stacks"')[1:]:
+            body = table.split("</table>")[0]
+            headers = re.findall(r"<th>([^<]+)</th>", body)
+            cells = re.findall(r"<td([^>]*)>", body)
+            self.assertEqual(0, len(cells) % len(headers), "rijen met een afwijkend aantal cellen")
+            for attributes in cells:
+                self.assertIn("data-label=", attributes, "cel zonder label valt weg in de gestapelde weergave")
 
     def test_page_tells_readers_the_version_folder_is_theirs_to_check(self) -> None:
         """The fallback path is copied verbatim, so the variable part must be flagged."""
@@ -169,6 +190,37 @@ class StartCommandTests(unittest.TestCase):
         for name in ("start.sh", "start-macos.command"):
             result = subprocess.run(["bash", "-n", str(DOCS / name)], capture_output=True, text=True)
             self.assertEqual(0, result.returncode, f"{name}: {result.stderr}")
+
+    def test_scripts_install_what_is_missing_instead_of_only_reporting_it(self) -> None:
+        """The whole point of the starter: no manual diagnosis, no manual install."""
+        windows = (DOCS / "start-windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("function Install-Python", windows)
+        self.assertIn("winget install", windows)
+        self.assertIn("python.org/ftp/python", windows, "geen terugval als winget ontbreekt")
+        self.assertIn("Git.Git", windows)
+        self.assertIn("Ollama.Ollama", windows)
+
+        posix = (DOCS / "start.sh").read_text(encoding="utf-8")
+        self.assertIn("package_install", posix)
+        for manager in ("brew install", "apt-get install", "dnf install", "pacman", "zypper"):
+            self.assertIn(manager, posix, f"start.sh kent {manager} niet")
+        self.assertIn("ollama.com/install.sh", posix)
+
+    def test_installing_can_be_switched_off(self) -> None:
+        """Installing software is a real change; it needs a documented opt-out."""
+        for name in ("start.sh", "start-windows.ps1"):
+            self.assertIn("VUEA_NO_INSTALL", (DOCS / name).read_text(encoding="utf-8"), name)
+
+    def test_windows_script_finds_python_outside_path(self) -> None:
+        """`where.exe python` by hand is exactly what the script should replace.
+
+        It searches the standard install folders and refreshes PATH from the
+        registry, so a fresh install works without opening a new PowerShell.
+        """
+        script = (DOCS / "start-windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("LOCALAPPDATA", script)
+        self.assertIn("Python3*", script)
+        self.assertIn("function Update-PathFromRegistry", script)
 
     def test_scripts_run_the_single_entry_point(self) -> None:
         """The page promises that main.py does the rest; the scripts must call it."""
