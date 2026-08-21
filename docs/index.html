@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VU EA Conversational AI — starten</title>
-<meta name="description" content="Start de VU EA Conversational AI op je eigen laptop: één commando, daarna installeert en start alles zichzelf.">
+<meta name="description" content="Start de VU EA Conversational AI op je eigen laptop: kopieer de commando's voor jouw systeem, daarna installeert en start alles zichzelf.">
 <style>
   :root {
     color-scheme: light dark;
@@ -153,8 +153,8 @@
   <header>
     <h1>🎓 VU EA Conversational AI</h1>
     <p class="sub">
-      Vraagbaak voor de 1cijferHO-documentatie van VU Education Analytics. Kopieer hieronder één
-      commando en de app installeert zichzelf en start op je eigen laptop.
+      Vraagbaak voor de 1cijferHO-documentatie van VU Education Analytics. Kopieer hieronder de
+      commando's voor jouw systeem; daarna installeert en start de app zichzelf op je eigen laptop.
     </p>
   </header>
 
@@ -168,12 +168,42 @@
     <p class="detected" id="detected"></p>
 
     <section id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
-      <p>Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak:</p>
+      <p>Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak dit blok in één keer:</p>
       <div class="cmd">
-        <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows">Kopieer</button></div>
-        <pre id="code-windows">irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 | iex</pre>
+        <div class="cmd-bar"><span>PowerShell — eerste keer</span><button class="copy" type="button" data-copy="code-windows">Kopieer</button></div>
+        <pre id="code-windows">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+cd VU-EA-Conversational-AI
+python -m venv .venv
+.\.venv\Scripts\python.exe main.py</pre>
       </div>
-      <p class="hint">Geen Python? Het script zegt precies wat je moet installeren (<code>winget install -e --id Python.Python.3.12</code>).</p>
+      <p class="hint">
+        Geen Python? Installeer die eerst met <code>winget install -e --id Python.Python.3.12</code> (vink
+        “Add python.exe to PATH” aan) en open daarna een nieuwe PowerShell. Geen git? Download de code via
+        <strong>Code → Download ZIP</strong> op GitHub, pak hem uit en draai alleen de laatste twee regels.
+      </p>
+
+      <p style="margin-top:18px">Daarna start je hem zo, met de laatste versie erbij:</p>
+      <div class="cmd">
+        <div class="cmd-bar"><span>PowerShell — volgende keren</span><button class="copy" type="button" data-copy="code-windows-again">Kopieer</button></div>
+        <pre id="code-windows-again">cd VU-EA-Conversational-AI
+git pull
+.\.venv\Scripts\python.exe main.py</pre>
+      </div>
+
+      <details style="margin-top:18px">
+        <summary>Liever één regel? (startscript)</summary>
+        <p>
+          Dit doet hetzelfde, maar veel bedrijfslaptops blokkeren scripts die rechtstreeks vanaf internet
+          draaien (“This script contains malicious content and has been blocked by your antivirus software”).
+          Daarom eerst downloaden, dan draaien:
+        </p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows-script">Kopieer</button></div>
+          <pre id="code-windows-script">irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+powershell -ExecutionPolicy Bypass -File .\start.ps1</pre>
+        </div>
+        <p class="hint">Blokkeert je virusscanner dit ook? Gebruik dan gewoon de commando's hierboven; die hebben geen script nodig.</p>
+      </details>
     </section>
 
     <section id="panel-macos" role="tabpanel" aria-labelledby="tab-macos" hidden>
@@ -183,6 +213,17 @@
         <pre id="code-macos">curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash</pre>
       </div>
       <p class="hint">Geen Python 3.10+? Het script vertelt hoe je die installeert (<code>brew install python</code>).</p>
+      <details style="margin-top:18px">
+        <summary>Liever zonder script?</summary>
+        <p>Deze commando's doen hetzelfde, zonder iets van internet uit te voeren:</p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-macos-manual">Kopieer</button></div>
+          <pre id="code-macos-manual">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+cd VU-EA-Conversational-AI
+python3 -m venv .venv
+./.venv/bin/python main.py</pre>
+        </div>
+      </details>
     </section>
 
     <section id="panel-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
@@ -192,6 +233,17 @@
         <pre id="code-linux">curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash</pre>
       </div>
       <p class="hint">Op Debian/Ubuntu heb je <code>python3-venv</code> en <code>git</code> nodig: <code>sudo apt install python3-venv git</code>.</p>
+      <details style="margin-top:18px">
+        <summary>Liever zonder script?</summary>
+        <p>Deze commando's doen hetzelfde, zonder iets van internet uit te voeren:</p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-linux-manual">Kopieer</button></div>
+          <pre id="code-linux-manual">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+cd VU-EA-Conversational-AI
+python3 -m venv .venv
+./.venv/bin/python main.py</pre>
+        </div>
+      </details>
     </section>
 
     <p class="note">
@@ -217,7 +269,7 @@
     <table>
       <thead><tr><th>Onderdeel</th><th>Nodig?</th><th>Toelichting</th></tr></thead>
       <tbody>
-        <tr><td><strong>Python 3.10+</strong></td><td>Ja</td><td>Het script controleert dit en zegt hoe je het installeert.</td></tr>
+        <tr><td><strong>Python 3.10+</strong></td><td>Ja</td><td>Ontbreekt die, dan zegt de hint bij stap 1 hoe je hem installeert.</td></tr>
         <tr><td><strong>git</strong></td><td>Aanbevolen</td><td>Nodig om later automatisch bij te werken. Op Windows werkt het ook zonder (ZIP-download).</td></tr>
         <tr><td><strong>Ollama</strong></td><td>Optioneel</td><td>Alleen voor de LLM-formuleerlaag en semantisch zoeken. Zonder Ollama werkt de app gewoon, met antwoorden uit de documentatie.</td></tr>
         <tr><td><strong>Schijfruimte</strong></td><td>± 1 GB</td><td>Plus ± 5 GB als je de Ollama-modellen gebruikt.</td></tr>
@@ -245,6 +297,22 @@
     <details>
       <summary>“python wordt niet herkend” of “command not found”</summary>
       <p>Python staat niet in je PATH. Installeer Python opnieuw en vink op Windows <em>“Add python.exe to PATH”</em> aan. Daarna PowerShell of Terminal opnieuw openen.</p>
+    </details>
+    <details>
+      <summary>“This script contains malicious content and has been blocked by your antivirus software”</summary>
+      <p>
+        Je virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien. Dat is beleid, geen fout in
+        het script. Gebruik de losse commando's bovenaan bij stap 1: die hebben geen script nodig en worden
+        niet geblokkeerd.
+      </p>
+    </details>
+    <details>
+      <summary>“No suitable Python runtime found” van de py-launcher</summary>
+      <p>
+        De <code>py</code>-launcher staat op je machine zonder geregistreerde Python. Dat is geen probleem:
+        gebruik <code>python</code> in plaats van <code>py</code>, precies zoals in de commando's bij stap 1.
+        Het startscript slaat een kapotte launcher sinds kort zelf over.
+      </p>
     </details>
     <details>
       <summary>Er opent geen browser</summary>
