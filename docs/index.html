@@ -124,6 +124,20 @@
   table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
+  /* Long Windows paths must never push the page sideways on a phone. */
+  td code { overflow-wrap: anywhere; }
+  /* De beslistabel: op smalle schermen stapelen in plaats van drie kolommen persen. */
+  @media (max-width: 640px) {
+    table.decide thead { display: none; }
+    table.decide, table.decide tbody, table.decide tr, table.decide td { display: block; }
+    table.decide tr { border-bottom: 1px solid var(--border); padding: 10px 0; }
+    table.decide tr:last-child { border-bottom: 0; }
+    table.decide td { border: 0; padding: 6px 0; }
+    table.decide td::before {
+      content: attr(data-label); display: block; margin-bottom: 3px;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft);
+    }
+  }
   code:not(pre code) {
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 6px; padding: 1px 6px; font-size: 0.9em;
@@ -176,25 +190,65 @@
       <p class="hint">
         Zie je een versienummer (bijvoorbeeld <code>Python 3.12.4</code>)? Ga door. Zie je iets anders — zoals
         <em>“Program 'python.exe' failed to run”</em> of de Microsoft Store die opent — lees dan eerst het
-        blokje hieronder; anders lopen de volgende commando's ook vast.
+        blokje hieronder; anders lopen de volgende commando's ook vast. Wat er precies misgaat verschilt per
+        laptop, dus dat blokje laat je eerst kijken en pas daarna iets doen.
       </p>
 
       <details style="margin-top:14px">
-        <summary>Python werkt niet — dit is bijna altijd de Microsoft Store-alias</summary>
-        <p>Kijk eerst welk bestand Windows pakt:</p>
+        <summary>Python werkt niet — kijk eerst wat Windows precies pakt</summary>
+        <p>
+          De uitkomst verschilt per laptop, dus dit is geen vast recept: kijk eerst wat er bij jou staat en
+          volg daarna de regel die past.
+        </p>
         <div class="cmd">
           <div class="cmd-bar"><span>PowerShell — diagnose</span><button class="copy" type="button" data-copy="code-windows-where">Kopieer</button></div>
           <pre id="code-windows-where">where.exe python
 py -0p</pre>
         </div>
-        <p style="margin-top:12px">
-          Staat er een pad met <code>\WindowsApps\</code> in? Dan is dat de Store-alias, een doorverwijzing naar
-          een app die niet geïnstalleerd is. Zet hem uit via <strong>Instellingen → Apps → Geavanceerde
-          app-instellingen → App-uitvoeringsaliassen</strong>: schakel <code>python.exe</code> en
-          <code>python3.exe</code> uit. Open daarna een nieuwe PowerShell.
+        <table class="decide" style="margin-top:14px">
+          <thead><tr><th>Wat je ziet</th><th>Wat er aan de hand is</th><th>Wat je doet</th></tr></thead>
+          <tbody>
+            <tr>
+              <td data-label="Wat je ziet"><strong>Alleen</strong> een pad met <code>\WindowsApps\</code>, of helemaal niets
+                (<code>INFO: Could not find files</code>)</td>
+              <td data-label="Wat er aan de hand is">Er staat <em>geen</em> Python op deze laptop. <code>\WindowsApps\python.exe</code> is een
+                lege doorverwijzing naar de Microsoft Store — daarom
+                “<em>failed to run: The system cannot find the path specified</em>”.</td>
+              <td data-label="Wat je doet">Installeer Python (zie onder), open een <strong>nieuwe</strong> PowerShell en begin opnieuw
+                bij <code>python --version</code>.</td>
+            </tr>
+            <tr>
+              <td data-label="Wat je ziet">Een <code>\WindowsApps\</code>-pad <strong>én</strong> een echt pad, bijvoorbeeld
+                <code>...\Programs\Python\Python312\python.exe</code></td>
+              <td data-label="Wat er aan de hand is">Python staat er wel, maar de Store-alias staat er in PATH vóór.</td>
+              <td data-label="Wat je doet">Zet de alias uit via <strong>Instellingen → Apps → Geavanceerde app-instellingen →
+                App-uitvoeringsaliassen</strong> (<code>python.exe</code> en <code>python3.exe</code>), en open
+                een nieuwe PowerShell. Of gebruik meteen het echte pad, zie hieronder.</td>
+            </tr>
+            <tr>
+              <td data-label="Wat je ziet">Alleen een echt pad, maar <code>python --version</code> faalt nog steeds</td>
+              <td data-label="Wat er aan de hand is">Dit venster draait nog met de oude PATH van vóór de installatie.</td>
+              <td data-label="Wat je doet">Sluit álle PowerShell-vensters en open er één nieuw.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top:16px">
+          <strong>Python installeren</strong> — kies er één, beide zijn gratis:
         </p>
-        <p>
-          Toont <code>py -0p</code> wél een pad naar een echte Python? Gebruik dan dat pad rechtstreeks, bijvoorbeeld:
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — installeren</span><button class="copy" type="button" data-copy="code-windows-install">Kopieer</button></div>
+          <pre id="code-windows-install">winget install -e --id Python.Python.3.12</pre>
+        </div>
+        <p class="hint">
+          Werkt <code>winget</code> niet (op beheerde laptops staat het soms uit)? Download Python dan van
+          <a href="https://www.python.org/downloads/windows/">python.org</a> en vink tijdens de installatie
+          <em>“Add python.exe to PATH”</em> aan. Open daarna hoe dan ook een nieuwe PowerShell: een openstaand
+          venster kent de nieuwe PATH nog niet.
+        </p>
+
+        <p style="margin-top:16px">
+          <strong>Liever het volledige pad gebruiken</strong> (werkt zonder iets aan PATH of aliassen te veranderen):
         </p>
         <div class="cmd">
           <div class="cmd-bar"><span>PowerShell — volledig pad</span><button class="copy" type="button" data-copy="code-windows-fullpath">Kopieer</button></div>
@@ -202,10 +256,9 @@ py -0p</pre>
 .\.venv\Scripts\python.exe main.py</pre>
         </div>
         <p class="hint">
-          Staat er helemaal geen Python? Installeer die met
-          <code>winget install -e --id Python.Python.3.12</code> of via
-          <a href="https://www.python.org/downloads/windows/">python.org</a>, met “Add python.exe to PATH”
-          aangevinkt, en open daarna een nieuwe PowerShell.
+          <code>$env:LOCALAPPDATA</code> vult je eigen gebruikersmap automatisch in — dat deel klopt bij
+          iedereen. De versiemap moet je wél laten kloppen: staat er bij jou <code>Python313</code> of een pad
+          onder <code>C:\Program Files\</code>, neem dan het pad over dat <code>py -0p</code> hierboven toonde.
         </p>
       </details>
 
@@ -342,12 +395,12 @@ python3 -m venv .venv
     <details>
       <summary>“Program 'python.exe' failed to run: The system cannot find the path specified”</summary>
       <p>
-        Windows vindt wel een <code>python.exe</code>, maar die verwijst nergens heen. Meestal is dat de
-        Microsoft Store-alias. Draai <code>where.exe python</code>: staat er een pad met
-        <code>\WindowsApps\</code>, zet dan bij <strong>Instellingen → Apps → Geavanceerde app-instellingen →
-        App-uitvoeringsaliassen</strong> de aliassen <code>python.exe</code> en <code>python3.exe</code> uit,
-        en open een nieuwe PowerShell. Werkt dat niet, gebruik dan het volledige pad naar je Python
-        (zie het uitklapblok bij stap 1).
+        Windows vindt wél een <code>python.exe</code>, maar die verwijst nergens heen: de Microsoft
+        Store-alias. Draai <code>where.exe python</code> en kijk wat eruit komt — dat verschilt per laptop.
+        Zie je <strong>alleen</strong> een pad met <code>\WindowsApps\</code>, dan staat er geen Python en
+        moet je die eerst installeren. Zie je daarnaast een echt pad, dan is Python er wel en staat de alias
+        er alleen vóór; die zet je uit bij <strong>Instellingen → Apps → Geavanceerde app-instellingen →
+        App-uitvoeringsaliassen</strong>. Het uitklapblok bij stap 1 loopt beide gevallen af.
       </p>
     </details>
     <details>

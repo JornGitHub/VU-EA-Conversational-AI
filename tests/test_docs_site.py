@@ -80,6 +80,43 @@ class StartCommandTests(unittest.TestCase):
         self.assertIn("LOCALAPPDATA", PAGE_TEXT)
         self.assertIn("-m venv .venv", PAGE_TEXT)
 
+    def test_page_separates_no_python_from_a_shadowed_python(self) -> None:
+        """`where.exe python` says different things on different laptops.
+
+        Only a WindowsApps path means no Python is installed at all; a real path
+        next to it means the alias merely shadows it. The fixes are different, so
+        the page must distinguish the two instead of giving one recipe.
+        """
+        block = PAGE_TEXT.split('data-copy="code-windows-where"')[1].split("</details>")[0]
+        self.assertIn("Alleen", block)
+        self.assertIn("geen", block)
+        self.assertIn("App-uitvoeringsaliassen", block)
+        self.assertIn("winget install", block)
+
+    def test_the_decision_table_stacks_on_a_phone(self) -> None:
+        """Three columns of Windows paths pushed the whole page sideways at 390px.
+
+        The fix is a stacked layout on narrow screens, which only reads correctly
+        when every cell carries its own label.
+        """
+        self.assertIn("table.decide thead { display: none; }", PAGE_TEXT)
+        self.assertIn("@media (max-width: 640px)", PAGE_TEXT)
+        self.assertIn("content: attr(data-label)", PAGE_TEXT)
+        self.assertIn("overflow-wrap: anywhere", PAGE_TEXT)
+
+        table = PAGE_TEXT.split('<table class="decide"')[1].split("</table>")[0]
+        headers = re.findall(r"<th>([^<]+)</th>", table)
+        cells = re.findall(r"<td([^>]*)>", table)
+        self.assertEqual(len(headers) * 3, len(cells), "elke rij hoort even veel cellen te hebben")
+        for attributes in cells:
+            self.assertIn("data-label=", attributes, "cel zonder label valt weg in de gestapelde weergave")
+
+    def test_page_tells_readers_the_version_folder_is_theirs_to_check(self) -> None:
+        """The fallback path is copied verbatim, so the variable part must be flagged."""
+        block = PAGE_TEXT.split('data-copy="code-windows-fullpath"')[1].split("</details>")[0]
+        self.assertIn("Python313", block, "de pagina noemt geen andere versiemap als voorbeeld")
+        self.assertIn("py -0p", block)
+
     def test_page_covers_the_errors_testers_actually_reported(self) -> None:
         for message in (
             "Program 'python.exe' failed to run",
