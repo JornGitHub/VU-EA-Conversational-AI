@@ -49,6 +49,11 @@ function Get-PythonVersion([string]$exe) {
     return $null
 }
 
+# Onthoudt of we alleen de Microsoft Store-stub tegenkwamen: dat is de meest
+# voorkomende oorzaak van "Program 'python.exe' failed to run" en verdient een
+# eigen uitleg in plaats van "geen Python gevonden".
+$script:SawStoreStub = $false
+
 function Resolve-PythonExe {
     $candidates = New-Object System.Collections.Generic.List[string]
 
@@ -73,7 +78,7 @@ function Resolve-PythonExe {
     foreach ($exe in $candidates) {
         if ([string]::IsNullOrWhiteSpace($exe)) { continue }
         # De Microsoft Store-stub opent de Store in plaats van Python te draaien.
-        if ($exe -like '*\WindowsApps\*') { continue }
+        if ($exe -match '[\\/]WindowsApps[\\/]') { $script:SawStoreStub = $true; continue }
         $version = Get-PythonVersion $exe
         if ($version -and $version -ge $MinimumPython) { return $exe }
     }
@@ -84,6 +89,14 @@ Write-Step 'Python controleren'
 $pythonExe = Resolve-PythonExe
 if (-not $pythonExe) {
     Write-Host "Geen Python $MinimumPython of nieuwer gevonden."
+    if ($script:SawStoreStub) {
+        Write-Host ''
+        Write-Warn 'De enige python.exe op dit systeem is de Microsoft Store-alias.'
+        Write-Host 'Die doet niets en geeft: "Program ''python.exe'' failed to run: The system cannot find the path specified".'
+        Write-Host 'Zet hem uit via Instellingen > Apps > Geavanceerde app-instellingen > App-uitvoeringsaliassen'
+        Write-Host '(schakel python.exe en python3.exe uit) en installeer daarna een echte Python.'
+        Write-Host ''
+    }
     Write-Host 'Installeer Python met:  winget install -e --id Python.Python.3.12'
     Write-Host 'of download het van https://www.python.org/downloads/windows/'
     Write-Host 'Let op: vink tijdens installatie "Add python.exe to PATH" aan en open daarna een nieuwe PowerShell.'

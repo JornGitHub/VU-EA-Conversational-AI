@@ -77,10 +77,13 @@ Collega's die de repo niet kennen, kunnen starten via de projectpagina:
 
 **<https://jorngithub.github.io/VU-EA-Conversational-AI/>**
 
-Die pagina herkent hun besturingssysteem en geeft één commando met een kopieerknop:
+Die pagina herkent hun besturingssysteem en geeft één blok met een kopieerknop:
 
 ```powershell
-# Windows: losse commando's, want veel bedrijfslaptops blokkeren scripts van internet
+# Windows, stap 1: controleer eerst of Python echt werkt
+python --version
+
+# Windows, stap 2: losse commando's, want veel bedrijfslaptops blokkeren scripts van internet
 git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
 cd VU-EA-Conversational-AI
 python -m venv .venv
@@ -89,6 +92,12 @@ python -m venv .venv
 ```bash
 curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash    # macOS/Linux
 ```
+
+De controle in stap 1 staat er niet voor niets: op Windows bestaat vaak een `python.exe` die niets
+doet — de Microsoft Store-alias. Die geeft *"Program 'python.exe' failed to run: The system cannot
+find the path specified"* of opent de Store, en dan lopen alle volgende commando's ook vast. De
+startpagina legt in een uitklapblok uit hoe je dat oplost (`where.exe python`, aliassen uitzetten,
+of het volledige pad gebruiken); dezelfde uitleg staat in [Problemen oplossen](#14-problemen-oplossen).
 
 Dat script controleert Python, haalt de code op (of werkt een bestaande kopie bij), maakt een virtual environment en draait daarna gewoon `python main.py`. Wie liever dubbelklikt, downloadt op dezelfde pagina `start-windows.bat` of `start-macos.command`.
 
@@ -573,6 +582,8 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
 | Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
 | "This script contains malicious content and has been blocked by your antivirus software" | De virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien (`irm … \| iex`). Dat is beleid op veel bedrijfslaptops. Gebruik de losse commando's van de startpagina: `git clone …`, `python -m venv .venv`, `.\.venv\Scripts\python.exe main.py`. |
+| `Program 'python.exe' failed to run: The system cannot find the path specified` (Windows) | Windows vindt wél een `python.exe`, maar die wijst nergens heen — bijna altijd de Microsoft Store-alias. Draai `where.exe python`; staat er een pad met `\WindowsApps\`, zet dan bij **Instellingen → Apps → Geavanceerde app-instellingen → App-uitvoeringsaliassen** de aliassen `python.exe` en `python3.exe` uit en open een nieuwe PowerShell. Toont `py -0p` een echte Python, gebruik dan dat volledige pad: `& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv`. |
+| Windows Security blokkeert `start-windows.bat` volledig (geen "Toch uitvoeren") | Op beheerde laptops mag een gedownload script soms helemaal niet draaien. Dat is beleid, geen fout in het bestand. Gebruik de losse commando's hierboven; die downloaden en draaien geen script en worden daarom niet geblokkeerd. |
 | "No suitable Python runtime found" (py-launcher) | De `py`-launcher staat geïnstalleerd zonder geregistreerde Python-versie. Gebruik `python` in plaats van `py`; het startscript slaat een kapotte launcher zelf over en zoekt de echte `python.exe`. |
 | Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
 | Vreemde tekens of een `UnicodeEncodeError` in de Windows-terminal | `main.py` detecteert of de console `✓`/`✗` aankan en valt anders terug op `[OK]`/`[FAIL]`; output kan nooit meer crashen op een codepage. Zie je toch rare tekens, zet de console dan op UTF-8 met `chcp 65001`. |
