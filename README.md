@@ -80,7 +80,11 @@ Collega's die de repo niet kennen, kunnen starten via de projectpagina:
 Die pagina herkent hun besturingssysteem en geeft één commando met een kopieerknop:
 
 ```powershell
-irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 | iex   # Windows
+# Windows: losse commando's, want veel bedrijfslaptops blokkeren scripts van internet
+git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+cd VU-EA-Conversational-AI
+python -m venv .venv
+.\.venv\Scripts\python.exe main.py
 ```
 ```bash
 curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash    # macOS/Linux
@@ -568,6 +572,8 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
 | De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
 | Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
+| "This script contains malicious content and has been blocked by your antivirus software" | De virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien (`irm … \| iex`). Dat is beleid op veel bedrijfslaptops. Gebruik de losse commando's van de startpagina: `git clone …`, `python -m venv .venv`, `.\.venv\Scripts\python.exe main.py`. |
+| "No suitable Python runtime found" (py-launcher) | De `py`-launcher staat geïnstalleerd zonder geregistreerde Python-versie. Gebruik `python` in plaats van `py`; het startscript slaat een kapotte launcher zelf over en zoekt de echte `python.exe`. |
 | Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
 | Vreemde tekens of een `UnicodeEncodeError` in de Windows-terminal | `main.py` detecteert of de console `✓`/`✗` aankan en valt anders terug op `[OK]`/`[FAIL]`; output kan nooit meer crashen op een codepage. Zie je toch rare tekens, zet de console dan op UTF-8 met `chcp 65001`. |
 | Geen definitie gevonden | De score bleef onder de drempel. Probeer de exacte veld- of begripsnaam uit de documentatie, of zet de webcontext-modus op `enhance`/`force`. |

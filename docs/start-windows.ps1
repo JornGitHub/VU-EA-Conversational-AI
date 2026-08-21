@@ -1,12 +1,18 @@
 # VU EA Conversational AI - startscript voor Windows (PowerShell).
 #
-# Gebruik:
-#   irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 | iex
+# Gebruik (download eerst, draai daarna - dat voorkomt dat virusscanners een
+# script blokkeren dat rechtstreeks vanaf internet wordt uitgevoerd):
 #
-# Het script haalt de code op (of werkt een bestaande kopie bij), maakt een
-# virtual environment en start `python main.py`. Dat commando doet de rest:
-# dependencies installeren, Ollama-modellen ophalen, de semantische index
-# bouwen en de app in je browser openen.
+#   irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+#   powershell -ExecutionPolicy Bypass -File .\start.ps1
+#
+# Werkt dit niet, gebruik dan de losse commando's op de projectpagina. Die
+# hebben geen script nodig en worden nooit door een virusscanner geblokkeerd.
+#
+# Het script controleert Python, haalt de code op (of werkt een bestaande kopie
+# bij), maakt een virtual environment en start `python main.py`. Dat commando
+# doet de rest: dependencies installeren, Ollama-modellen ophalen, de
+# semantische index bouwen en de app in je browser openen.
 #
 # Alles draait lokaal op je eigen machine; er gaat geen data naar buiten.
 #
@@ -21,35 +27,69 @@ $RepoUrl   = if ($env:VUEA_REPO_URL) { $env:VUEA_REPO_URL } else { 'https://gith
 $TargetDir = if ($env:VUEA_DIR)      { $env:VUEA_DIR }      else { Join-Path $env:USERPROFILE 'VU-EA-Conversational-AI' }
 $Branch    = if ($env:VUEA_BRANCH)   { $env:VUEA_BRANCH }   else { 'main' }
 $ZipUrl    = ($RepoUrl -replace '\.git$', '') + "/archive/refs/heads/$Branch.zip"
+$MinimumPython = [version]'3.10'
 
 function Write-Step($message) { Write-Host "`n==> $message" -ForegroundColor Cyan }
 function Write-Warn($message) { Write-Host "!  $message" -ForegroundColor Yellow }
 function Stop-WithError($message) { Write-Host "X  $message" -ForegroundColor Red; exit 1 }
 
 # --------------------------------------------------------------- Python ----
-function Find-Python {
-    foreach ($candidate in @('py', 'python', 'python3')) {
-        $command = Get-Command $candidate -ErrorAction SilentlyContinue
-        if (-not $command) { continue }
-        $arguments = if ($candidate -eq 'py') { @('-3', '-c') } else { @('-c') }
-        & $candidate @arguments 'import sys; raise SystemExit(0 if sys.version_info >= (3, 10) else 1)' 2>$null
-        if ($LASTEXITCODE -eq 0) {
-            return @{ Command = $candidate; Arguments = $(if ($candidate -eq 'py') { @('-3') } else { @() }) }
+# Eén absoluut pad naar python.exe, niet een commando plus losse vlaggen: dat
+# laatste liep stuk zodra de `py`-launcher wel bestond maar geen 3.x-runtime had.
+function Get-PythonVersion([string]$exe) {
+    # Vraag de interpreter zelf om zijn versie. De uitvoer is de test, niet de
+    # exitcode: die is per PowerShell-versie onbetrouwbaar bij native commando's.
+    try {
+        $output = & $exe -c "import sys; print('%d.%d' % sys.version_info[:2])" 2>$null
+    } catch {
+        return $null
+    }
+    $line = ($output | Select-Object -First 1)
+    if ($line -and ("$line".Trim() -match '^\d+\.\d+$')) { return [version]("$line".Trim()) }
+    return $null
+}
+
+function Resolve-PythonExe {
+    $candidates = New-Object System.Collections.Generic.List[string]
+
+    foreach ($name in @('python', 'python3')) {
+        foreach ($command in @(Get-Command $name -All -ErrorAction SilentlyContinue)) {
+            if ($command.Source) { $candidates.Add([string]$command.Source) }
         }
+    }
+
+    # De py-launcher weet vaak waar de echte interpreter staat; vraag het pad op
+    # in plaats van er vlaggen aan door te geven.
+    if (Get-Command 'py' -ErrorAction SilentlyContinue) {
+        try {
+            $viaLauncher = & py -3 -c "import sys; print(sys.executable)" 2>$null
+            $line = ($viaLauncher | Select-Object -First 1)
+            if ($line) { $candidates.Add("$line".Trim()) }
+        } catch {
+            # py bestaat, maar heeft geen bruikbare runtime: gewoon overslaan.
+        }
+    }
+
+    foreach ($exe in $candidates) {
+        if ([string]::IsNullOrWhiteSpace($exe)) { continue }
+        # De Microsoft Store-stub opent de Store in plaats van Python te draaien.
+        if ($exe -like '*\WindowsApps\*') { continue }
+        $version = Get-PythonVersion $exe
+        if ($version -and $version -ge $MinimumPython) { return $exe }
     }
     return $null
 }
 
 Write-Step 'Python controleren'
-$python = Find-Python
-if (-not $python) {
-    Write-Host 'Geen Python 3.10 of nieuwer gevonden.'
+$pythonExe = Resolve-PythonExe
+if (-not $pythonExe) {
+    Write-Host "Geen Python $MinimumPython of nieuwer gevonden."
     Write-Host 'Installeer Python met:  winget install -e --id Python.Python.3.12'
     Write-Host 'of download het van https://www.python.org/downloads/windows/'
-    Write-Host 'Let op: vink tijdens installatie "Add python.exe to PATH" aan.'
+    Write-Host 'Let op: vink tijdens installatie "Add python.exe to PATH" aan en open daarna een nieuwe PowerShell.'
     Stop-WithError 'Python ontbreekt'
 }
-Write-Host ("Gevonden: " + (& $python.Command @($python.Arguments + '--version')))
+Write-Host "Gevonden: $pythonExe (Python $(Get-PythonVersion $pythonExe))"
 
 # ------------------------------------------------------------------ code ----
 $hasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
@@ -57,10 +97,13 @@ $hasGit = [bool](Get-Command git -ErrorAction SilentlyContinue)
 if (Test-Path (Join-Path $TargetDir '.git')) {
     Write-Step "Bestaande installatie bijwerken in $TargetDir"
     if ($hasGit) {
-        git -C $TargetDir fetch --quiet origin $Branch
-        git -C $TargetDir checkout --quiet $Branch 2>$null
-        git -C $TargetDir pull --quiet --ff-only origin $Branch
-        if ($LASTEXITCODE -ne 0) { Write-Warn 'Kon niet bijwerken (lokale wijzigingen?); verder met de huidige versie.' }
+        try {
+            git -C $TargetDir fetch --quiet origin $Branch
+            git -C $TargetDir checkout --quiet $Branch 2>$null
+            git -C $TargetDir pull --quiet --ff-only origin $Branch
+        } catch {
+            Write-Warn 'Kon niet bijwerken (lokale wijzigingen?); verder met de huidige versie.'
+        }
     } else {
         Write-Warn 'git niet gevonden; verder met de huidige versie.'
     }
@@ -69,9 +112,8 @@ if (Test-Path (Join-Path $TargetDir '.git')) {
 } elseif ($hasGit) {
     Write-Step "Code ophalen naar $TargetDir"
     git clone --quiet --branch $Branch $RepoUrl $TargetDir
-    if ($LASTEXITCODE -ne 0) { Stop-WithError "Clonen van $RepoUrl is mislukt." }
+    if (-not (Test-Path (Join-Path $TargetDir 'main.py'))) { Stop-WithError "Clonen van $RepoUrl is mislukt." }
 } else {
-    # Zonder git: download de ZIP van de publieke repo.
     Write-Step "Code downloaden naar $TargetDir (git niet gevonden, ZIP gebruikt)"
     $zipPath = Join-Path $env:TEMP 'vu-ea-conversational-ai.zip'
     $unpackDir = Join-Path $env:TEMP 'vu-ea-conversational-ai-unpack'
@@ -91,16 +133,17 @@ if (-not (Test-Path 'main.py')) { Stop-WithError "main.py niet gevonden in $Targ
 
 # --------------------------------------------------------------- venv ------
 Write-Step 'Virtual environment klaarzetten'
-if (-not (Test-Path '.venv')) {
-    & $python.Command @($python.Arguments + @('-m', 'venv', '.venv'))
-    if ($LASTEXITCODE -ne 0) { Stop-WithError 'Kon geen virtual environment maken.' }
-}
 $venvPython = Join-Path $TargetDir '.venv\Scripts\python.exe'
-if (-not (Test-Path $venvPython)) { Stop-WithError 'Virtual environment lijkt onvolledig.' }
-Write-Host ("Actief: " + (& $venvPython '--version'))
+if (-not (Test-Path $venvPython)) {
+    & $pythonExe -m venv .venv
+}
+if (-not (Test-Path $venvPython)) {
+    Stop-WithError "Kon geen virtual environment maken met $pythonExe."
+}
+Write-Host "Actief: $(& $venvPython --version)"
 
 # ---------------------------------------------------------------- start ----
 Write-Step 'App starten (installeren, modellen, index en daarna je browser)'
 Write-Host 'Stoppen doe je met Ctrl+C. Volgende keer sneller starten?'
 Write-Host "  cd `"$TargetDir`"; .\.venv\Scripts\python.exe main.py"
-& $venvPython 'main.py'
+& $venvPython main.py

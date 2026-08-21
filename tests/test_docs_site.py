@@ -38,12 +38,43 @@ class StartCommandTests(unittest.TestCase):
     def test_page_offers_a_command_per_operating_system(self) -> None:
         for panel in ("panel-windows", "panel-macos", "panel-linux"):
             self.assertIn(panel, PAGE_TEXT)
-        self.assertIn(f"irm {BASE_URL}/start-windows.ps1 | iex", PAGE_TEXT)
         self.assertIn(f"curl -fsSL {BASE_URL}/start.sh | bash", PAGE_TEXT)
+
+    def test_windows_leads_with_commands_that_need_no_remote_script(self) -> None:
+        """Managed Windows laptops block scripts executed straight from the web.
+
+        The tester hit "This script contains malicious content and has been blocked
+        by your antivirus software", so the primary Windows route must be plain
+        commands: clone, venv, run.
+        """
+        windows_panel = PAGE_TEXT.split('id="panel-windows"')[1].split("</section>")[0]
+        primary = windows_panel.split("<details")[0]
+        self.assertIn("git clone", primary)
+        self.assertIn("python -m venv .venv", primary)
+        self.assertIn(r".\.venv\Scripts\python.exe main.py", primary)
+        self.assertNotIn("| iex", primary)
+
+    def test_the_one_line_script_route_downloads_before_running(self) -> None:
+        self.assertNotIn("start-windows.ps1 | iex", PAGE_TEXT)
+        self.assertIn("start-windows.ps1 -OutFile start.ps1", PAGE_TEXT)
+        self.assertIn("-File .\\start.ps1", PAGE_TEXT)
+
+    def test_page_explains_the_antivirus_block(self) -> None:
+        self.assertIn("geblokkeerd", PAGE_TEXT)
+        self.assertIn("virusscanner", PAGE_TEXT)
 
     def test_double_click_launchers_use_the_same_hosted_scripts(self) -> None:
         self.assertIn(f"{BASE_URL}/start.sh", (DOCS / "start-macos.command").read_text(encoding="utf-8"))
         self.assertIn(f"{BASE_URL}/start-windows.ps1", (DOCS / "start-windows.bat").read_text(encoding="utf-8"))
+
+    def test_windows_launcher_downloads_before_running(self) -> None:
+        """Piping a remote script into iex is what the antivirus blocks."""
+        launcher = (DOCS / "start-windows.bat").read_text(encoding="utf-8")
+        self.assertIn("-OutFile", launcher)
+        self.assertIn("-File", launcher)
+        # Comments may explain the pattern; no executable line may use it.
+        commands = [line for line in launcher.splitlines() if not line.strip().upper().startswith("REM")]
+        self.assertNotIn("| iex", "\n".join(commands))
 
     def test_bootstrap_scripts_default_to_this_repository(self) -> None:
         for name in ("start.sh", "start-windows.ps1"):
@@ -63,7 +94,21 @@ class StartCommandTests(unittest.TestCase):
     def test_scripts_run_the_single_entry_point(self) -> None:
         """The page promises that main.py does the rest; the scripts must call it."""
         self.assertIn("python main.py", (DOCS / "start.sh").read_text(encoding="utf-8"))
-        self.assertIn("'main.py'", (DOCS / "start-windows.ps1").read_text(encoding="utf-8"))
+        self.assertIn("main.py", (DOCS / "start-windows.ps1").read_text(encoding="utf-8"))
+
+    def test_windows_script_resolves_one_python_path(self) -> None:
+        """Passing a command plus flags broke when py existed without a runtime.
+
+        The script must resolve a single absolute interpreter path, skip the
+        Microsoft Store stub, and judge a candidate by its output rather than by
+        an exit code that Windows PowerShell 5.1 reports inconsistently.
+        """
+        script = (DOCS / "start-windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("function Resolve-PythonExe", script)
+        self.assertIn("WindowsApps", script)
+        self.assertIn("sys.executable", script)
+        self.assertNotIn("Arguments = ", script)
+        self.assertNotIn("$LASTEXITCODE", script)
 
 
 class PageContentTests(unittest.TestCase):
