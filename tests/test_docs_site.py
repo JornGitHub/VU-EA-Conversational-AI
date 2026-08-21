@@ -16,6 +16,7 @@ PAGE = DOCS / "index.html"
 PAGE_TEXT = PAGE.read_text(encoding="utf-8")
 BASE_URL = "https://jorngithub.github.io/VU-EA-Conversational-AI"
 REPO_URL = "https://github.com/JornGitHub/VU-EA-Conversational-AI"
+README_TEXT = Path("README.md").read_text(encoding="utf-8")
 
 
 class SiteFilesTests(unittest.TestCase):
@@ -48,11 +49,52 @@ class StartCommandTests(unittest.TestCase):
         commands: clone, venv, run.
         """
         windows_panel = PAGE_TEXT.split('id="panel-windows"')[1].split("</section>")[0]
-        primary = windows_panel.split("<details")[0]
+        # Everything up to the optional script route: that is what a tester follows.
+        primary = windows_panel.split("Liever \u00e9\u00e9n regel")[0]
         self.assertIn("git clone", primary)
         self.assertIn("python -m venv .venv", primary)
         self.assertIn(r".\.venv\Scripts\python.exe main.py", primary)
         self.assertNotIn("| iex", primary)
+        self.assertNotIn("start-windows.ps1", primary)
+
+    def test_windows_checks_python_before_the_install_commands(self) -> None:
+        """A dead python.exe makes every later command fail with a confusing error.
+
+        The tester saw "Program 'python.exe' failed to run: The system cannot find
+        the path specified", so the page must verify Python first and explain the
+        Microsoft Store alias before handing out the clone/venv block.
+        """
+        windows_panel = PAGE_TEXT.split('id="panel-windows"')[1].split("</section>")[0]
+        check = windows_panel.index('id="code-windows-check"')
+        install = windows_panel.index('id="code-windows"')
+        self.assertLess(check, install, "de Python-controle moet vóór het installatieblok staan")
+        self.assertIn("python --version", windows_panel)
+
+    def test_page_explains_the_microsoft_store_alias(self) -> None:
+        self.assertIn("WindowsApps", PAGE_TEXT)
+        self.assertIn("App-uitvoeringsaliassen", PAGE_TEXT)
+        self.assertIn("where.exe python", PAGE_TEXT)
+        self.assertIn("py -0p", PAGE_TEXT)
+
+    def test_page_offers_a_full_path_fallback_for_python(self) -> None:
+        self.assertIn("LOCALAPPDATA", PAGE_TEXT)
+        self.assertIn("-m venv .venv", PAGE_TEXT)
+
+    def test_page_covers_the_errors_testers_actually_reported(self) -> None:
+        for message in (
+            "Program 'python.exe' failed to run",
+            "destination path",
+            "Windows Security",
+            "No suitable Python runtime found",
+        ):
+            self.assertIn(message, PAGE_TEXT, f"pagina noemt niet: {message}")
+
+    def test_every_copy_button_points_at_an_existing_block(self) -> None:
+        targets = set(re.findall(r'data-copy="([^"]+)"', PAGE_TEXT))
+        ids = set(re.findall(r'<pre id="([^"]+)"', PAGE_TEXT))
+        self.assertTrue(targets, "de pagina heeft geen kopieerknoppen")
+        self.assertEqual(set(), targets - ids, "kopieerknop zonder codeblok")
+        self.assertEqual(set(), ids - targets, "codeblok zonder kopieerknop")
 
     def test_the_one_line_script_route_downloads_before_running(self) -> None:
         self.assertNotIn("start-windows.ps1 | iex", PAGE_TEXT)
@@ -110,6 +152,13 @@ class StartCommandTests(unittest.TestCase):
         self.assertNotIn("Arguments = ", script)
         self.assertNotIn("$LASTEXITCODE", script)
 
+    def test_windows_script_names_the_store_alias_when_that_is_all_it_finds(self) -> None:
+        """"Geen Python gevonden" is unhelpful when a dead python.exe is right there."""
+        script = (DOCS / "start-windows.ps1").read_text(encoding="utf-8")
+        self.assertIn("SawStoreStub", script)
+        self.assertIn("App-uitvoeringsaliassen", script)
+        self.assertIn("failed to run", script)
+
 
 class PageContentTests(unittest.TestCase):
     def test_page_is_self_contained(self) -> None:
@@ -128,6 +177,26 @@ class PageContentTests(unittest.TestCase):
 
     def test_page_supports_both_colour_schemes(self) -> None:
         self.assertIn("prefers-color-scheme: dark", PAGE_TEXT)
+
+
+class ReadmeStaysInSyncTests(unittest.TestCase):
+    """The README is the fallback for anyone who never opens the start page."""
+
+    def test_readme_documents_the_windows_errors_the_page_covers(self) -> None:
+        for message in (
+            "Program 'python.exe' failed to run",
+            "App-uitvoeringsaliassen",
+            "where.exe python",
+            "Windows Security",
+        ):
+            self.assertIn(message, README_TEXT, f"README noemt niet: {message}")
+
+    def test_readme_shows_the_same_windows_start_commands_as_the_page(self) -> None:
+        for command in ("python --version", "python -m venv .venv", r".\.venv\Scripts\python.exe main.py"):
+            self.assertIn(command, README_TEXT, f"README mist startcommando: {command}")
+
+    def test_readme_points_at_the_docs_folder_for_pages(self) -> None:
+        self.assertIn("map `/docs`", README_TEXT)
 
 
 if __name__ == "__main__":

@@ -168,7 +168,48 @@
     <p class="detected" id="detected"></p>
 
     <section id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
-      <p>Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak dit blok in één keer:</p>
+      <p>Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en controleer eerst of Python werkt:</p>
+      <div class="cmd">
+        <div class="cmd-bar"><span>PowerShell — controle</span><button class="copy" type="button" data-copy="code-windows-check">Kopieer</button></div>
+        <pre id="code-windows-check">python --version</pre>
+      </div>
+      <p class="hint">
+        Zie je een versienummer (bijvoorbeeld <code>Python 3.12.4</code>)? Ga door. Zie je iets anders — zoals
+        <em>“Program 'python.exe' failed to run”</em> of de Microsoft Store die opent — lees dan eerst het
+        blokje hieronder; anders lopen de volgende commando's ook vast.
+      </p>
+
+      <details style="margin-top:14px">
+        <summary>Python werkt niet — dit is bijna altijd de Microsoft Store-alias</summary>
+        <p>Kijk eerst welk bestand Windows pakt:</p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — diagnose</span><button class="copy" type="button" data-copy="code-windows-where">Kopieer</button></div>
+          <pre id="code-windows-where">where.exe python
+py -0p</pre>
+        </div>
+        <p style="margin-top:12px">
+          Staat er een pad met <code>\WindowsApps\</code> in? Dan is dat de Store-alias, een doorverwijzing naar
+          een app die niet geïnstalleerd is. Zet hem uit via <strong>Instellingen → Apps → Geavanceerde
+          app-instellingen → App-uitvoeringsaliassen</strong>: schakel <code>python.exe</code> en
+          <code>python3.exe</code> uit. Open daarna een nieuwe PowerShell.
+        </p>
+        <p>
+          Toont <code>py -0p</code> wél een pad naar een echte Python? Gebruik dan dat pad rechtstreeks, bijvoorbeeld:
+        </p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — volledig pad</span><button class="copy" type="button" data-copy="code-windows-fullpath">Kopieer</button></div>
+          <pre id="code-windows-fullpath">&amp; "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv
+.\.venv\Scripts\python.exe main.py</pre>
+        </div>
+        <p class="hint">
+          Staat er helemaal geen Python? Installeer die met
+          <code>winget install -e --id Python.Python.3.12</code> of via
+          <a href="https://www.python.org/downloads/windows/">python.org</a>, met “Add python.exe to PATH”
+          aangevinkt, en open daarna een nieuwe PowerShell.
+        </p>
+      </details>
+
+      <p style="margin-top:18px">Werkt <code>python --version</code>? Plak dan dit blok in één keer:</p>
       <div class="cmd">
         <div class="cmd-bar"><span>PowerShell — eerste keer</span><button class="copy" type="button" data-copy="code-windows">Kopieer</button></div>
         <pre id="code-windows">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
@@ -177,9 +218,9 @@ python -m venv .venv
 .\.venv\Scripts\python.exe main.py</pre>
       </div>
       <p class="hint">
-        Geen Python? Installeer die eerst met <code>winget install -e --id Python.Python.3.12</code> (vink
-        “Add python.exe to PATH” aan) en open daarna een nieuwe PowerShell. Geen git? Download de code via
-        <strong>Code → Download ZIP</strong> op GitHub, pak hem uit en draai alleen de laatste twee regels.
+        Zie je <em>“destination path … already exists”</em>? Dan heb je de code al staan — die regel mag falen,
+        de rest loopt gewoon door. Geen git? Download de code via <strong>Code → Download ZIP</strong> op
+        GitHub, pak hem uit en draai alleen de laatste twee regels.
       </p>
 
       <p style="margin-top:18px">Daarna start je hem zo, met de laatste versie erbij:</p>
@@ -297,6 +338,25 @@ python3 -m venv .venv
     <details>
       <summary>“python wordt niet herkend” of “command not found”</summary>
       <p>Python staat niet in je PATH. Installeer Python opnieuw en vink op Windows <em>“Add python.exe to PATH”</em> aan. Daarna PowerShell of Terminal opnieuw openen.</p>
+    </details>
+    <details>
+      <summary>“Program 'python.exe' failed to run: The system cannot find the path specified”</summary>
+      <p>
+        Windows vindt wel een <code>python.exe</code>, maar die verwijst nergens heen. Meestal is dat de
+        Microsoft Store-alias. Draai <code>where.exe python</code>: staat er een pad met
+        <code>\WindowsApps\</code>, zet dan bij <strong>Instellingen → Apps → Geavanceerde app-instellingen →
+        App-uitvoeringsaliassen</strong> de aliassen <code>python.exe</code> en <code>python3.exe</code> uit,
+        en open een nieuwe PowerShell. Werkt dat niet, gebruik dan het volledige pad naar je Python
+        (zie het uitklapblok bij stap 1).
+      </p>
+    </details>
+    <details>
+      <summary>Windows Security blokkeert het dubbelklikbestand</summary>
+      <p>
+        Op beheerde laptops mag een gedownload script vaak helemaal niet draaien; “Toch uitvoeren” verschijnt
+        dan niet eens. Gebruik de losse commando's bij stap 1 — die zijn niet te blokkeren, want er wordt
+        niets gedownload en uitgevoerd.
+      </p>
     </details>
     <details>
       <summary>“This script contains malicious content and has been blocked by your antivirus software”</summary>
