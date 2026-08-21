@@ -77,26 +77,68 @@ Collega's die de repo niet kennen, kunnen starten via de projectpagina:
 
 **<https://jorngithub.github.io/VU-EA-Conversational-AI/>**
 
-Die pagina herkent hun besturingssysteem en geeft één commando met een kopieerknop:
+Die pagina herkent hun besturingssysteem en geeft één knop: **⬇ Starter voor Windows / macOS /
+Linux**. Dat bestand downloaden en dubbelklikken is de hele instructie. De starter regelt de rest:
+
+| Stap | Wat de starter doet |
+|------|---------------------|
+| Python zoeken | Kijkt naar `python`, `python3`, de `py`-launcher **en** de standaard installatiemappen (`%LOCALAPPDATA%\Programs\Python\Python3*`, `C:\Program Files\Python3*`). Daardoor werkt het ook als PATH stuk is. De Microsoft Store-alias wordt herkend en overgeslagen. |
+| Python installeren | Ontbreekt Python, dan installeert de starter hem: `winget` op Windows (met de officiële python.org-installer als terugval), Homebrew op macOS, `apt`/`dnf`/`pacman`/`zypper` op Linux. Daarna wordt PATH uit het register ververst, dus je hoeft geen nieuwe terminal te openen. |
+| git installeren | Ontbreekt git, dan installeert de starter hem. Lukt dat niet, dan pakt Windows automatisch de ZIP-download. |
+| Ollama installeren | Optioneel en nooit fataal: lukt het niet, dan draait de app door zonder LLM-laag. |
+| Code ophalen | Clonet de repository, of werkt een bestaande kopie bij. |
+| Starten | Maakt de virtual environment en draait `python main.py`, dat de dependencies installeert, de modellen ophaalt, de index bouwt en je browser opent. |
+
+Wie liever plakt dan klikt, vindt op dezelfde pagina één commando:
 
 ```powershell
-# Windows: losse commando's, want veel bedrijfslaptops blokkeren scripts van internet
-git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
-cd VU-EA-Conversational-AI
-python -m venv .venv
-.\.venv\Scripts\python.exe main.py
+irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 ```bash
 curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash    # macOS/Linux
 ```
 
-Dat script controleert Python, haalt de code op (of werkt een bestaande kopie bij), maakt een virtual environment en draait daarna gewoon `python main.py`. Wie liever dubbelklikt, downloadt op dezelfde pagina `start-windows.bat` of `start-macos.command`.
+**Niets laten installeren?** Zet `VUEA_NO_INSTALL=1`; de starter meldt dan alleen wat er ontbreekt.
+De starters luisteren daarnaast naar `VUEA_REPO_URL`, `VUEA_DIR` en `VUEA_BRANCH`.
 
-Een webpagina kan zelf niets installeren of starten — dat staat elke browser terecht niet toe. De pagina geeft dus het commando; de app draait volledig lokaal.
+#### Als de starter geblokkeerd wordt
+
+Op sommige beheerde laptops mag geen enkel gedownload script draaien ("This script contains malicious
+content…", of Windows Security die het bestand zonder meer weigert). Dat is beleid, geen fout in het
+bestand. De pagina houdt daarvoor een handmatige route achter de hand:
+
+```powershell
+python --version          # eerst controleren; zie de tabel hieronder als dit faalt
+git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+cd VU-EA-Conversational-AI
+python -m venv .venv
+.\.venv\Scripts\python.exe main.py
+```
+
+Faalt `python --version` met *"Program 'python.exe' failed to run: The system cannot find the path
+specified"*, dan zit je tegen de Microsoft Store-alias aan. Wat je dan moet doen verschilt per laptop,
+dus kijk eerst met `where.exe python` (en `py -0p`) wat Windows precies pakt:
+
+| Wat `where.exe python` toont | Wat er aan de hand is | Wat je doet |
+|------------------------------|-----------------------|-------------|
+| **Alleen** een pad met `\WindowsApps\`, of niets (`INFO: Could not find files`) | Er staat geen Python op deze laptop; `\WindowsApps\python.exe` is een lege doorverwijzing naar de Microsoft Store | Installeer Python: `winget install -e --id Python.Python.3.12`, of via [python.org](https://www.python.org/downloads/windows/) met *"Add python.exe to PATH"* aangevinkt. Open daarna een **nieuwe** PowerShell. |
+| Een `\WindowsApps\`-pad **én** een echt pad (`...\Programs\Python\Python312\python.exe`) | Python staat er wel, maar de Store-alias staat er in PATH vóór | Zet de alias uit via **Instellingen → Apps → Geavanceerde app-instellingen → App-uitvoeringsaliassen** (`python.exe` en `python3.exe`), of gebruik het echte pad rechtstreeks: `& "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv` |
+| Alleen een echt pad, maar `python --version` faalt nog steeds | Dit venster draait met de PATH van vóór de installatie | Sluit alle PowerShell-vensters en open er één nieuw. |
+
+`$env:LOCALAPPDATA` vult de gebruikersmap automatisch in, dus dat deel klopt bij iedereen; de
+versiemap (`Python312`, `Python313`, of een pad onder `C:\Program Files\`) moet je overnemen uit wat
+`py -0p` bij jou toont. Dit is precies de diagnose die de starter zelf doet — je hebt hem alleen nodig
+als de starter niet mág draaien.
+
+**Waarom niet één knop die alles doet?** Geen enkele browser laat een website programma's op je
+computer draaien — dat is de belangrijkste beveiligingsgrens die een browser heeft, en die staat er
+terecht. Eén klik levert daarom de starter af; die doet vanaf dat punt alles automatisch. Verder
+komt geen enkele website, hoe hij er ook uitziet.
 
 **Pages aanzetten** (eenmalig, vereist een publieke repository): GitHub → **Settings** → **Pages** → Source: *Deploy from a branch* → Branch: `main`, map `/docs` → **Save**. Na ongeveer een minuut staat de pagina online. De bestanden staan in `docs/`; wijzig je ze, dan publiceert GitHub de nieuwe versie vanzelf bij de volgende push.
 
-**Fork of eigen kopie?** De startscripts luisteren naar `VUEA_REPO_URL`, `VUEA_DIR` en `VUEA_BRANCH`, dus je kunt ze zonder aanpassing op een andere repository, map of branch richten.
+**Fork of eigen kopie?** De startscripts luisteren naar `VUEA_REPO_URL`, `VUEA_DIR`, `VUEA_BRANCH` en `VUEA_NO_INSTALL`, dus je kunt ze zonder aanpassing op een andere repository, map of branch richten — of ze laten melden wat er ontbreekt zonder iets te installeren.
 
 ---
 
@@ -572,7 +614,10 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
 | De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
 | Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
+| Ik wil niet dat een script software installeert | Zet `VUEA_NO_INSTALL=1`; de starter meldt dan alleen wat er ontbreekt en installeert niets. |
 | "This script contains malicious content and has been blocked by your antivirus software" | De virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien (`irm … \| iex`). Dat is beleid op veel bedrijfslaptops. Gebruik de losse commando's van de startpagina: `git clone …`, `python -m venv .venv`, `.\.venv\Scripts\python.exe main.py`. |
+| `Program 'python.exe' failed to run: The system cannot find the path specified` (Windows) | Windows vindt wél een `python.exe`, maar die wijst nergens heen: de Microsoft Store-alias. Draai `where.exe python` en kijk wat eruit komt — dat verschilt per laptop. **Alleen** een `\WindowsApps\`-pad betekent dat er geen Python staat (installeren); staat er ook een echt pad, dan schaduwt de alias die alleen (alias uitzetten of het echte pad gebruiken). De volledige beslistabel staat in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien). |
+| Windows Security blokkeert `start-windows.bat` volledig (geen "Toch uitvoeren") | Op beheerde laptops mag een gedownload script soms helemaal niet draaien. Dat is beleid, geen fout in het bestand. Gebruik de losse commando's hierboven; die downloaden en draaien geen script en worden daarom niet geblokkeerd. |
 | "No suitable Python runtime found" (py-launcher) | De `py`-launcher staat geïnstalleerd zonder geregistreerde Python-versie. Gebruik `python` in plaats van `py`; het startscript slaat een kapotte launcher zelf over en zoekt de echte `python.exe`. |
 | Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
 | Vreemde tekens of een `UnicodeEncodeError` in de Windows-terminal | `main.py` detecteert of de console `✓`/`✗` aankan en valt anders terug op `[OK]`/`[FAIL]`; output kan nooit meer crashen op een codepage. Zie je toch rare tekens, zet de console dan op UTF-8 met `chcp 65001`. |

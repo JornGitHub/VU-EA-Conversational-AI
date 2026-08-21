@@ -124,6 +124,20 @@
   table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
   th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
   th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
+  /* Long Windows paths must never push the page sideways on a phone. */
+  td code { overflow-wrap: anywhere; }
+  /* Tabellen met veel tekst: op smalle schermen stapelen in plaats van kolommen persen. */
+  @media (max-width: 640px) {
+    table.stacks thead { display: none; }
+    table.stacks, table.stacks tbody, table.stacks tr, table.stacks td { display: block; }
+    table.stacks tr { border-bottom: 1px solid var(--border); padding: 10px 0; }
+    table.stacks tr:last-child { border-bottom: 0; }
+    table.stacks td { border: 0; padding: 6px 0; }
+    table.stacks td::before {
+      content: attr(data-label); display: block; margin-bottom: 3px;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft);
+    }
+  }
   code:not(pre code) {
     background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 6px; padding: 1px 6px; font-size: 0.9em;
@@ -137,6 +151,15 @@
     border-left: 3px solid var(--accent); border-radius: 8px;
     padding: 14px 16px; font-size: 0.95rem; margin: 16px 0 0;
   }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 4px 0 6px; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent); color: #fff; border: 1px solid var(--accent);
+    border-radius: 10px; padding: 14px 20px; text-decoration: none;
+    font-weight: 700; font-size: 1.02rem;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary .sz { font-weight: 500; opacity: 0.85; font-size: 0.86rem; }
   .downloads { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
   .downloads a {
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
@@ -153,8 +176,9 @@
   <header>
     <h1>🎓 VU EA Conversational AI</h1>
     <p class="sub">
-      Vraagbaak voor de 1cijferHO-documentatie van VU Education Analytics. Kopieer hieronder de
-      commando's voor jouw systeem; daarna installeert en start de app zichzelf op je eigen laptop.
+      Vraagbaak voor de 1cijferHO-documentatie van VU Education Analytics. Download hieronder de
+      starter voor jouw systeem. Die installeert alles wat nog ontbreekt — Python inbegrepen — en
+      opent de app op je eigen laptop.
     </p>
   </header>
 
@@ -168,54 +192,159 @@
     <p class="detected" id="detected"></p>
 
     <section id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
-      <p>Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak dit blok in één keer:</p>
-      <div class="cmd">
-        <div class="cmd-bar"><span>PowerShell — eerste keer</span><button class="copy" type="button" data-copy="code-windows">Kopieer</button></div>
-        <pre id="code-windows">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
-cd VU-EA-Conversational-AI
-python -m venv .venv
-.\.venv\Scripts\python.exe main.py</pre>
+      <p>
+        Download de starter en dubbelklik hem. Hij zoekt Python (ook als je PATH stuk is), installeert
+        Python, git en Ollama als die ontbreken, haalt de code op en opent de app. Je hoeft verder niets.
+      </p>
+      <div class="actions">
+        <a class="btn-primary" href="start-windows.bat" download>⬇ Starter voor Windows <span class="sz">start-windows.bat</span></a>
       </div>
       <p class="hint">
-        Geen Python? Installeer die eerst met <code>winget install -e --id Python.Python.3.12</code> (vink
-        “Add python.exe to PATH” aan) en open daarna een nieuwe PowerShell. Geen git? Download de code via
-        <strong>Code → Download ZIP</strong> op GitHub, pak hem uit en draai alleen de laatste twee regels.
+        Windows toont de eerste keer SmartScreen: klik op <em>“Meer informatie”</em> → <em>“Toch uitvoeren”</em>.
+        Blijft het bestand geblokkeerd, gebruik dan de commando's hieronder — die kan geen scanner tegenhouden.
       </p>
 
-      <p style="margin-top:18px">Daarna start je hem zo, met de laatste versie erbij:</p>
-      <div class="cmd">
-        <div class="cmd-bar"><span>PowerShell — volgende keren</span><button class="copy" type="button" data-copy="code-windows-again">Kopieer</button></div>
-        <pre id="code-windows-again">cd VU-EA-Conversational-AI
-git pull
-.\.venv\Scripts\python.exe main.py</pre>
-      </div>
-
       <details style="margin-top:18px">
-        <summary>Liever één regel? (startscript)</summary>
+        <summary>Liever één commando plakken?</summary>
         <p>
-          Dit doet hetzelfde, maar veel bedrijfslaptops blokkeren scripts die rechtstreeks vanaf internet
-          draaien (“This script contains malicious content and has been blocked by your antivirus software”).
-          Daarom eerst downloaden, dan draaien:
+          Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak dit. Het doet precies
+          hetzelfde als de starter: eerst downloaden, dan draaien, want veel bedrijfslaptops blokkeren
+          scripts die rechtstreeks vanaf internet draaien.
         </p>
         <div class="cmd">
           <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows-script">Kopieer</button></div>
           <pre id="code-windows-script">irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
 powershell -ExecutionPolicy Bypass -File .\start.ps1</pre>
         </div>
-        <p class="hint">Blokkeert je virusscanner dit ook? Gebruik dan gewoon de commando's hierboven; die hebben geen script nodig.</p>
+      </details>
+
+      <details style="margin-top:14px">
+        <summary>Wordt alles geblokkeerd? Dan handmatig, in vier regels</summary>
+        <p>
+          Op sommige beheerde laptops mag geen enkel gedownload script draaien. Deze commando's downloaden
+          niets uitvoerbaars en worden daarom niet geblokkeerd. Controleer eerst of Python werkt:
+        </p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — controle</span><button class="copy" type="button" data-copy="code-windows-check">Kopieer</button></div>
+          <pre id="code-windows-check">python --version</pre>
+        </div>
+        <p class="hint">
+          Zie je een versienummer? Ga door. Zie je <em>“Program 'python.exe' failed to run”</em> of opent de
+          Microsoft Store, lees dan eerst “Python werkt niet” hieronder.
+        </p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — eerste keer</span><button class="copy" type="button" data-copy="code-windows">Kopieer</button></div>
+          <pre id="code-windows">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+cd VU-EA-Conversational-AI
+python -m venv .venv
+.\.venv\Scripts\python.exe main.py</pre>
+        </div>
+        <p class="hint">
+          Zie je <em>“destination path … already exists”</em>? Dan heb je de code al staan — die regel mag
+          falen, de rest loopt gewoon door. Geen git? Download de code via <strong>Code → Download ZIP</strong>
+          op GitHub, pak hem uit en draai alleen de laatste twee regels.
+        </p>
+        <p style="margin-top:14px">Daarna start je hem zo, met de laatste versie erbij:</p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — volgende keren</span><button class="copy" type="button" data-copy="code-windows-again">Kopieer</button></div>
+          <pre id="code-windows-again">cd VU-EA-Conversational-AI
+git pull
+.\.venv\Scripts\python.exe main.py</pre>
+        </div>
+      </details>
+
+      <details style="margin-top:14px">
+        <summary>Python werkt niet — kijk wat Windows precies pakt</summary>
+        <p>
+          Dit hoef je alleen handmatig te doen als je de starter niet kunt draaien: die zoekt en installeert
+          Python zelf. De uitkomst verschilt per laptop, dus kijk eerst wat er bij jou staat.
+        </p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — diagnose</span><button class="copy" type="button" data-copy="code-windows-where">Kopieer</button></div>
+          <pre id="code-windows-where">where.exe python
+py -0p</pre>
+        </div>
+        <table class="stacks" style="margin-top:14px">
+          <thead><tr><th>Wat je ziet</th><th>Wat er aan de hand is</th><th>Wat je doet</th></tr></thead>
+          <tbody>
+            <tr>
+              <td data-label="Wat je ziet"><strong>Alleen</strong> een pad met <code>\WindowsApps\</code>, of helemaal niets
+                (<code>INFO: Could not find files</code>)</td>
+              <td data-label="Wat er aan de hand is">Er staat <em>geen</em> Python op deze laptop. <code>\WindowsApps\python.exe</code> is een
+                lege doorverwijzing naar de Microsoft Store — daarom
+                “<em>failed to run: The system cannot find the path specified</em>”.</td>
+              <td data-label="Wat je doet">Installeer Python (zie onder), open een <strong>nieuwe</strong> PowerShell en begin opnieuw
+                bij <code>python --version</code>.</td>
+            </tr>
+            <tr>
+              <td data-label="Wat je ziet">Een <code>\WindowsApps\</code>-pad <strong>én</strong> een echt pad, bijvoorbeeld
+                <code>...\Programs\Python\Python312\python.exe</code></td>
+              <td data-label="Wat er aan de hand is">Python staat er wel, maar de Store-alias staat er in PATH vóór.</td>
+              <td data-label="Wat je doet">Zet de alias uit via <strong>Instellingen → Apps → Geavanceerde app-instellingen →
+                App-uitvoeringsaliassen</strong> (<code>python.exe</code> en <code>python3.exe</code>), en open
+                een nieuwe PowerShell. Of gebruik meteen het echte pad, zie hieronder.</td>
+            </tr>
+            <tr>
+              <td data-label="Wat je ziet">Alleen een echt pad, maar <code>python --version</code> faalt nog steeds</td>
+              <td data-label="Wat er aan de hand is">Dit venster draait nog met de oude PATH van vóór de installatie.</td>
+              <td data-label="Wat je doet">Sluit álle PowerShell-vensters en open er één nieuw.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <p style="margin-top:16px"><strong>Python installeren</strong> — kies er één, beide zijn gratis:</p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — installeren</span><button class="copy" type="button" data-copy="code-windows-install">Kopieer</button></div>
+          <pre id="code-windows-install">winget install -e --id Python.Python.3.12</pre>
+        </div>
+        <p class="hint">
+          Werkt <code>winget</code> niet (op beheerde laptops staat het soms uit)? Download Python dan van
+          <a href="https://www.python.org/downloads/windows/">python.org</a> en vink tijdens de installatie
+          <em>“Add python.exe to PATH”</em> aan. Open daarna hoe dan ook een nieuwe PowerShell: een openstaand
+          venster kent de nieuwe PATH nog niet.
+        </p>
+
+        <p style="margin-top:16px">
+          <strong>Liever het volledige pad gebruiken</strong> (werkt zonder iets aan PATH of aliassen te veranderen):
+        </p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell — volledig pad</span><button class="copy" type="button" data-copy="code-windows-fullpath">Kopieer</button></div>
+          <pre id="code-windows-fullpath">&amp; "$env:LOCALAPPDATA\Programs\Python\Python312\python.exe" -m venv .venv
+.\.venv\Scripts\python.exe main.py</pre>
+        </div>
+        <p class="hint">
+          <code>$env:LOCALAPPDATA</code> vult je eigen gebruikersmap automatisch in — dat deel klopt bij
+          iedereen. De versiemap moet je wél laten kloppen: staat er bij jou <code>Python313</code> of een pad
+          onder <code>C:\Program Files\</code>, neem dan het pad over dat <code>py -0p</code> hierboven toonde.
+        </p>
       </details>
     </section>
 
     <section id="panel-macos" role="tabpanel" aria-labelledby="tab-macos" hidden>
-      <p>Open <strong>Terminal</strong> (Cmd+spatie, typ “Terminal”) en plak:</p>
-      <div class="cmd">
-        <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-macos">Kopieer</button></div>
-        <pre id="code-macos">curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash</pre>
+      <p>
+        Download de starter en dubbelklik hem. Hij installeert Python en Ollama als die ontbreken (via
+        Homebrew), haalt de code op en opent de app. Je hoeft verder niets.
+      </p>
+      <div class="actions">
+        <a class="btn-primary" href="start-macos.command" download>⬇ Starter voor macOS <span class="sz">start-macos.command</span></a>
       </div>
-      <p class="hint">Geen Python 3.10+? Het script vertelt hoe je die installeert (<code>brew install python</code>).</p>
+      <p class="hint">
+        De eerste keer weigert macOS een gedownload bestand: klik met de <strong>rechtermuisknop</strong> op
+        het bestand → <em>Open</em> → <em>Open</em>. Daarna volstaat dubbelklikken.
+      </p>
+
       <details style="margin-top:18px">
+        <summary>Liever één commando plakken?</summary>
+        <p>Open <strong>Terminal</strong> (Cmd+spatie, typ “Terminal”) en plak:</p>
+        <div class="cmd">
+          <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-macos">Kopieer</button></div>
+          <pre id="code-macos">curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash</pre>
+        </div>
+      </details>
+
+      <details style="margin-top:14px">
         <summary>Liever zonder script?</summary>
-        <p>Deze commando's doen hetzelfde, zonder iets van internet uit te voeren:</p>
+        <p>Deze commando's doen hetzelfde, zonder iets van internet uit te voeren. Python installeer je dan zelf.</p>
         <div class="cmd">
           <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-macos-manual">Kopieer</button></div>
           <pre id="code-macos-manual">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
@@ -227,15 +356,26 @@ python3 -m venv .venv
     </section>
 
     <section id="panel-linux" role="tabpanel" aria-labelledby="tab-linux" hidden>
-      <p>Open een <strong>terminal</strong> en plak:</p>
+      <p>
+        Plak dit in een <strong>terminal</strong>. Het script installeert Python, git en Ollama als die
+        ontbreken (via je pakketbeheerder), haalt de code op en opent de app.
+      </p>
       <div class="cmd">
         <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-linux">Kopieer</button></div>
         <pre id="code-linux">curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash</pre>
       </div>
-      <p class="hint">Op Debian/Ubuntu heb je <code>python3-venv</code> en <code>git</code> nodig: <code>sudo apt install python3-venv git</code>.</p>
+      <div class="actions" style="margin-top:14px">
+        <a class="btn-primary" href="start.sh" download>⬇ Starter voor Linux <span class="sz">start.sh</span></a>
+      </div>
+      <p class="hint">
+        Liever het bestand? Maak het uitvoerbaar met <code>chmod +x start.sh</code> en draai
+        <code>./start.sh</code>. Installeren vraagt je om je <code>sudo</code>-wachtwoord.
+      </p>
+
       <details style="margin-top:18px">
         <summary>Liever zonder script?</summary>
-        <p>Deze commando's doen hetzelfde, zonder iets van internet uit te voeren:</p>
+        <p>Deze commando's doen hetzelfde, zonder iets van internet uit te voeren. Op Debian/Ubuntu heb je
+          <code>python3-venv</code> en <code>git</code> nodig: <code>sudo apt install python3-venv git</code>.</p>
         <div class="cmd">
           <div class="cmd-bar"><span>Terminal</span><button class="copy" type="button" data-copy="code-linux-manual">Kopieer</button></div>
           <pre id="code-linux-manual">git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
@@ -247,15 +387,18 @@ python3 -m venv .venv
     </section>
 
     <p class="note">
-      Deze pagina start zelf niets — dat kan een website niet. Ze geeft je het commando; de app draait
-      daarna volledig op je eigen computer. Wil je eerst zien wat het script doet? Bekijk
-      <a href="start.sh">start.sh</a> of <a href="start-windows.ps1">start-windows.ps1</a>.
+      <strong>Waarom niet één knop die alles doet?</strong> Deze pagina start zelf niets — geen enkele
+      browser laat een website programma's op je computer draaien, en dat is maar goed ook. Wat wél kan:
+      één klik geeft je de starter, en die doet vanaf daar alles automatisch. Wil je eerst zien wat hij
+      doet? De code is leesbaar: <a href="start.sh">start.sh</a> en
+      <a href="start-windows.ps1">start-windows.ps1</a>.
     </p>
   </div>
 
   <h2>2. Wat gebeurt er dan?</h2>
   <div class="card">
     <ol class="steps">
+      <li><div><strong>Ontbrekende software</strong><span>De starter zoekt Python (ook buiten je PATH) en installeert Python, git en Ollama als ze ontbreken — via winget, Homebrew of je pakketbeheerder.</span></div></li>
       <li><div><strong>Code ophalen</strong><span>De repository wordt naar je thuismap gekopieerd, of bijgewerkt als je hem al hebt.</span></div></li>
       <li><div><strong>Python-omgeving</strong><span>Een eigen virtual environment, zodat je systeem-Python ongemoeid blijft.</span></div></li>
       <li><div><strong>Installeren en klaarzetten</strong><span><code>python main.py</code> installeert de dependencies, haalt de Ollama-modellen op en bouwt eenmalig de semantische index.</span></div></li>
@@ -266,44 +409,48 @@ python3 -m venv .venv
 
   <h2>3. Vereisten</h2>
   <div class="card">
-    <table>
+    <table class="stacks">
       <thead><tr><th>Onderdeel</th><th>Nodig?</th><th>Toelichting</th></tr></thead>
       <tbody>
-        <tr><td><strong>Python 3.10+</strong></td><td>Ja</td><td>Ontbreekt die, dan zegt de hint bij stap 1 hoe je hem installeert.</td></tr>
-        <tr><td><strong>git</strong></td><td>Aanbevolen</td><td>Nodig om later automatisch bij te werken. Op Windows werkt het ook zonder (ZIP-download).</td></tr>
-        <tr><td><strong>Ollama</strong></td><td>Optioneel</td><td>Alleen voor de LLM-formuleerlaag en semantisch zoeken. Zonder Ollama werkt de app gewoon, met antwoorden uit de documentatie.</td></tr>
-        <tr><td><strong>Schijfruimte</strong></td><td>± 1 GB</td><td>Plus ± 5 GB als je de Ollama-modellen gebruikt.</td></tr>
+        <tr><td data-label="Onderdeel"><strong>Python 3.10+</strong></td><td data-label="Nodig?">Ja</td><td data-label="Toelichting">Ontbreekt die, dan installeert de starter hem zelf (winget, Homebrew of je pakketbeheerder).</td></tr>
+        <tr><td data-label="Onderdeel"><strong>git</strong></td><td data-label="Nodig?">Aanbevolen</td><td data-label="Toelichting">Nodig om later automatisch bij te werken; de starter installeert hem als hij ontbreekt. Op Windows werkt het ook zonder (ZIP-download).</td></tr>
+        <tr><td data-label="Onderdeel"><strong>Ollama</strong></td><td data-label="Nodig?">Optioneel</td><td data-label="Toelichting">Alleen voor de LLM-formuleerlaag en semantisch zoeken. De starter installeert hem mee; lukt dat niet, dan werkt de app gewoon door met antwoorden uit de documentatie.</td></tr>
+        <tr><td data-label="Onderdeel"><strong>Schijfruimte</strong></td><td data-label="Nodig?">± 1 GB</td><td data-label="Toelichting">Plus ± 5 GB als je de Ollama-modellen gebruikt.</td></tr>
       </tbody>
     </table>
   </div>
 
-  <h2>4. Liever dubbelklikken?</h2>
-  <div class="card">
-    <p>Download het startbestand voor jouw systeem, zet het op je bureaublad en dubbelklik het voortaan.</p>
-    <div class="downloads">
-      <a href="start-windows.bat" download>⬇ start-windows.bat</a>
-      <a href="start-macos.command" download>⬇ start-macos.command</a>
-      <a href="start.sh" download>⬇ start.sh (Linux)</a>
-    </div>
-    <p class="hint">
-      Windows toont de eerste keer SmartScreen (“Meer informatie” → “Toch uitvoeren”). macOS vraagt de
-      eerste keer om rechtermuisknop → Open. Op Linux maak je het bestand uitvoerbaar met
-      <code>chmod +x start.sh</code>.
-    </p>
-  </div>
-
-  <h2>5. Werkt er iets niet?</h2>
+  <h2>4. Werkt er iets niet?</h2>
   <div class="card">
     <details>
       <summary>“python wordt niet herkend” of “command not found”</summary>
       <p>Python staat niet in je PATH. Installeer Python opnieuw en vink op Windows <em>“Add python.exe to PATH”</em> aan. Daarna PowerShell of Terminal opnieuw openen.</p>
     </details>
     <details>
+      <summary>“Program 'python.exe' failed to run: The system cannot find the path specified”</summary>
+      <p>
+        Windows vindt wél een <code>python.exe</code>, maar die verwijst nergens heen: de Microsoft
+        Store-alias. Draai <code>where.exe python</code> en kijk wat eruit komt — dat verschilt per laptop.
+        Zie je <strong>alleen</strong> een pad met <code>\WindowsApps\</code>, dan staat er geen Python en
+        moet je die eerst installeren. Zie je daarnaast een echt pad, dan is Python er wel en staat de alias
+        er alleen vóór; die zet je uit bij <strong>Instellingen → Apps → Geavanceerde app-instellingen →
+        App-uitvoeringsaliassen</strong>. Het uitklapblok “Python werkt niet” bij stap 1 loopt beide gevallen af — en de starter doet dit allemaal zelf.
+      </p>
+    </details>
+    <details>
+      <summary>Windows Security blokkeert het dubbelklikbestand</summary>
+      <p>
+        Op beheerde laptops mag een gedownload script vaak helemaal niet draaien; “Toch uitvoeren” verschijnt
+        dan niet eens. Gebruik de handmatige commando's bij stap 1 (“Wordt alles geblokkeerd?”) — die zijn niet te
+        blokkeren, want er wordt niets uitvoerbaars gedownload.
+      </p>
+    </details>
+    <details>
       <summary>“This script contains malicious content and has been blocked by your antivirus software”</summary>
       <p>
         Je virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien. Dat is beleid, geen fout in
-        het script. Gebruik de losse commando's bovenaan bij stap 1: die hebben geen script nodig en worden
-        niet geblokkeerd.
+        het script. Gebruik de handmatige commando's bij stap 1 (“Wordt alles geblokkeerd?”): die hebben geen script
+        nodig en worden niet geblokkeerd.
       </p>
     </details>
     <details>
