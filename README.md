@@ -71,6 +71,29 @@ Zie je bij `python main.py` de melding *"No run option selected; use --all for t
 
 > **Zonder Ollama werkt de app ook.** Als Ollama niet is geïnstalleerd, meldt `main.py` dat en start de app gewoon door. Je krijgt dan de volledige retrieval-antwoorden uit de lokale documentatie; alleen de optionele LLM-formuleerlaag is uitgeschakeld.
 
+### Startpagina voor collega's (GitHub Pages)
+
+Collega's die de repo niet kennen, kunnen starten via de projectpagina:
+
+**<https://jorngithub.github.io/VU-EA-Conversational-AI/>**
+
+Die pagina herkent hun besturingssysteem en geeft één commando met een kopieerknop:
+
+```powershell
+irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 | iex   # Windows
+```
+```bash
+curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash    # macOS/Linux
+```
+
+Dat script controleert Python, haalt de code op (of werkt een bestaande kopie bij), maakt een virtual environment en draait daarna gewoon `python main.py`. Wie liever dubbelklikt, downloadt op dezelfde pagina `start-windows.bat` of `start-macos.command`.
+
+Een webpagina kan zelf niets installeren of starten — dat staat elke browser terecht niet toe. De pagina geeft dus het commando; de app draait volledig lokaal.
+
+**Pages aanzetten** (eenmalig, vereist een publieke repository): GitHub → **Settings** → **Pages** → Source: *Deploy from a branch* → Branch: `main`, map `/docs` → **Save**. Na ongeveer een minuut staat de pagina online. De bestanden staan in `docs/`; wijzig je ze, dan publiceert GitHub de nieuwe versie vanzelf bij de volgende push.
+
+**Fork of eigen kopie?** De startscripts luisteren naar `VUEA_REPO_URL`, `VUEA_DIR` en `VUEA_BRANCH`, dus je kunt ze zonder aanpassing op een andere repository, map of branch richten.
+
 ---
 
 ## 2. Wat `main.py` precies doet
@@ -309,6 +332,7 @@ VU-EA-Conversational-AI/
 │   ├── conversation/                # Vervolgvragen en gespreksgeschiedenis
 │   ├── llm/                         # Ollama-bootstrap, chatclient (streaming), embeddings, promptbouw
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
+├── docs/                            # GitHub Pages-startpagina + startscripts, en evaluation.md
 ├── scripts/                         # Build, embeddings, benchmark, evaluatie, audits, feedback
 ├── tests/                           # Unit- en regressietests (unittest/pytest)
 └── docs/evaluation.md               # Uitleg over de evaluatietiers
@@ -542,6 +566,8 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | Poort 8501 is bezet | `python -m streamlit run app_streamlit.py --server.port 8502`. |
 | Er opent geen browser bij `--all`, `--tests`, `--query` of `--benchmark` | Dat klopt: dat zijn terminal-checks. De app start met `python main.py` (zie de tabel in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien)). |
 | `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
+| De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
+| Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
 | Tijdens de tests zie ik "Label quality audit passed" en daarna "failed" | Dat was testruis: één unittest controleert bewust dat de audit een slechte labelset afkeurt, en die functie printte haar oordeel. De functie geeft nu alleen een exitcode terug; alleen `python scripts/audit_label_quality.py` print nog een oordeel. Een testrun hoort verder niets te printen behalve de puntjes en `OK`. |
 | Vreemde tekens of een `UnicodeEncodeError` in de Windows-terminal | `main.py` detecteert of de console `✓`/`✗` aankan en valt anders terug op `[OK]`/`[FAIL]`; output kan nooit meer crashen op een codepage. Zie je toch rare tekens, zet de console dan op UTF-8 met `chcp 65001`. |
 | Geen definitie gevonden | De score bleef onder de drempel. Probeer de exacte veld- of begripsnaam uit de documentatie, of zet de webcontext-modus op `enhance`/`force`. |
