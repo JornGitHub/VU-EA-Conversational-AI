@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Sequence
 
+from src.definitions.mock_data import examples_for_fields
 from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
 from src.llm.ollama_client import generate_with_ollama, stream_with_ollama
 from src.llm.ollama_setup import DEFAULT_OLLAMA_MODEL
@@ -65,14 +66,19 @@ def retrieve(
     allow_external_web: bool = False,
     allow_llm_inference: bool = True,
     use_semantic: bool = True,
+    include_synthetic_examples: bool = False,
 ) -> dict[str, Any]:
     """Return retrieval output only, without touching the LLM.
 
     The chat UI needs the grounded payload before it starts streaming an answer,
     and questions can be answered from this payload alone when no LLM is used.
+
+    ``include_synthetic_examples`` attaches example values from the synthetic
+    dataset under their own key. They never reach the answer text or the LLM
+    prompt: invented counts must not be able to pass for evidence.
     """
     if deep_context:
-        return answer_deep_context_question_json(
+        result = answer_deep_context_question_json(
             query,
             debug=debug,
             source_focus=source_focus,
@@ -82,14 +88,18 @@ def retrieve(
             allow_llm_inference=allow_llm_inference,
             use_semantic=use_semantic,
         )
-    return answer_definition_question_json(
-        query,
-        debug=debug,
-        source_focus=source_focus,
-        include_supplemental=include_supplemental,
-        web_mode=web_mode,
-        use_semantic=use_semantic,
-    )
+    else:
+        result = answer_definition_question_json(
+            query,
+            debug=debug,
+            source_focus=source_focus,
+            include_supplemental=include_supplemental,
+            web_mode=web_mode,
+            use_semantic=use_semantic,
+        )
+    if include_synthetic_examples:
+        result["synthetic_examples"] = examples_for_fields(result.get("matched_fields") or [])
+    return result
 
 
 def build_chat_prompt(query: str, retrieval_result: dict[str, Any], history: Sequence[Any] | None = None) -> str:

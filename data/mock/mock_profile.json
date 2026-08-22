@@ -1,0 +1,1272 @@
+{
+  "notice": "SYNTHETISCHE VOORBEELDDATA - geen echte studentgegevens. Waarden komen uit de codelijsten in de documentatie; aantallen zijn verzonnen.",
+  "source_tier": "synthetic_example_data",
+  "dataset": "Inschrijvingen_aggr_UNL_2025.csv (synthetisch)",
+  "rows": 5000,
+  "sum_of_aantal": 627505,
+  "fields": {
+    "Inschrijvingsjaar": {
+      "distinct_values": 5,
+      "top_values": [
+        {
+          "value": "2022",
+          "rows": 1046
+        },
+        {
+          "value": "2024",
+          "rows": 1001
+        },
+        {
+          "value": "2025",
+          "rows": 998
+        },
+        {
+          "value": "2023",
+          "rows": 978
+        },
+        {
+          "value": "2021",
+          "rows": 977
+        }
+      ]
+    },
+    "Opleidingsvorm": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "2",
+          "rows": 1698
+        },
+        {
+          "value": "1",
+          "rows": 1676
+        },
+        {
+          "value": "3",
+          "rows": 1626
+        }
+      ]
+    },
+    "Maand vanaf": {
+      "distinct_values": 12,
+      "top_values": [
+        {
+          "value": "03",
+          "rows": 442
+        },
+        {
+          "value": "11",
+          "rows": 438
+        },
+        {
+          "value": "05",
+          "rows": 430
+        },
+        {
+          "value": "02",
+          "rows": 430
+        },
+        {
+          "value": "08",
+          "rows": 423
+        },
+        {
+          "value": "04",
+          "rows": 419
+        },
+        {
+          "value": "09",
+          "rows": 416
+        },
+        {
+          "value": "06",
+          "rows": 413
+        },
+        {
+          "value": "10",
+          "rows": 412
+        },
+        {
+          "value": "07",
+          "rows": 410
+        },
+        {
+          "value": "01",
+          "rows": 399
+        },
+        {
+          "value": "12",
+          "rows": 368
+        }
+      ]
+    },
+    "Inschrijvingsvorm": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "E",
+          "rows": 1715
+        },
+        {
+          "value": "A",
+          "rows": 1667
+        },
+        {
+          "value": "S",
+          "rows": 1618
+        }
+      ]
+    },
+    "Actuele instelling": {
+      "distinct_values": 13,
+      "top_values": [
+        {
+          "value": "ZZ06",
+          "rows": 415
+        },
+        {
+          "value": "ZZ02",
+          "rows": 406
+        },
+        {
+          "value": "ZZ03",
+          "rows": 398
+        },
+        {
+          "value": "ZZ04",
+          "rows": 391
+        },
+        {
+          "value": "ZZ10",
+          "rows": 388
+        },
+        {
+          "value": "ZZ08",
+          "rows": 387
+        },
+        {
+          "value": "ZZ01",
+          "rows": 378
+        },
+        {
+          "value": "ZZ07",
+          "rows": 378
+        },
+        {
+          "value": "ZZ13",
+          "rows": 377
+        },
+        {
+          "value": "ZZ09",
+          "rows": 375
+        },
+        {
+          "value": "ZZ11",
+          "rows": 374
+        },
+        {
+          "value": "ZZ05",
+          "rows": 369
+        }
+      ]
+    },
+    "Opleiding actueel equivalent": {
+      "distinct_values": 12,
+      "top_values": [
+        {
+          "value": "90002",
+          "rows": 447
+        },
+        {
+          "value": "90008",
+          "rows": 441
+        },
+        {
+          "value": "90003",
+          "rows": 437
+        },
+        {
+          "value": "90012",
+          "rows": 433
+        },
+        {
+          "value": "90010",
+          "rows": 430
+        },
+        {
+          "value": "90006",
+          "rows": 412
+        },
+        {
+          "value": "90004",
+          "rows": 411
+        },
+        {
+          "value": "90009",
+          "rows": 409
+        },
+        {
+          "value": "90005",
+          "rows": 408
+        },
+        {
+          "value": "90001",
+          "rows": 406
+        },
+        {
+          "value": "90007",
+          "rows": 386
+        },
+        {
+          "value": "90011",
+          "rows": 380
+        }
+      ]
+    },
+    "Iscedf2013rubriek": {
+      "distinct_values": 8,
+      "top_values": [
+        {
+          "value": "Z005",
+          "rows": 661
+        },
+        {
+          "value": "Z007",
+          "rows": 651
+        },
+        {
+          "value": "Z004",
+          "rows": 627
+        },
+        {
+          "value": "Z006",
+          "rows": 626
+        },
+        {
+          "value": "Z002",
+          "rows": 622
+        },
+        {
+          "value": "Z003",
+          "rows": 620
+        },
+        {
+          "value": "Z008",
+          "rows": 617
+        },
+        {
+          "value": "Z001",
+          "rows": 576
+        }
+      ]
+    },
+    "Opleiding historisch equivalent": {
+      "distinct_values": 12,
+      "top_values": [
+        {
+          "value": "90004",
+          "rows": 439
+        },
+        {
+          "value": "90001",
+          "rows": 434
+        },
+        {
+          "value": "90008",
+          "rows": 425
+        },
+        {
+          "value": "90009",
+          "rows": 419
+        },
+        {
+          "value": "90011",
+          "rows": 418
+        },
+        {
+          "value": "90003",
+          "rows": 415
+        },
+        {
+          "value": "90007",
+          "rows": 415
+        },
+        {
+          "value": "90012",
+          "rows": 410
+        },
+        {
+          "value": "90006",
+          "rows": 410
+        },
+        {
+          "value": "90010",
+          "rows": 406
+        },
+        {
+          "value": "90002",
+          "rows": 406
+        },
+        {
+          "value": "90005",
+          "rows": 403
+        }
+      ]
+    },
+    "Croho-onderdeel actuele opleiding": {
+      "distinct_values": 10,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 519
+        },
+        {
+          "value": "2",
+          "rows": 514
+        },
+        {
+          "value": "0",
+          "rows": 505
+        },
+        {
+          "value": "5",
+          "rows": 502
+        },
+        {
+          "value": "9",
+          "rows": 498
+        },
+        {
+          "value": "6",
+          "rows": 496
+        },
+        {
+          "value": "4",
+          "rows": 495
+        },
+        {
+          "value": "7",
+          "rows": 494
+        },
+        {
+          "value": "8",
+          "rows": 490
+        },
+        {
+          "value": "3",
+          "rows": 487
+        }
+      ]
+    },
+    "Type hoger onderwijs binnen soort hoger onderwijs": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "pm",
+          "rows": 1281
+        },
+        {
+          "value": "on",
+          "rows": 1250
+        },
+        {
+          "value": "ma",
+          "rows": 1247
+        },
+        {
+          "value": "ba",
+          "rows": 1222
+        }
+      ]
+    },
+    "Opleidingsfase actueel": {
+      "distinct_values": 8,
+      "top_values": [
+        {
+          "value": "K",
+          "rows": 660
+        },
+        {
+          "value": "B",
+          "rows": 643
+        },
+        {
+          "value": "D",
+          "rows": 626
+        },
+        {
+          "value": "P",
+          "rows": 622
+        },
+        {
+          "value": "O",
+          "rows": 621
+        },
+        {
+          "value": "M",
+          "rows": 616
+        },
+        {
+          "value": "Z",
+          "rows": 612
+        },
+        {
+          "value": "I",
+          "rows": 600
+        }
+      ]
+    },
+    "Indicatie actief op peildatum": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1296
+        },
+        {
+          "value": "4",
+          "rows": 1250
+        },
+        {
+          "value": "3",
+          "rows": 1246
+        },
+        {
+          "value": "2",
+          "rows": 1208
+        }
+      ]
+    },
+    "Soort inschrijving hoger onderwijs": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1278
+        },
+        {
+          "value": "1",
+          "rows": 1249
+        },
+        {
+          "value": "2",
+          "rows": 1248
+        },
+        {
+          "value": "4",
+          "rows": 1225
+        }
+      ]
+    },
+    "Soort inschrijving soort ho": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1295
+        },
+        {
+          "value": "2",
+          "rows": 1274
+        },
+        {
+          "value": "4",
+          "rows": 1241
+        },
+        {
+          "value": "6",
+          "rows": 1190
+        }
+      ]
+    },
+    "Soort inschrijving type ho binnen soort ho": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "4",
+          "rows": 1294
+        },
+        {
+          "value": "1",
+          "rows": 1290
+        },
+        {
+          "value": "6",
+          "rows": 1217
+        },
+        {
+          "value": "2",
+          "rows": 1199
+        }
+      ]
+    },
+    "Soort inschrijving opleiding actueel equivalent": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "4",
+          "rows": 1284
+        },
+        {
+          "value": "2",
+          "rows": 1258
+        },
+        {
+          "value": "6",
+          "rows": 1238
+        },
+        {
+          "value": "1",
+          "rows": 1220
+        }
+      ]
+    },
+    "Soort inschrijving actuele instelling": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1278
+        },
+        {
+          "value": "6",
+          "rows": 1272
+        },
+        {
+          "value": "4",
+          "rows": 1265
+        },
+        {
+          "value": "2",
+          "rows": 1185
+        }
+      ]
+    },
+    "Soort inschrijving actuele opleiding-instelling": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "4",
+          "rows": 1290
+        },
+        {
+          "value": "1",
+          "rows": 1290
+        },
+        {
+          "value": "2",
+          "rows": 1227
+        },
+        {
+          "value": "6",
+          "rows": 1193
+        }
+      ]
+    },
+    "Verblijfsjaar hoger onderwijs": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": ">",
+          "rows": 2551
+        },
+        {
+          "value": "00",
+          "rows": 2449
+        }
+      ]
+    },
+    "Verblijfsjaar soort ho": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "00",
+          "rows": 2525
+        },
+        {
+          "value": ">",
+          "rows": 2475
+        }
+      ]
+    },
+    "Verblijfsjaar type ho binnen soort ho": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "00",
+          "rows": 2501
+        },
+        {
+          "value": ">",
+          "rows": 2499
+        }
+      ]
+    },
+    "Indicatie eerstejaars opl. actueel equivalent": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1722
+        },
+        {
+          "value": "3",
+          "rows": 1661
+        },
+        {
+          "value": "6",
+          "rows": 1617
+        }
+      ]
+    },
+    "Indicatie eerstejaars actuele instelling": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1689
+        },
+        {
+          "value": "3",
+          "rows": 1675
+        },
+        {
+          "value": "6",
+          "rows": 1636
+        }
+      ]
+    },
+    "Indicatie eerstejaars actuele opl.-instelling": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1690
+        },
+        {
+          "value": "1",
+          "rows": 1674
+        },
+        {
+          "value": "3",
+          "rows": 1636
+        }
+      ]
+    },
+    "Eerste jaar in het hoger onderwijs": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "0000",
+          "rows": 2539
+        },
+        {
+          "value": "0001",
+          "rows": 2461
+        }
+      ]
+    },
+    "Eerste jaar aan deze soort hoger onderwijs": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "0001",
+          "rows": 2545
+        },
+        {
+          "value": "0000",
+          "rows": 2455
+        }
+      ]
+    },
+    "Eerste jaar aan deze opleiding-instelling": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "0000",
+          "rows": 2525
+        },
+        {
+          "value": "0001",
+          "rows": 2475
+        }
+      ]
+    },
+    "Hoogste vooropleiding voor het HO": {
+      "distinct_values": 6,
+      "top_values": [
+        {
+          "value": "ZV02",
+          "rows": 872
+        },
+        {
+          "value": "ZV05",
+          "rows": 845
+        },
+        {
+          "value": "ZV06",
+          "rows": 830
+        },
+        {
+          "value": "ZV01",
+          "rows": 825
+        },
+        {
+          "value": "ZV04",
+          "rows": 818
+        },
+        {
+          "value": "ZV03",
+          "rows": 810
+        }
+      ]
+    },
+    "Hoogste vooropleiding": {
+      "distinct_values": 6,
+      "top_values": [
+        {
+          "value": "ZV02",
+          "rows": 851
+        },
+        {
+          "value": "ZV06",
+          "rows": 835
+        },
+        {
+          "value": "ZV01",
+          "rows": 831
+        },
+        {
+          "value": "ZV03",
+          "rows": 831
+        },
+        {
+          "value": "ZV04",
+          "rows": 827
+        },
+        {
+          "value": "ZV05",
+          "rows": 825
+        }
+      ]
+    },
+    "Geslacht": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "2",
+          "rows": 2525
+        },
+        {
+          "value": "1",
+          "rows": 2475
+        }
+      ]
+    },
+    "Leeftijd per peildatum 1 oktober": {
+      "distinct_values": 49,
+      "top_values": [
+        {
+          "value": "31",
+          "rows": 125
+        },
+        {
+          "value": "51",
+          "rows": 121
+        },
+        {
+          "value": "38",
+          "rows": 119
+        },
+        {
+          "value": "30",
+          "rows": 118
+        },
+        {
+          "value": "28",
+          "rows": 113
+        },
+        {
+          "value": "42",
+          "rows": 113
+        },
+        {
+          "value": "23",
+          "rows": 112
+        },
+        {
+          "value": "45",
+          "rows": 112
+        },
+        {
+          "value": "27",
+          "rows": 111
+        },
+        {
+          "value": "65",
+          "rows": 110
+        },
+        {
+          "value": "57",
+          "rows": 108
+        },
+        {
+          "value": "54",
+          "rows": 108
+        }
+      ]
+    },
+    "Nationaliteit 1": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "0001",
+          "rows": 1693
+        },
+        {
+          "value": "[leeg]",
+          "rows": 1669
+        },
+        {
+          "value": "0000",
+          "rows": 1638
+        }
+      ]
+    },
+    "Eerstejaars aan deze instelling": {
+      "distinct_values": 13,
+      "top_values": [
+        {
+          "value": "ZZ13",
+          "rows": 410
+        },
+        {
+          "value": "ZZ05",
+          "rows": 403
+        },
+        {
+          "value": "ZZ02",
+          "rows": 402
+        },
+        {
+          "value": "ZZ04",
+          "rows": 402
+        },
+        {
+          "value": "ZZ12",
+          "rows": 382
+        },
+        {
+          "value": "ZZ09",
+          "rows": 382
+        },
+        {
+          "value": "ZZ08",
+          "rows": 381
+        },
+        {
+          "value": "ZZ01",
+          "rows": 380
+        },
+        {
+          "value": "ZZ07",
+          "rows": 376
+        },
+        {
+          "value": "ZZ06",
+          "rows": 376
+        },
+        {
+          "value": "ZZ03",
+          "rows": 372
+        },
+        {
+          "value": "ZZ11",
+          "rows": 368
+        }
+      ]
+    },
+    "Soort inschrijving act. inst - type ho binnen soort ho": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1278
+        },
+        {
+          "value": "1",
+          "rows": 1262
+        },
+        {
+          "value": "4",
+          "rows": 1235
+        },
+        {
+          "value": "2",
+          "rows": 1225
+        }
+      ]
+    },
+    "Indicatie eerstejrs act. inst - type ho binnen soort ho": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1720
+        },
+        {
+          "value": "3",
+          "rows": 1660
+        },
+        {
+          "value": "1",
+          "rows": 1620
+        }
+      ]
+    },
+    "Soort inschrijving type ho binnen ho": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1300
+        },
+        {
+          "value": "6",
+          "rows": 1242
+        },
+        {
+          "value": "4",
+          "rows": 1236
+        },
+        {
+          "value": "2",
+          "rows": 1222
+        }
+      ]
+    },
+    "Verblijfsjaar type ho binnen ho": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "00",
+          "rows": 2582
+        },
+        {
+          "value": ">",
+          "rows": 2418
+        }
+      ]
+    },
+    "Soort inschrijving continu hoger onderwijs": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1292
+        },
+        {
+          "value": "2",
+          "rows": 1240
+        },
+        {
+          "value": "4",
+          "rows": 1236
+        },
+        {
+          "value": "1",
+          "rows": 1232
+        }
+      ]
+    },
+    "Soort inschrijving continu soort ho": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "4",
+          "rows": 1320
+        },
+        {
+          "value": "1",
+          "rows": 1241
+        },
+        {
+          "value": "6",
+          "rows": 1240
+        },
+        {
+          "value": "2",
+          "rows": 1199
+        }
+      ]
+    },
+    "Soort inschrijving continu actuele instelling": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1284
+        },
+        {
+          "value": "2",
+          "rows": 1276
+        },
+        {
+          "value": "4",
+          "rows": 1226
+        },
+        {
+          "value": "1",
+          "rows": 1214
+        }
+      ]
+    },
+    "Soort inschrijving continu type ho binnen ho": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "2",
+          "rows": 1288
+        },
+        {
+          "value": "1",
+          "rows": 1243
+        },
+        {
+          "value": "6",
+          "rows": 1239
+        },
+        {
+          "value": "4",
+          "rows": 1230
+        }
+      ]
+    },
+    "Indicatie eerstejaars continu hoger onderwijs": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1765
+        },
+        {
+          "value": "6",
+          "rows": 1628
+        },
+        {
+          "value": "3",
+          "rows": 1607
+        }
+      ]
+    },
+    "Indicatie eerstejaars continu soort ho": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "6",
+          "rows": 1688
+        },
+        {
+          "value": "1",
+          "rows": 1657
+        },
+        {
+          "value": "3",
+          "rows": 1655
+        }
+      ]
+    },
+    "Indicatie eerstejaars continu actuele instelling": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "1",
+          "rows": 1684
+        },
+        {
+          "value": "6",
+          "rows": 1682
+        },
+        {
+          "value": "3",
+          "rows": 1634
+        }
+      ]
+    },
+    "Indicatie eerstejaars continu type ho binnen ho": {
+      "distinct_values": 3,
+      "top_values": [
+        {
+          "value": "3",
+          "rows": 1705
+        },
+        {
+          "value": "6",
+          "rows": 1661
+        },
+        {
+          "value": "1",
+          "rows": 1634
+        }
+      ]
+    },
+    "Indicatie EER actueel": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "J",
+          "rows": 2509
+        },
+        {
+          "value": "N",
+          "rows": 2491
+        }
+      ]
+    },
+    "Indicatie internationale student": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "N",
+          "rows": 2535
+        },
+        {
+          "value": "J",
+          "rows": 2465
+        }
+      ]
+    },
+    "Indicatie EER op peildatum 1 oktober": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "J",
+          "rows": 2523
+        },
+        {
+          "value": "N",
+          "rows": 2477
+        }
+      ]
+    },
+    "Geboorteland": {
+      "distinct_values": 1,
+      "top_values": [
+        {
+          "value": "[leeg]",
+          "rows": 5000
+        }
+      ]
+    },
+    "Generatie": {
+      "distinct_values": 4,
+      "top_values": [
+        {
+          "value": "0",
+          "rows": 1286
+        },
+        {
+          "value": "1",
+          "rows": 1246
+        },
+        {
+          "value": "2",
+          "rows": 1244
+        },
+        {
+          "value": "3",
+          "rows": 1224
+        }
+      ]
+    },
+    "Verblijfsjaar Actuele Opleiding-Instelling": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "00",
+          "rows": 2516
+        },
+        {
+          "value": ">",
+          "rows": 2484
+        }
+      ]
+    },
+    "Nationaliteit 1 op peildatum 1 oktober": {
+      "distinct_values": 1,
+      "top_values": [
+        {
+          "value": "[leeg]",
+          "rows": 5000
+        }
+      ]
+    },
+    "Indicatie internationale student op peildatum 1 oktober": {
+      "distinct_values": 2,
+      "top_values": [
+        {
+          "value": "N",
+          "rows": 2587
+        },
+        {
+          "value": "J",
+          "rows": 2413
+        }
+      ]
+    },
+    "Aantal": {
+      "distinct_values": 250,
+      "top_values": [
+        {
+          "value": "68",
+          "rows": 32
+        },
+        {
+          "value": "183",
+          "rows": 32
+        },
+        {
+          "value": "179",
+          "rows": 31
+        },
+        {
+          "value": "41",
+          "rows": 31
+        },
+        {
+          "value": "118",
+          "rows": 31
+        },
+        {
+          "value": "30",
+          "rows": 31
+        },
+        {
+          "value": "159",
+          "rows": 30
+        },
+        {
+          "value": "147",
+          "rows": 29
+        },
+        {
+          "value": "59",
+          "rows": 29
+        },
+        {
+          "value": "25",
+          "rows": 29
+        },
+        {
+          "value": "12",
+          "rows": 29
+        },
+        {
+          "value": "58",
+          "rows": 28
+        }
+      ]
+    }
+  },
+  "seed": 20250101
+}
