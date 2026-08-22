@@ -15,3 +15,8 @@ data/*.db
 # Local semantic vector index: machine- and model-specific, rebuild with
 # `python main.py --build-embeddings` instead of committing it.
 data/semantic_index/
+
+# Synthetische voorbeelddata: deterministisch en in 1 seconde te herbouwen met
+# `python scripts/generate_mock_data.py`. Het profiel (klein) staat wel in git,
+# want de app leest dat.
+data/mock/*.csv

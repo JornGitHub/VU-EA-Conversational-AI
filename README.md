@@ -6,7 +6,7 @@ Een lokale, gratis-only chatassistent over de **1cijferHO-documentatie (1cHO 202
 
 Het project is **evidence-first**: elk antwoord vermeldt uit welke bron het komt, wanneer aanvullende documentatie is gebruikt, wanneer een bron ontbreekt, en wanneer een tekst slechts een LLM-interpretatie is. Er wordt niets gegokt en er is geen betaalde API of API key nodig.
 
-> **Let op:** de app beantwoordt vragen over de **documentatie** (definities, velden, codelijsten, verwijzingen). De feitelijke microdata zit er bewust nog niet in; zie [Toekomstig werk](#16-toekomstig-werk-en-volgende-stappen).
+> **Let op:** de app beantwoordt vragen over de **documentatie** (definities, velden, codelijsten, verwijzingen). De feitelijke microdata zit er bewust nog niet in; zie [Toekomstig werk](#17-toekomstig-werk-en-volgende-stappen).
 
 ---
 
@@ -26,8 +26,9 @@ Het project is **evidence-first**: elk antwoord vermeldt uit welke bron het komt
 12. [Webbronnen: allowlist, modi en discovery](#12-webbronnen-allowlist-modi-en-discovery)
 13. [Bronstatus en interpretatie in de UI](#13-bronstatus-en-interpretatie-in-de-ui)
 14. [Problemen oplossen](#14-problemen-oplossen)
-15. [Beperkingen](#15-beperkingen)
-16. [Toekomstig werk en volgende stappen](#16-toekomstig-werk-en-volgende-stappen)
+15. [Hoe dit zich verhoudt tot ChatGPT en Claude](#15-hoe-dit-zich-verhoudt-tot-chatgpt-en-claude)
+16. [Beperkingen](#16-beperkingen)
+17. [Toekomstig werk en volgende stappen](#17-toekomstig-werk-en-volgende-stappen)
 
 ---
 
@@ -55,6 +56,7 @@ In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — e
 |----------|-----------------------------|------------------|
 | `python main.py` | ✅ ja | installeren, modellen, index, app starten |
 | `python main.py --streamlit` | ✅ ja | hetzelfde, expliciet |
+| `python main.py --network` | ✅ ja | hetzelfde, plus bereikbaar vanaf je telefoon of tablet op hetzelfde wifi-netwerk |
 | `python main.py --all` | ❌ nee | tests + build-dry-run + één voorbeeldvraag, alles in de terminal |
 | `python main.py --tests` | ❌ nee | alleen de unittests |
 | `python main.py --query "..."` | ❌ nee | één vraag beantwoorden in de terminal (met `--json` als JSON) |
@@ -140,18 +142,54 @@ komt geen enkele website, hoe hij er ook uitziet.
 
 **Fork of eigen kopie?** De startscripts luisteren naar `VUEA_REPO_URL`, `VUEA_DIR`, `VUEA_BRANCH` en `VUEA_NO_INSTALL`, dus je kunt ze zonder aanpassing op een andere repository, map of branch richten — of ze laten melden wat er ontbreekt zonder iets te installeren.
 
+### Kan het op een telefoon?
+
+**Zoeken kan wel, meteen, zonder installatie.** De zoeklaag is een opzoekactie over een paar honderd
+definities — klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
+
+**<https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html>**
+
+Dezelfde definities, veldbeschrijvingen en codelijsten als in de app, rechtstreeks uit de officiële
+documentatie. Wat daar niet zit is de taalmodel-laag (antwoorden formuleren, vervolgvragen begrijpen);
+die draait lokaal en heeft een computer nodig. Bouwen doe je met `python scripts/build_pages_data.py`,
+dat schrijft `docs/data/definities.json` (± 80 kB) uit dezelfde kennisbank die de app gebruikt. Er gaat
+geen studentdata en geen synthetische data in die export — alleen documentatie die al publiek in deze
+repository staat.
+
+**De hele app op een telefoon draaien: nee.** Het is een Python-server met een lokaal taalmodel ernaast.
+iOS staat niet toe dat een app zomaar programma's uitvoert, en een `.bat` is bovendien Windows-only —
+download je die op een iPhone, dan gebeurt er dus niets. Op Android kan het technisch via Termux (Python
+en Streamlit draaien daar), maar de Ollama-modellen van enkele gigabytes maken dat in de praktijk
+onwerkbaar.
+
+**Gebruiken vanaf een telefoon: ja.** Laat de app op je laptop draaien en open hem op je telefoon:
+
+```bash
+python main.py --network
+```
+
+De terminal toont dan een adres als `http://192.168.1.24:8501`. Typ dat in de browser van je telefoon, of
+scan de QR-code die de app zelf toont onder **📱 Op je telefoon openen** in de zijbalk. Laptop en telefoon
+moeten op hetzelfde wifi-netwerk zitten. Zonder `--network` luistert Streamlit alleen op `localhost`; het
+paneel zegt dat dan ook, in plaats van een adres te tonen dat het niet doet.
+
+Wat waar draait: de app, de documentatie, het taalmodel en je vragen blijven volledig op je laptop. De
+telefoon toont alleen het scherm. Let wel: met `--network` kan iedereen op datzelfde netwerk de app openen,
+dus gebruik het op je eigen wifi en niet op een openbaar netwerk.
+
 ---
 
 ## 2. Wat `main.py` precies doet
 
-`python main.py` voert vier stappen uit, in deze volgorde:
+`python main.py` voert vijf stappen uit, in deze volgorde:
 
 | # | Stap | Commando dat intern draait | Gedrag bij problemen |
 |---|------|----------------------------|----------------------|
 | 1 | **Dependencies installeren** | `python -m pip install -r requirements.txt` | Faalt pip terwijl alle pakketten al aanwezig zijn, dan gaat de run door. Ontbreken er pakketten, dan stopt de run met een venv-instructie. |
 | 2 | **Ollama-modellen klaarzetten** | check `ollama` op PATH → zo nodig `ollama serve` in de achtergrond → `ollama pull qwen3:8b` en `ollama pull nomic-embed-text` als ze nog niet lokaal staan | Nooit fataal. Ontbrekende installatie, onbereikbare server of mislukte download worden als waarschuwing getoond; de app start alsnog. |
 | 3 | **Semantische index bouwen** | `scripts/build_embeddings.py` (eenmalig, alleen als de index ontbreekt) | Geen Ollama of geen embeddingmodel? Dan wordt de stap overgeslagen met uitleg; de app werkt door op de lexicale zoeklaag. |
-| 4 | **App starten** | `python -m streamlit run app_streamlit.py` | Ontbreekt Streamlit (bijvoorbeeld na `--skip-install`), dan volgt een duidelijke instructie in plaats van een stacktrace. |
+| 4 | **Synthetische voorbeelddata** | `scripts/generate_mock_data.py` (eenmalig, alleen als hij ontbreekt) | Nooit fataal en ± 1 seconde werk. Zonder deze stap toont de app geen voorbeeldwaarden; verder verandert er niets. |
+| 5 | **App starten** | `python -m streamlit run app_streamlit.py` | Ontbreekt Streamlit (bijvoorbeeld na `--skip-install`), dan volgt een duidelijke instructie in plaats van een stacktrace. |
 
 Details van stap 2 (`src/llm/ollama_setup.py`):
 
@@ -371,15 +409,20 @@ VU-EA-Conversational-AI/
 │   ├── web_sources.yaml             # Weblaag: allowlist en gratis-only instellingen
 │   └── official_web_seed_urls.yaml  # Handmatige officiële seed-URL's
 ├── data/                            # Gegenereerde kennisartefacten (in de repo)
+│   └── mock/                        # Synthetische voorbeelddata (CSV niet in git, profiel wel)
 ├── src/
 │   ├── ingestion/                   # Tekstextractie, chunking, definitie-extractie, validatie, archief
 │   ├── definitions/                 # Retrieval, corpuscache, tekstprimitieven, semantische laag,
-│   │                                #   veldcatalogus, referenties, bronbeleid, weblaag
+│   │                                #   veldcatalogus, referenties, bronbeleid, weblaag, mock-data
 │   ├── conversation/                # Vervolgvragen en gespreksgeschiedenis
 │   ├── llm/                         # Ollama-bootstrap, chatclient (streaming), embeddings, promptbouw
+│   ├── pairing.py                   # Netwerkadres + QR-code om de app op je telefoon te openen
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
-├── docs/                            # GitHub Pages-startpagina + startscripts, en evaluation.md
-├── scripts/                         # Build, embeddings, benchmark, evaluatie, audits, feedback
+├── docs/                            # GitHub Pages: startpagina, zoekpagina, startscripts, evaluation.md
+│   ├── zoek.html                    # Browser-only zoeklaag (werkt op een telefoon, zonder installatie)
+│   └── data/definities.json         # Export voor die pagina (alleen documentatie)
+├── scripts/                         # Build, embeddings, benchmark, evaluatie, audits, feedback,
+│                                    #   synthetische data, data-vs-documentatie-check, Pages-export
 ├── tests/                           # Unit- en regressietests (unittest/pytest)
 └── docs/evaluation.md               # Uitleg over de evaluatietiers
 ```
@@ -400,6 +443,7 @@ python main.py --query "wat is instroom?" --json # zelfde vraag als JSON
 python main.py --query "wat is instroom?" --llm  # met lokale LLM-formulering
 python main.py --build-embeddings                 # semantische index (her)bouwen
 python main.py --benchmark                       # retrieval-latency meten
+python main.py --network                         # app ook op je telefoon/tablet bereikbaar maken
 python main.py --benchmark-llm                   # snelheid van het lokale LLM meten
 python main.py --check-hygiene                   # waarschuw over artefacten in de projectroot
 python main.py --archive-root-leftovers          # verplaats die artefacten naar data/archive/
@@ -415,6 +459,7 @@ python main.py --guide                           # JSON-overzicht van handige co
 | `--benchmark` | Meet retrieval-latency en stop daarna |
 | `--benchmark-llm` | Meet hoe snel het lokale model antwoordt (laadtijd, eerste woord, totaal) |
 | `--setup` | Alleen voorbereiden, app niet starten |
+| `--network` | Serveer de app ook op je lokale netwerk, zodat een telefoon of tablet op hetzelfde wifi hem kan openen |
 | `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
 | `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
 | `--ollama-url URL` | Basis-URL van de Ollama-server (standaard `http://127.0.0.1:11434`) |
@@ -517,7 +562,7 @@ Wat de tests bewaken, naast de bestaande dekking:
 * **Vervolgvragen** — welke vragen wél en niet worden herschreven.
 * **Runner-flow** — welke stappen `main.py` per commando uitvoert en overslaat.
 
-De gold-core evaluatie staat op 6/8. De twee falende cases zijn labels die vragen om de tekst "waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden", terwijl de code die formulering bewust inkort tot "soort-inschrijvingsvelden". Dat is een verouderd `pseudo_generated` label, geen retrievalfout; zie [Toekomstig werk](#16-toekomstig-werk-en-volgende-stappen).
+De gold-core evaluatie staat op 6/8. De twee falende cases zijn labels die vragen om de tekst "waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden", terwijl de code die formulering bewust inkort tot "soort-inschrijvingsvelden". Dat is een verouderd `pseudo_generated` label, geen retrievalfout; zie [Toekomstig werk](#17-toekomstig-werk-en-volgende-stappen).
 
 ---
 
@@ -613,6 +658,7 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 | Er opent geen browser bij `--all`, `--tests`, `--query` of `--benchmark` | Dat klopt: dat zijn terminal-checks. De app start met `python main.py` (zie de tabel in [hoofdstuk 1](#1-snelstart-alleen-mainpy-draaien)). |
 | `python main.py` zegt "No run option selected" | Oude versie van `main.py`. Haal de laatste versie op met `git pull`. |
 | De startpagina op GitHub Pages geeft 404 | Pages staat nog uit of de repository is privé. Zet Pages aan via Settings → Pages → branch `main`, map `/docs`. |
+| De `.bat` wordt geblokkeerd terwijl de PowerShell-commando's wél werken | Alles wat je browser downloadt krijgt van Windows het merkteken "afkomstig van internet"; veel organisaties blokkeren het uitvoeren van precies die bestanden. Een script dat PowerShell zelf wegschrijft met `irm … -OutFile` krijgt dat merkteken niet. Beide routes doen hetzelfde — gebruik degene die bij jou werkt. |
 | Windows blokkeert `start-windows.bat` | SmartScreen: klik op "Meer informatie" → "Toch uitvoeren". Het bestand haalt alleen het startscript van de projectpagina op. |
 | Ik wil niet dat een script software installeert | Zet `VUEA_NO_INSTALL=1`; de starter meldt dan alleen wat er ontbreekt en installeert niets. |
 | "This script contains malicious content and has been blocked by your antivirus software" | De virusscanner blokkeert scripts die rechtstreeks vanaf internet draaien (`irm … \| iex`). Dat is beleid op veel bedrijfslaptops. Gebruik de losse commando's van de startpagina: `git clone …`, `python -m venv .venv`, `.\.venv\Scripts\python.exe main.py`. |
@@ -627,10 +673,52 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 
 ---
 
-## 15. Beperkingen
+## 15. Hoe dit zich verhoudt tot ChatGPT en Claude
+
+Een eerlijke vergelijking, want de vraag komt terecht op: waarom dit, als er betere taalmodellen bestaan?
+
+### Waarin een groot gehost model beter is
+
+Onvoorwaardelijk beter, en dat verandert niet door hier meer werk in te steken:
+
+* **Taalvaardigheid en redeneren.** Het lokale `qwen3:8b` is een fractie van de grootte van de modellen achter ChatGPT of Claude. Verwacht kortere, stijvere formuleringen en zwakkere redenaties bij samengestelde vragen.
+* **Breedte.** Vragen buiten de 1cijferHO-documentatie beantwoordt deze app niet. Daar is hij ook niet voor.
+* **Onbekende of rommelige vragen.** Een groot model raadt beter wat je bedoelt bij een halve vraag.
+
+Als je taak "leg dit uit in gewone taal" of "schrijf hier een stuk over" is, gebruik dan een groot model.
+
+### Waarin deze app beter is
+
+Niet omdat hij slimmer is, maar omdat hij drie dingen heeft die een gehost model per definitie niet heeft:
+
+1. **Er gaat niets naar buiten.** Dit is de doorslaggevende. Studentmicrodata mag je niet in een gehoste dienst plakken — AVG, VU-beleid, verwerkersovereenkomsten. De vraag is niet of ChatGPT het antwoord beter formuleert; de vraag is of je de data er überhaupt in mag stoppen. Lokaal mag dat wel.
+2. **Hij heeft de documenten.** ChatGPT en Claude kennen de 1cHO 2025-documentatie niet. Vraag ze wat `Verblijfsjaar type ho binnen ho` betekent en je krijgt een plausibel klinkende gok. Dat is precies de gevaarlijkste fout in dit domein: zelfverzekerd en verkeerd. Deze app antwoordt uit het brondocument, of zegt dat hij het niet heeft.
+3. **Elk antwoord is naar een bron te herleiden.** Documentnaam, veldnummer, codelijst. Je kunt het nakijken, en een collega kan het nakijken. Bij een definitieregister is dat geen luxe.
+
+Daarnaast: hij is deterministisch (dezelfde vraag geeft dezelfde bron), kost niets, werkt offline en heeft geen API-sleutel of leverancier nodig.
+
+### De eerlijke conclusie
+
+**Het is geen betere chatbot. Het is een beter instrument voor één taak:** opzoeken wat een 1cijferHO-veld betekent, met bewijs erbij, op data die je nergens heen mag sturen. Vergelijk het niet met ChatGPT, vergelijk het met de Word-documenten doorzoeken — dát is wat het vervangt.
+
+### Waar de voorsprong groter wordt
+
+Deze punten vergroten het verschil met een gehost model, in plaats van te proberen het in te halen op taalvaardigheid:
+
+| Stap | Waarom dit het verschil vergroot |
+|------|----------------------------------|
+| **De echte data als bron** (zie [Toekomstig werk](#17-toekomstig-werk-en-volgende-stappen)) | Vragen als "welke waarden komen feitelijk voor in dit veld?" kan geen enkel gehost model beantwoorden, want het heeft de data niet en mag die niet krijgen. |
+| **Data-vs-documentatie-controle** (`scripts/check_data_against_docs.py`) | Codes die in de data voorkomen maar nergens gedocumenteerd zijn, zijn precies de dingen waar een analyse stilletjes op misgaat. |
+| **Menselijke gold standard** in plaats van pseudo-gold | Meten of het antwoord klopt, in plaats van of het lijkt te kloppen. |
+| **Meer VU-specifieke kennis vastleggen** (afspraken, uitzonderingen, interne definities) | Dat staat in niemands trainingsdata en zal er ook nooit in staan. |
+| **Gestructureerde aggregatievragen** over het aggregaatbestand | "Hoeveel eerstejaars per faculteit" is een berekening op eigen data, geen taaltaak. |
+
+---
+
+## 16. Beperkingen
 
 * Antwoorden zijn zo goed als de documentatie in `data/`; ontbrekende bronnen worden gemeld, niet ingevuld.
-* **De feitelijke microdata zit er nog niet in.** De app kent de betekenis van velden, niet de waarden erin; zie [Toekomstig werk](#16-toekomstig-werk-en-volgende-stappen).
+* **De feitelijke microdata zit er nog niet in.** De app kent de betekenis van velden, niet de waarden erin; zie [Toekomstig werk](#17-toekomstig-werk-en-volgende-stappen).
 * PDF-extractie werkt alleen op PDF's met een tekstlaag — er is geen OCR.
 * De evaluatiesets zijn pseudo-gold, geen menselijke gold standard (zie `docs/evaluation.md`).
 * De weblaag is bewust smal: alleen gratis, no-key fetches van allowlisted domeinen, met een relevance-drempel.
@@ -640,11 +728,11 @@ De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om ni
 
 ---
 
-## 16. Toekomstig werk en volgende stappen
+## 17. Toekomstig werk en volgende stappen
 
 Onderstaande punten staan op volgorde van waarde-per-inspanning. Punt 1 is de grootste functionele sprong en tegelijk de stap met de zwaarste randvoorwaarden.
 
-### 16.1 De echte dataset als bron (nu bewust nog niet geïmplementeerd)
+### 17.1 De echte dataset als bron (nu bewust nog niet geïmplementeerd)
 
 **Wat de app nu doet:** vragen beantwoorden over de *documentatie* — wat een veld betekent, welke waarden het kent, in welk bestand het staat, waar het naar verwijst.
 
@@ -652,7 +740,11 @@ Onderstaande punten staan op volgorde van waarde-per-inspanning. Punt 1 is de gr
 
 **Waarom niet:** de databestanden zijn nog **niet geschoond voor privacygevoelige gegevens**. 1cijferHO bevat persoonsgebonden nummers en herleidbare combinaties van kenmerken; die mogen niet in een repository, niet in een index en niet in een promptcontext terechtkomen. Zolang die schoning niet is uitgevoerd en vastgelegd, blijft de dataset er bewust buiten. Dit is een bewuste ontwerpkeuze, geen omissie.
 
-**Wat er nodig is voordat dit kan (voorgestelde volgorde):**
+**Wat er inmiddels wel klaarstaat:** een *synthetische* stand-in. `python scripts/generate_mock_data.py` schrijft `data/mock/inschrijvingen_aggr_MOCK_2025.csv`: dezelfde 54 kolommen, en elke gecodeerde waarde komt uit een codelijst in de documentatie. De aantallen zijn verzonnen en identificerende velden krijgen bewust waarden buiten de echte coderuimte (`ZZ01` is geen instelling, `90001` is geen CROHO-nummer). Daarmee is de weg bestand → profiel → antwoord end-to-end getest; komt de geschoonde export binnen, dan verandert alleen wáár de rijen vandaan komen. `python scripts/check_data_against_docs.py <bestand>` vergelijkt élk bestand met deze kolommen tegen de documentatie en meldt ongedocumenteerde kolommen en codes.
+
+De app toont die voorbeeldwaarden onder een eigen kopje ("🧪 Voorbeeldwaarden uit synthetische data") met de waarschuwing erbij. Ze komen bewust **niet** in de antwoordtekst en **niet** in de LLM-prompt: verzonnen aantallen mogen nooit voor bewijs kunnen doorgaan.
+
+**Wat er nodig is voordat de échte data kan (voorgestelde volgorde):**
 
 1. **Privacy- en juridische basis.** Bepaal met de data-eigenaar en de privacy officer welke velden onder de VU-/DUO-afspraken gebruikt mogen worden, welke verwijderd of gehasht moeten worden en welke minimale celgrootte geldt voor publicatie (bijvoorbeeld afronden of onderdrukken onder *n* = 5). Leg dat vast als een expliciete, versiebeheerde datacontract-beschrijving.
 2. **Schoningspijplijn.** Een `scripts/prepare_dataset.py` die de ruwe levering inleest, direct identificerende velden verwijdert (persoonsgebonden nummer, geboortedatum), indirect identificerende velden generaliseert (geboorteland, nationaliteit, postcode), en het resultaat als geaggregeerde tabel wegschrijft. Draai die pijplijn buiten de repository en commit alleen het resultaat als dat aantoonbaar niet-herleidbaar is.
@@ -662,7 +754,7 @@ Onderstaande punten staan op volgorde van waarde-per-inspanning. Punt 1 is de gr
 6. **Nieuwe bronlaag.** Voeg `official_dataset` toe aan de bronlagen in [hoofdstuk 5.5](#55-stap-4-bronbeleid-en-bronlagen), zodat een cijfermatig antwoord altijd zichtbaar gescheiden blijft van een definitie uit de documentatie, inclusief peildatum en leveringsversie.
 7. **Evaluatie met cijfers.** Breid de evaluatieset uit met vragen waarvan het juiste getal bekend is, zodat regressies in de cijferlaag net zo hard opvallen als regressies in de definitielaag.
 
-### 16.2 Kortere termijn, zonder nieuwe randvoorwaarden
+### 17.2 Kortere termijn, zonder nieuwe randvoorwaarden
 
 * **Evaluatielabels bijwerken.** Twee `gold_core`-cases verwachten nog de oude formulering "waarde 4 bij sleutel-domeinvelden en soort-inschrijvingsvelden". Regenereer de pseudo-gold set of leg de bewuste inkorting vast met `scripts/record_feedback.py`, zodat de evaluatie weer op 8/8 staat.
 * **Semantische laag ook bij zwakke treffers.** Nu springt de semantische zoeklaag alleen bij als er geen lexicaal antwoord is. Een logische volgende stap is hybride ranking (bijvoorbeeld Reciprocal Rank Fusion) zodra er een gold-set is die aantoont dat dit de kwaliteit verbetert in plaats van verslechtert.
@@ -672,7 +764,7 @@ Onderstaande punten staan op volgorde van waarde-per-inspanning. Punt 1 is de gr
 * **Exporteren.** Een knop om een gesprek inclusief bronvermeldingen als Markdown of PDF op te slaan, zodat een antwoord met bronnen in een mail of notitie kan.
 * **Meertaligheid.** De documentatie is Nederlands; de UI en prompts ook. Een Engelstalige modus voor internationale collega's vraagt vooral om vertaalde UI-teksten en een prompt die in het Engels antwoordt zonder de Nederlandse brontermen te vertalen.
 
-### 16.3 Onderhoud
+### 17.3 Onderhoud
 
 * **Nieuwe jaargang 1cHO.** Zet de nieuwe documenten in `sources/1cHO Documentatie/`, draai `python scripts/build_knowledge_base.py --full` en daarna `python main.py --build-embeddings`. Controleer met `python scripts/run_evaluation.py --dataset gold_core` en `python main.py --skip-install --tests`.
 * **Modelupdates.** `qwen3:8b` en `nomic-embed-text` staan als constante in `src/llm/ollama_setup.py`; een nieuwer model wisselen is één regel plus een herbouw van de index (embeddings van verschillende modellen zijn niet uitwisselbaar).
