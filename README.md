@@ -54,9 +54,9 @@ In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — e
 
 | Commando | Start de app in de browser? | Wat het wél doet |
 |----------|-----------------------------|------------------|
-| `python main.py` | ✅ ja | installeren, modellen, index, app starten |
+| `python main.py` | ✅ ja | installeren, modellen, index, app starten — en meteen bereikbaar vanaf je telefoon |
 | `python main.py --streamlit` | ✅ ja | hetzelfde, expliciet |
-| `python main.py --network` | ✅ ja | hetzelfde, plus bereikbaar vanaf je telefoon of tablet op hetzelfde wifi-netwerk |
+| `python main.py --local-only` | ✅ ja | hetzelfde, maar **niet** bereikbaar vanaf je telefoon |
 | `python main.py --all` | ❌ nee | tests + build-dry-run + één voorbeeldvraag, alles in de terminal |
 | `python main.py --tests` | ❌ nee | alleen de unittests |
 | `python main.py --query "..."` | ❌ nee | één vraag beantwoorden in de terminal (met `--json` als JSON) |
@@ -162,20 +162,24 @@ download je die op een iPhone, dan gebeurt er dus niets. Op Android kan het tech
 en Streamlit draaien daar), maar de Ollama-modellen van enkele gigabytes maken dat in de praktijk
 onwerkbaar.
 
-**Gebruiken vanaf een telefoon: ja.** Laat de app op je laptop draaien en open hem op je telefoon:
+**Gebruiken vanaf een telefoon: ja, en dat werkt vanzelf.** `python main.py` luistert standaard ook op je
+lokale netwerk. In de zijbalk staat onder **📱 Op je telefoon openen** het adres én een QR-code; scannen en
+je bent er. Laptop en telefoon moeten wel op hetzelfde wifi-netwerk zitten.
 
-```bash
-python main.py --network
-```
+Waarom geen knop om dit aan te zetten? Streamlit legt zijn luisteradres vast bij het starten, dus een knop
+in de app kan het achteraf niet meer wijzigen. De enige andere route was Ctrl+C en opnieuw starten — precies
+de stap die in de weg zat, want Ctrl+C sluit alles af. Meteen op het netwerk luisteren haalt die stap weg.
 
-De terminal toont dan een adres als `http://192.168.1.24:8501`. Typ dat in de browser van je telefoon, of
-scan de QR-code die de app zelf toont onder **📱 Op je telefoon openen** in de zijbalk. Laptop en telefoon
-moeten op hetzelfde wifi-netwerk zitten. Zonder `--network` luistert Streamlit alleen op `localhost`; het
-paneel zegt dat dan ook, in plaats van een adres te tonen dat het niet doet.
+Wil je dat niet, dan houdt `python main.py --local-only` de app op deze computer; het koppelpaneel zegt dan
+dat hij niet bereikbaar is, in plaats van een adres te tonen dat het niet doet.
 
 Wat waar draait: de app, de documentatie, het taalmodel en je vragen blijven volledig op je laptop. De
-telefoon toont alleen het scherm. Let wel: met `--network` kan iedereen op datzelfde netwerk de app openen,
-dus gebruik het op je eigen wifi en niet op een openbaar netwerk.
+telefoon toont alleen het scherm.
+
+> **Let op:** met de standaard kan iedereen op hetzelfde netwerk de app openen. Op je eigen wifi of een
+> VU-netwerk is dat doorgaans prima; op openbare wifi niet — gebruik daar `--local-only`. Windows vraagt de
+> eerste keer of Python door de firewall mag; sta dat toe voor particuliere netwerken, anders kan je telefoon
+> er niet bij.
 
 ---
 
@@ -443,7 +447,7 @@ python main.py --query "wat is instroom?" --json # zelfde vraag als JSON
 python main.py --query "wat is instroom?" --llm  # met lokale LLM-formulering
 python main.py --build-embeddings                 # semantische index (her)bouwen
 python main.py --benchmark                       # retrieval-latency meten
-python main.py --network                         # app ook op je telefoon/tablet bereikbaar maken
+python main.py --local-only                      # app alleen op deze computer houden
 python main.py --benchmark-llm                   # snelheid van het lokale LLM meten
 python main.py --check-hygiene                   # waarschuw over artefacten in de projectroot
 python main.py --archive-root-leftovers          # verplaats die artefacten naar data/archive/
@@ -459,7 +463,8 @@ python main.py --guide                           # JSON-overzicht van handige co
 | `--benchmark` | Meet retrieval-latency en stop daarna |
 | `--benchmark-llm` | Meet hoe snel het lokale model antwoordt (laadtijd, eerste woord, totaal) |
 | `--setup` | Alleen voorbereiden, app niet starten |
-| `--network` | Serveer de app ook op je lokale netwerk, zodat een telefoon of tablet op hetzelfde wifi hem kan openen |
+| `--local-only` | Luister alleen op deze computer; niet bereikbaar vanaf je telefoon |
+| `--network` | Blijft werken, maar is inmiddels de standaard |
 | `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
 | `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
 | `--ollama-url URL` | Basis-URL van de Ollama-server (standaard `http://127.0.0.1:11434`) |
@@ -635,6 +640,34 @@ De UI toont **LLM-interpretatie** alleen wanneer de retrieval-laag een inhoudeli
 Technische source tiers blijven beschikbaar in JSON-/debug-output, maar de normale Streamlit-weergave gebruikt leesbare Nederlandse bronstatusregels, bijvoorbeeld "Geen webbronnen gebruikt." of "Web niet geprobeerd, omdat lokale documentatie voldoende context gaf."
 
 De LLM-laag krijgt hetzelfde evidence-first contextpakket en de instructie om niet te gokken: ontbrekende broninformatie moet als onzekerheid worden benoemd, terwijl aanwezige aanvullende broncontext apart wordt gelabeld.
+
+### Standaardinstellingen in de zijbalk
+
+Alles staat standaard **aan**, behalve **Toon debug-informatie**. Wie de app opent krijgt dus meteen de
+volledige laag — LLM-formulering, semantisch zoeken, aanvullende documentatie, externe webbronnen en de
+synthetische voorbeeldwaarden — en zet zelf uit wat hij niet wil.
+
+**Webcontext-modus** staat standaard op **Forceer webcontext**: bij elke vraag worden officiële webbronnen
+erbij gehaald. Dat geeft het meeste materiaal, maar kost per vraag enkele seconden. Gaat het je om snelheid,
+zet hem dan op *Alleen bij ontbrekende lokale context*.
+
+Twee dingen om te weten bij deze standaarden:
+
+* **De LLM-laag staat aan.** Draait Ollama niet, dan meldt de zijbalk dat en krijg je gewoon het
+  retrieval-antwoord; er gaat niets stuk, het is alleen niet geformuleerd door een model.
+* **Debug staat uit** omdat het ruis toevoegt zonder een antwoord te verbeteren. Zet het aan als je wilt
+  zien welke velden zijn gematcht en waarom.
+
+### Voorbeeldvragen over de data
+
+Onder de gewone voorbeeldvragen staat een tweede rij: **Vragen over de data zelf** 🧪. Die tonen naast de
+definitie ook voorbeeldwaarden uit de [synthetische dataset](#171-de-echte-dataset-als-bron-nu-bewust-nog-niet-geïmplementeerd),
+bijvoorbeeld welke codes in een veld voorkomen of hoe één rij eruitziet. Die rij verschijnt alleen als de
+synthetische dataset gebouwd is en de bijbehorende instelling aanstaat.
+
+Let op wat deze vragen wél en niet beantwoorden: de codes komen uit de documentatie, de **aantallen zijn
+verzonnen**. Ze maken een definitie concreet; ze zijn geen uitspraak over echte studenten. Daarom staan ze
+in een eigen blok met die waarschuwing erboven, en komen ze niet in de antwoordtekst of de LLM-prompt.
 
 ---
 

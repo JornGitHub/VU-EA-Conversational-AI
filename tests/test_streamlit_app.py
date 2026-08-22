@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unittest
 from pathlib import Path
 
@@ -69,3 +70,72 @@ class ChatSurfaceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SidebarDefaultTests(unittest.TestCase):
+    """Everything on by default except debug; the web layer forced.
+
+    These are product decisions a refactor can undo without anyone noticing,
+    so they are pinned here rather than left to the widget calls.
+    """
+
+    def setUp(self) -> None:
+        self.source = Path("app_streamlit.py").read_text(encoding="utf-8")
+        start = self.source.index("def render_sidebar()")
+        self.sidebar = self.source[start:self.source.index("\ndef ", start + 10)]
+
+    def test_web_context_defaults_to_force(self) -> None:
+        self.assertIn('DEFAULT_WEB_MODE = "force"', self.source)
+        self.assertIn("index(DEFAULT_WEB_MODE)", self.sidebar)
+
+    def test_every_checkbox_is_on_except_debug(self) -> None:
+        checkboxes = re.findall(r'checkbox\(\s*\n?\s*"([^"]+)"[^)]*?value=(True|False|bool\([^)]*\))', self.sidebar, re.S)
+        self.assertGreaterEqual(len(checkboxes), 8, checkboxes)
+        for label, value in checkboxes:
+            if "debug" in label.lower():
+                self.assertEqual("False", value, f"{label} hoort uit te staan")
+            else:
+                self.assertNotEqual("False", value, f"{label} hoort aan te staan")
+
+    def test_the_forced_web_mode_warns_about_its_cost(self) -> None:
+        """Forcing the web layer costs seconds per question; say so."""
+        self.assertIn("kost per vraag", self.sidebar)
+
+
+class DataExampleQuestionTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.source = Path("app_streamlit.py").read_text(encoding="utf-8")
+
+    def test_there_are_questions_aimed_at_the_synthetic_data(self) -> None:
+        self.assertIn("DATA_EXAMPLE_QUESTIONS", self.source)
+        self.assertGreaterEqual(len(self._data_questions()), 4)
+
+    def _data_questions(self) -> list[str]:
+        """Read the list from the source; importing the module logs Streamlit noise."""
+        block = self.source.split("DATA_EXAMPLE_QUESTIONS = [")[1].split("]")[0]
+        return re.findall(r'"([^"]+)"', block)
+
+    def test_each_data_question_actually_produces_examples(self) -> None:
+        """A question that shows nothing is worse than no question at all."""
+        from src.chatbot import retrieve
+        from src.definitions.mock_data import asks_for_a_row, load_profile
+
+        if not load_profile():
+            self.skipTest("synthetische dataset niet gebouwd")
+
+        questions = self._data_questions()
+        self.assertGreaterEqual(len(questions), 4)
+        for question in questions:
+            result = retrieve(question, use_semantic=False, web_mode="off", include_synthetic_examples=True)
+            produced = bool(result.get("synthetic_examples")) or bool(result.get("synthetic_row"))
+            self.assertTrue(produced, f"geen voorbeeldwaarden voor: {question}")
+            if asks_for_a_row(question):
+                self.assertTrue(result.get("synthetic_row"), question)
+
+    def test_the_data_questions_are_hidden_when_the_dataset_is_off(self) -> None:
+        self.assertIn('if settings.get("show_synthetic_examples"):', self.source)
+
+    def test_a_row_question_explains_where_its_answer_is(self) -> None:
+        """Retrieval has nothing about record shape, so "not found" misleads."""
+        self.assertIn("beschrijft losse velden, niet hoe een rij eruitziet", self.source)
+        self.assertIn('expanded=bool(row)', self.source)

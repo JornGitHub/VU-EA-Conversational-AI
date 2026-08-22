@@ -78,21 +78,37 @@ class QrTests(unittest.TestCase):
 
 
 class EntryPointTests(unittest.TestCase):
-    def test_network_flag_widens_the_bind_address(self) -> None:
-        import main
-
-        with mock.patch.object(main, "run_command", return_value=0) as run:
-            main.run_streamlit(share_on_network=True)
-        command = run.call_args[0][0]
-        self.assertIn("--server.address", command)
-        self.assertIn("0.0.0.0", command)
-
-    def test_default_start_stays_on_this_machine(self) -> None:
+    def test_the_default_start_is_reachable_from_a_phone(self) -> None:
+        """No button can widen the bind address after startup, so this is it."""
         import main
 
         with mock.patch.object(main, "run_command", return_value=0) as run:
             main.run_streamlit()
-        self.assertNotIn("--server.address", run.call_args[0][0])
+        command = run.call_args[0][0]
+        self.assertIn("--server.address", command)
+        self.assertIn("0.0.0.0", command)
+
+    def test_local_only_keeps_the_app_on_this_machine(self) -> None:
+        import main
+
+        with mock.patch.object(main, "run_command", return_value=0) as run:
+            main.run_streamlit(share_on_network=False)
+        command = run.call_args[0][0]
+        self.assertIn("--server.address", command)
+        self.assertIn("127.0.0.1", command)
+        self.assertNotIn("0.0.0.0", command)
+
+    def test_local_only_flag_reaches_run_streamlit(self) -> None:
+        """The flag must actually change the bind address, not just parse."""
+        import main
+        import sys as system
+
+        for argv, expected in ((["main.py"], "0.0.0.0"), (["main.py", "--local-only"], "127.0.0.1")):
+            with mock.patch.object(system, "argv", argv):
+                args = main.parse_args()
+            with mock.patch.object(main, "run_command", return_value=0) as run:
+                main.run_streamlit(share_on_network=not args.local_only)
+            self.assertIn(expected, run.call_args[0][0], argv)
 
 
 if __name__ == "__main__":
