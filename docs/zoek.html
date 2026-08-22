@@ -1,0 +1,465 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Definities opzoeken - VU EA Conversational AI</title>
+<meta name="description" content="Zoek in de 1cijferHO-documentatie van VU Education Analytics. Werkt in elke browser, ook op je telefoon, zonder installatie.">
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef1f5;
+    --text: #14181f;
+    --text-soft: #56606f;
+    --border: #dde2e9;
+    --accent: #1668b3;
+    --accent-soft: #e8f1fa;
+    --code-bg: #10141a;
+    --code-text: #e8ecf3;
+    --ok: #1f7a4d;
+    --warn: #8a6100;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1319;
+      --surface: #161b23;
+      --surface-2: #1d232d;
+      --text: #e9edf3;
+      --text-soft: #a3adbb;
+      --border: #2a323d;
+      --accent: #61a6e8;
+      --accent-soft: #16283b;
+      --code-bg: #0a0d12;
+      --code-text: #e8ecf3;
+      --ok: #58c896;
+      --warn: #e0b25e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 820px; margin: 0 auto; padding: 40px 20px 72px; }
+  header { margin-bottom: 40px; }
+  h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  .sub { color: var(--text-soft); font-size: 1.05rem; margin: 0; max-width: 62ch; }
+  h2 { font-size: 1.25rem; margin: 40px 0 14px; letter-spacing: -0.01em; }
+  h3 { font-size: 1rem; margin: 24px 0 8px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .tabs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .tab {
+    font: inherit;
+    font-weight: 600;
+    color: var(--text-soft);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 8px 16px;
+    cursor: pointer;
+  }
+  .tab[aria-selected="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
+  .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .detected { font-size: 0.85rem; color: var(--text-soft); margin: 0 0 16px; }
+  .cmd { background: var(--code-bg); border-radius: 10px; overflow: hidden; }
+  .cmd-bar {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 8px 10px 8px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+  }
+  .cmd-bar span {
+    color: rgba(255,255,255,0.6); font-size: 0.75rem;
+    text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600;
+  }
+  pre {
+    background: transparent;
+    color: var(--code-text);
+    padding: 16px;
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font: 0.9rem/1.6 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  .copy {
+    font: inherit; font-size: 0.85rem; font-weight: 600;
+    background: rgba(255,255,255,0.12); color: #fff;
+    border: 1px solid rgba(255,255,255,0.25); border-radius: 8px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap;
+  }
+  .copy:hover { background: rgba(255,255,255,0.22); }
+  .copy.done { background: var(--ok); border-color: var(--ok); }
+  .copy:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+  .hint { font-size: 0.9rem; color: var(--text-soft); margin: 12px 0 0; }
+  ol.steps { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  ol.steps li {
+    counter-increment: step;
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 12px 0; border-top: 1px solid var(--border);
+  }
+  ol.steps li > div { flex: 1; min-width: 0; }
+  ol.steps li:first-child { border-top: 0; }
+  ol.steps li::before {
+    content: counter(step);
+    display: grid; place-items: center;
+    flex: 0 0 28px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    font-size: 0.85rem; font-weight: 700;
+  }
+  ol.steps strong { display: block; }
+  ol.steps span { color: var(--text-soft); font-size: 0.95rem; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.95rem; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft); }
+  /* Long Windows paths must never push the page sideways on a phone. */
+  td code { overflow-wrap: anywhere; }
+  /* Tabellen met veel tekst: op smalle schermen stapelen in plaats van kolommen persen. */
+  @media (max-width: 640px) {
+    table.stacks thead { display: none; }
+    table.stacks, table.stacks tbody, table.stacks tr, table.stacks td { display: block; }
+    table.stacks tr { border-bottom: 1px solid var(--border); padding: 10px 0; }
+    table.stacks tr:last-child { border-bottom: 0; }
+    table.stacks td { border: 0; padding: 6px 0; }
+    table.stacks td::before {
+      content: attr(data-label); display: block; margin-bottom: 3px;
+      font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-soft);
+    }
+  }
+  code:not(pre code) {
+    background: var(--surface-2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1px 6px; font-size: 0.9em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  details { border-top: 1px solid var(--border); padding: 12px 0; }
+  details summary { cursor: pointer; font-weight: 600; }
+  details p:first-of-type { margin-top: 10px; }
+  .note {
+    background: var(--accent-soft); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 8px;
+    padding: 14px 16px; font-size: 0.95rem; margin: 16px 0 0;
+  }
+  .actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin: 4px 0 6px; }
+  .btn-primary {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--accent); color: #fff; border: 1px solid var(--accent);
+    border-radius: 10px; padding: 14px 20px; text-decoration: none;
+    font-weight: 700; font-size: 1.02rem;
+  }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-primary .sz { font-weight: 500; opacity: 0.85; font-size: 0.86rem; }
+  .downloads { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+  .downloads a {
+    background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 14px; text-decoration: none; color: var(--text); font-weight: 600; font-size: 0.95rem;
+  }
+  .downloads a:hover { border-color: var(--accent); color: var(--accent); }
+  footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-soft); font-size: 0.9rem; }
+  [hidden] { display: none !important; }
+</style>
+<style>
+  /* Zoekpagina: telefoon eerst, want dat is waar hij voor bestaat. */
+  .wrap { max-width: 780px; padding-top: 28px; }
+  .searchbar { position: sticky; top: 0; z-index: 5; background: var(--bg); padding: 10px 0 12px; }
+  #q {
+    width: 100%; font-size: 1.05rem; padding: 14px 16px;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--border); border-radius: 10px;
+  }
+  #q:focus { outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+  .filters { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+  .chip {
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-soft);
+    border-radius: 999px; padding: 6px 13px; font-size: 0.88rem; cursor: pointer;
+  }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); font-weight: 600; }
+  #meta { color: var(--text-soft); font-size: 0.9rem; margin: 6px 0 16px; }
+  .hit { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; margin-bottom: 12px; }
+  .hit h3 { margin: 0 0 6px; font-size: 1.06rem; }
+  .hit .kind {
+    display: inline-block; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-soft); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; margin-left: 8px; vertical-align: 2px;
+  }
+  .hit p { margin: 0 0 10px; }
+  .hit .src { color: var(--text-soft); font-size: 0.85rem; margin: 0; }
+  .codes { margin: 8px 0 10px; padding: 0; list-style: none; }
+  .codes li { display: flex; gap: 10px; padding: 3px 0; font-size: 0.93rem; }
+  .codes code { flex: 0 0 auto; }
+  /* Markeerstift in plaats van vakjes: bij een term als 'student' raakt bijna
+     elk woord gemarkeerd, en dan breken vakjes het leesritme volledig. */
+  mark { background: transparent; color: inherit; box-shadow: inset 0 -0.4em 0 var(--accent-soft); }
+  .empty { color: var(--text-soft); }
+  .suggest { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; padding: 0; list-style: none; }
+  .suggest button {
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+    border-radius: 999px; padding: 7px 13px; font-size: 0.88rem; cursor: pointer;
+  }
+  footer { margin-top: 40px; }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Definities opzoeken</h1>
+    <p class="sub">
+      De 1cijferHO-documentatie van VU Education Analytics, doorzoekbaar in je browser — ook op je
+      telefoon, zonder iets te installeren.
+    </p>
+  </header>
+
+  <div class="searchbar">
+    <input id="q" type="search" placeholder="Zoek een veld of begrip, bijvoorbeeld: internationale student"
+           autocomplete="off" autocapitalize="none" spellcheck="false" aria-label="Zoek een veld of begrip">
+    <div class="filters" role="group" aria-label="Filter op soort">
+      <button class="chip" type="button" data-filter="all" aria-pressed="true">Alles</button>
+      <button class="chip" type="button" data-filter="field" aria-pressed="false">Velden</button>
+      <button class="chip" type="button" data-filter="definition" aria-pressed="false">Begrippen</button>
+    </div>
+  </div>
+
+  <p id="meta">Laden…</p>
+  <ul class="suggest" id="suggest" hidden></ul>
+  <div id="results"></div>
+
+  <div class="note">
+    <strong>Wat dit wel en niet is.</strong> Dit is de zoeklaag van de app: dezelfde definities,
+    veldbeschrijvingen en codelijsten, rechtstreeks uit de officiële documentatie in deze repository.
+    Wat hier <em>niet</em> zit, is de taalmodel-laag die antwoorden formuleert en vervolgvragen begrijpt —
+    die draait lokaal en heeft een computer nodig. Er staat geen studentdata in deze pagina en die komt
+    er ook niet in.
+  </div>
+
+  <footer>
+    <p>
+      De volledige app, met de LLM-laag erbij, installeer je via de
+      <a href="./">startpagina</a>. Broncode staat op
+      <a href="https://github.com/JornGitHub/VU-EA-Conversational-AI">GitHub</a>.
+    </p>
+  </footer>
+</div>
+
+<script>
+(function () {
+  var DATA = null;
+  var filter = 'all';
+  var input = document.getElementById('q');
+  var meta = document.getElementById('meta');
+  var results = document.getElementById('results');
+  var suggest = document.getElementById('suggest');
+
+  var EXAMPLES = [
+    'internationale student',
+    'Opleidingsvorm',
+    'peildatum',
+    'verblijfsjaar',
+    'eerstejaars'
+  ];
+
+  var STOP = {'de':1,'het':1,'een':1,'van':1,'is':1,'wat':1,'welke':1,'in':1,'op':1,'en':1,'of':1,
+              'betekent':1,'definitie':1,'veld':1,'voor':1,'met':1,'die':1,'dat':1,'bij':1,'te':1};
+
+  function norm(text) {
+    return (text || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+  }
+
+  function tokens(text) {
+    return norm(text).split(' ').filter(function (word) { return word && !STOP[word]; });
+  }
+
+  function prepare(entry) {
+    entry._name = norm(entry.name);
+    entry._nameTokens = tokens(entry.name);
+    entry._aliases = (entry.aliases || []).map(norm);
+    var parts = [entry.text].concat(entry.notes || [], entry.related || [], entry.tags || []);
+    (entry.codes || []).forEach(function (code) { parts.push(code.meaning); });
+    entry._haystack = norm(parts.join(' '));
+    entry._haystackTokens = {};
+    tokens(parts.join(' ')).forEach(function (word) { entry._haystackTokens[word] = 1; });
+    return entry;
+  }
+
+  // Een treffer moet ergens op de naam raken, of meermaals in de tekst. Zonder die
+  // eis scoorde elk item iets en gaf onzin als 'zxqwv' de hele lijst terug.
+  var NAME_HIT = 40;
+
+  function score(entry, query, queryTokens) {
+    if (!query) { return 0; }
+    var total = 0;
+    var nameHit = false;
+
+    if (entry._name === query) { total += 1000; nameHit = true; }
+    else if (entry._name.indexOf(query) === 0) { total += 500; nameHit = true; }
+    else if (entry._name.indexOf(query) !== -1) { total += 300; nameHit = true; }
+    if (entry._aliases.indexOf(query) !== -1) { total += 250; nameHit = true; }
+
+    var inName = 0;
+    var inText = 0;
+    queryTokens.forEach(function (word) {
+      if (entry._nameTokens.indexOf(word) !== -1) { inName += 1; total += 45; nameHit = true; }
+      else if (word.length > 3 && entry._name.indexOf(word) !== -1) { total += 20; nameHit = true; }
+      if (entry._haystackTokens[word]) { inText += 1; total += 9; }
+      else if (word.length > 3 && entry._haystack.indexOf(word) !== -1) { inText += 1; total += 4; }
+    });
+
+    if (!nameHit && inText === 0) { return 0; }
+    // Alleen losse woorden in de lopende tekst is te dun voor een eigen regel,
+    // tenzij de hele zoekterm er staat.
+    if (!nameHit && inText < queryTokens.length) { return 0; }
+
+    if (queryTokens.length > 1 && inName === queryTokens.length) { total += 120; }
+    if (entry.kind === 'definition') { total += 6; }  // 'wat is X' wordt vaker door een begrip beantwoord
+    return total;
+  }
+
+  function escapeHtml(text) {
+    return (text || '').replace(/[&<>"]/g, function (character) {
+      return {'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;'}[character];
+    });
+  }
+
+  function highlight(text, queryTokens) {
+    var safe = escapeHtml(text);
+    if (!queryTokens.length) { return safe; }
+    var pattern = queryTokens
+      .filter(function (word) { return word.length > 2; })
+      .map(function (word) { return word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); });
+    if (!pattern.length) { return safe; }
+    return safe.replace(new RegExp('(' + pattern.join('|') + ')', 'gi'), '<mark>$1</mark>');
+  }
+
+  function render(hits, queryTokens) {
+    if (!hits.length) {
+      results.innerHTML = '<p class="empty">Niets gevonden. Probeer de exacte veld- of begripsnaam uit de documentatie.</p>';
+      return;
+    }
+    results.innerHTML = hits.map(function (entry) {
+      var parts = ['<article class="hit">'];
+      parts.push('<h3>' + highlight(entry.name, queryTokens) +
+                 '<span class="kind">' + (entry.kind === 'field' ? 'veld ' + (entry.number || '') : 'begrip') + '</span></h3>');
+      parts.push('<p>' + highlight(entry.text, queryTokens) + '</p>');
+      if (entry.codes && entry.codes.length) {
+        parts.push('<ul class="codes">');
+        entry.codes.forEach(function (code) {
+          parts.push('<li><code>' + escapeHtml(code.code) + '</code><span>' + highlight(code.meaning, queryTokens) + '</span></li>');
+        });
+        parts.push('</ul>');
+      }
+      if (entry.notes && entry.notes.length) {
+        entry.notes.forEach(function (note) {
+          parts.push('<p class="src">NB: ' + highlight(note, queryTokens) + '</p>');
+        });
+      }
+      var source = entry.source || '';
+      var dataset = entry.dataset || (entry.datasets || []).join(', ');
+      if (source || dataset) {
+        parts.push('<p class="src">Bron: ' + escapeHtml(source || '1cHO-documentatie') +
+                   (dataset ? ' — ' + escapeHtml(dataset) : '') + '</p>');
+      }
+      parts.push('</article>');
+      return parts.join('');
+    }).join('');
+  }
+
+  function search() {
+    if (!DATA) { return; }
+    var raw = input.value;
+    var query = norm(raw);
+    var queryTokens = tokens(raw);
+    var pool = DATA.entries.filter(function (entry) {
+      return filter === 'all' || entry.kind === filter;
+    });
+
+    if (!query) {
+      meta.textContent = pool.length + ' items — begin te typen, of kies een voorbeeld.';
+      suggest.hidden = false;
+      render(pool.slice(0, 12), []);
+      return;
+    }
+    suggest.hidden = true;
+
+    var hits = [];
+    pool.forEach(function (entry) {
+      var value = score(entry, query, queryTokens);
+      if (value > 0) { hits.push({entry: entry, score: value}); }
+    });
+    hits.sort(function (a, b) { return b.score - a.score || a.entry.name.localeCompare(b.entry.name); });
+
+    // De staart afkappen: wie 'internationale student' zoekt heeft niets aan elk
+    // item dat toevallig het woord 'student' bevat.
+    if (hits.length) {
+      var best = hits[0].score;
+      var floor = Math.max(NAME_HIT, best * 0.05);
+      var strong = hits.filter(function (hit) { return hit.score >= floor; });
+      hits = strong.length ? strong : hits.slice(0, 5);
+    }
+
+    var shown = hits.slice(0, 40);
+    meta.textContent = hits.length === 1
+      ? '1 resultaat voor "' + raw.trim() + '"'
+      : hits.length + ' resultaten voor "' + raw.trim() + '"';
+    render(shown.map(function (hit) { return hit.entry; }), queryTokens);
+  }
+
+  document.querySelectorAll('.chip').forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      filter = chip.getAttribute('data-filter');
+      document.querySelectorAll('.chip').forEach(function (other) {
+        other.setAttribute('aria-pressed', String(other === chip));
+      });
+      search();
+    });
+  });
+
+  suggest.innerHTML = EXAMPLES.map(function (text) {
+    return '<li><button type="button">' + escapeHtml(text) + '</button></li>';
+  }).join('');
+  suggest.addEventListener('click', function (event) {
+    if (event.target.tagName === 'BUTTON') {
+      input.value = event.target.textContent;
+      input.focus();
+      search();
+    }
+  });
+
+  input.addEventListener('input', search);
+
+  fetch('data/definities.json')
+    .then(function (response) {
+      if (!response.ok) { throw new Error('HTTP ' + response.status); }
+      return response.json();
+    })
+    .then(function (payload) {
+      payload.entries.forEach(prepare);
+      DATA = payload;
+      meta.textContent = payload.counts.fields + ' velden en ' + payload.counts.definitions +
+                         ' begrippen — begin te typen, of kies een voorbeeld.';
+      suggest.hidden = false;
+      render(payload.entries.slice(0, 12), []);
+    })
+    .catch(function (error) {
+      meta.textContent = '';
+      results.innerHTML = '<p class="empty">De gegevens konden niet worden geladen (' +
+                          escapeHtml(String(error.message)) + '). Ververs de pagina.</p>';
+    });
+})();
+</script>
+</body>
+</html>

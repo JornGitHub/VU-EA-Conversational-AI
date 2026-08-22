@@ -23,8 +23,10 @@ import streamlit as st
 from src.chatbot import retrieve, stream_llm_answer
 from src.conversation import Turn, resolve_followup_query
 from src.definitions.corpus import corpus_stats
+from src.definitions.mock_data import SYNTHETIC_NOTICE, load_profile
 from src.definitions.search import is_meaningful_llm_inference
 from src.definitions.semantic import semantic_status
+from src.pairing import QR_UNAVAILABLE_HINT, pairing_status, qr_svg
 from src.llm.ollama_client import warm_up
 from src.llm.ollama_setup import DEFAULT_BASE_URL, DEFAULT_OLLAMA_MODEL, is_server_running
 
@@ -336,9 +338,29 @@ def render_sources(result: dict, *, show_source_status: bool = True, debug: bool
             st.json(result)
 
 
+def render_synthetic_examples(result: dict) -> None:
+    """Show example values from the synthetic dataset, clearly marked as such.
+
+    Kept out of the answer body and out of the LLM prompt on purpose: the codes
+    are documented, but the counts are invented and must never read as evidence.
+    """
+    examples = result.get("synthetic_examples") or []
+    if not examples:
+        return
+    with st.expander("🧪 Voorbeeldwaarden uit synthetische data", expanded=False):
+        st.caption(SYNTHETIC_NOTICE)
+        for entry in examples:
+            lines = [
+                f"- `{value['value']}` — {value['rows']} rijen"
+                for value in entry.get("values", [])
+            ]
+            st.markdown(f"**{entry['field_name']}**\n" + "\n".join(lines))
+
+
 def render_result(result: dict, *, show_source_status: bool = True, debug: bool = False) -> None:
     """Render one complete answer: the answer body plus its sources."""
     render_answer_body(result)
+    render_synthetic_examples(result)
     with st.expander("Bronnen en details", expanded=False):
         render_sources(result, show_source_status=show_source_status, debug=debug)
 
@@ -357,6 +379,7 @@ def cached_retrieval(
     allow_llm_inference: bool,
     use_semantic: bool,
     debug: bool,
+    include_synthetic_examples: bool,
 ) -> dict:
     """Answer one question, reusing the result while settings stay the same.
 
@@ -373,12 +396,47 @@ def cached_retrieval(
         allow_external_web=allow_external_web,
         allow_llm_inference=allow_llm_inference,
         use_semantic=use_semantic,
+        include_synthetic_examples=include_synthetic_examples,
     )
 
 
 # --------------------------------------------------------------------------- #
 # Sidebar
 # --------------------------------------------------------------------------- #
+def render_pairing_panel() -> None:
+    """Show how to open this app on a phone: the address, and a QR to scan.
+
+    Streamlit's default binds to localhost, in which case no address would work
+    — so the panel says how to restart rather than printing a dead URL.
+    """
+    try:
+        server_address = st.get_option("server.address")
+        port = int(st.get_option("server.port") or 8501)
+    except Exception:  # noqa: BLE001 - option names differ across Streamlit versions
+        server_address, port = None, 8501
+
+    status = pairing_status(server_address, port)
+    with st.sidebar.expander("📱 Op je telefoon openen", expanded=False):
+        if not status["reachable"]:
+            st.info(status["hint"])
+            st.code("python main.py --network", language="bash")
+            return
+
+        url = status["url"]
+        st.markdown(f"Scan deze code, of typ **{url}** in je browser:")
+        svg = qr_svg(url)
+        if svg:
+            st.image(svg, width=180)
+        else:
+            st.caption(QR_UNAVAILABLE_HINT)
+        st.code(url, language="text")
+        st.caption(
+            "Telefoon en computer moeten op hetzelfde wifi-netwerk zitten. De app, de "
+            "documentatie en je vragen blijven op deze computer; je telefoon toont alleen "
+            "het scherm. Iedereen op dit netwerk kan de app nu openen."
+        )
+
+
 def render_sidebar() -> dict:
     """Render all settings and the status panel; return the chosen settings."""
     st.sidebar.title(APP_TITLE)
@@ -410,6 +468,15 @@ def render_sidebar() -> dict:
     settings["include_supplemental"] = st.sidebar.checkbox(
         "Volg verwijzingen naar aanvullende documentatie", value=True
     )
+    settings["show_synthetic_examples"] = st.sidebar.checkbox(
+        "Toon voorbeeldwaarden uit synthetische data",
+        value=bool(load_profile()),
+        disabled=not load_profile(),
+        help=(
+            "Voorbeeldwaarden uit een verzonnen dataset die de documentatie exact volgt. "
+            "Geen echte studentgegevens; bouwen met `python scripts/generate_mock_data.py`."
+        ),
+    )
     settings["debug"] = st.sidebar.checkbox("Toon debug-informatie", value=False)
 
     ollama_online = is_server_running(DEFAULT_BASE_URL)
@@ -439,6 +506,18 @@ def render_sidebar() -> dict:
         else:
             st.markdown("- Semantische index: ⚪ niet gebouwd")
             st.caption(status.get("hint", ""))
+        mock = load_profile()
+        if mock:
+            st.markdown(
+                f"- Synthetische voorbeelddata: 🧪 {mock['rows']} rijen, "
+                f"{len(mock.get('fields', {}))} velden"
+            )
+            st.caption(SYNTHETIC_NOTICE)
+        else:
+            st.markdown("- Synthetische voorbeelddata: ⚪ niet gebouwd")
+            st.caption("Bouwen met `python scripts/generate_mock_data.py` (optioneel).")
+
+    render_pairing_panel()
 
     if st.sidebar.button("🧹 Nieuw gesprek", use_container_width=True):
         st.session_state.turns = []
@@ -589,6 +668,7 @@ def answer_question(question: str, settings: dict) -> dict:
         settings["allow_llm_inference"],
         settings["use_semantic"],
         settings["debug"],
+        settings["show_synthetic_examples"],
     )
     result = dict(result)
     result["asked_question"] = question

@@ -182,6 +182,12 @@
     </p>
   </header>
 
+  <p class="note" style="margin-bottom:28px">
+    <strong>Alleen even iets opzoeken?</strong> Dat hoeft niet lokaal:
+    <a href="zoek.html">doorzoek de documentatie hier in je browser</a> — ook op je telefoon, zonder
+    installatie. De volledige app hieronder voegt daar de taalmodel-laag aan toe.
+  </p>
+
   <h2>1. Start de app</h2>
   <div class="card">
     <div class="tabs" role="tablist" aria-label="Besturingssysteem">
@@ -429,23 +435,37 @@ python3 -m venv .venv
   <h2>4. Kan het op een telefoon?</h2>
   <div class="card">
     <p>
-      <strong>Draaien op een telefoon: nee.</strong> De app is een Python-server met een taalmodel ernaast.
-      iOS staat het niet toe dat een app zomaar programma's uitvoert, en een <code>.bat</code>-bestand is
-      sowieso Windows-only — daarom gebeurt er niets als je het op je iPhone opent. Op Android kan het
+      <strong>Zoeken kan meteen, hier op deze site.</strong> De zoeklaag van de app is een opzoekactie over
+      een paar honderd definities — klein genoeg om in je browser te draaien. Geen installatie, geen
+      terminal, werkt op elke telefoon:
+    </p>
+    <div class="actions">
+      <a class="btn-primary" href="zoek.html">🔍 Definities opzoeken <span class="sz">werkt op je telefoon</span></a>
+    </div>
+    <p class="hint">
+      Wat daar ontbreekt is de taalmodel-laag: antwoorden formuleren, vervolgvragen begrijpen, verwijzingen
+      volgen. Dat draait lokaal en heeft een computer nodig.
+    </p>
+
+    <p style="margin-top:22px">
+      <strong>De hele app op een telefoon draaien: nee.</strong> Het is een Python-server met een taalmodel
+      ernaast. iOS staat het niet toe dat een app zomaar programma's uitvoert, en een <code>.bat</code>-bestand
+      is sowieso Windows-only — daarom gebeurt er niets als je het op je iPhone opent. Op Android kan het
       technisch via Termux, maar de modellen van enkele gigabytes maken dat onpraktisch.
     </p>
     <p>
-      <strong>Gebruiken vanaf een telefoon: ja.</strong> Laat de app op je laptop draaien en open hem op je
-      telefoon, zolang beide op hetzelfde wifi-netwerk zitten. Start hem dan zo:
+      <strong>Wel: de app op je laptop, het scherm op je telefoon.</strong> Zolang beide op hetzelfde
+      wifi-netwerk zitten, start je hem zo:
     </p>
     <div class="cmd">
       <div class="cmd-bar"><span>Op je laptop</span><button class="copy" type="button" data-copy="code-network">Kopieer</button></div>
       <pre id="code-network">python main.py --network</pre>
     </div>
     <p class="hint">
-      De terminal toont dan een adres als <code>http://192.168.1.24:8501</code>. Typ dat in de browser van je
-      telefoon. De app en je vragen blijven op je laptop; de telefoon toont alleen het scherm. Let op:
-      iedereen op datzelfde netwerk kan de app dan openen, dus doe dit niet op openbare wifi.
+      De terminal toont dan een adres als <code>http://192.168.1.24:8501</code>. In de app zelf zit onder
+      <strong>📱 Op je telefoon openen</strong> een QR-code voor datzelfde adres, dus scannen kan ook. De app
+      en je vragen blijven op je laptop; de telefoon toont alleen het scherm. Let op: iedereen op datzelfde
+      netwerk kan de app dan openen, dus doe dit niet op openbare wifi.
     </p>
   </div>
 

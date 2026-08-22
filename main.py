@@ -251,22 +251,29 @@ def run_hygiene_check() -> int:
     return 0
 
 
-def local_network_address() -> str | None:
-    """Return this machine's address on the local network, or None.
+def ensure_mock_dataset() -> int:
+    """Build the synthetic example dataset when it is missing.
 
-    Opening a UDP socket towards a routable address makes the OS pick the
-    interface it would actually use; no packet is sent.
+    Deterministic and about a second of work, so there is no reason to make
+    anyone run a second command for it. Never fatal: the app works without it.
     """
-    import socket
-
+    print_header("Synthetische voorbeelddata")
     try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
-            probe.settimeout(0.2)
-            probe.connect(("8.8.8.8", 80))
-            address = probe.getsockname()[0]
-    except OSError:
-        return None
-    return address if address and not address.startswith("127.") else None
+        from src.definitions.mock_data import MOCK_PROFILE, write_dataset
+    except Exception as error:  # noqa: BLE001 - optional step, never fatal
+        print(f"Overgeslagen: {error}")
+        return 0
+
+    if MOCK_PROFILE.exists():
+        print(f"{OK_MARK} Al aanwezig ({MOCK_PROFILE.name}).")
+        return 0
+    try:
+        csv_path, _ = write_dataset()
+    except Exception as error:  # noqa: BLE001
+        print(f"Overgeslagen: {error}")
+        return 0
+    print(f"{OK_MARK} Aangemaakt: {csv_path.name} (synthetisch, geen echte studentgegevens).")
+    return 0
 
 
 def run_streamlit(share_on_network: bool = False) -> int:
@@ -285,6 +292,8 @@ def run_streamlit(share_on_network: bool = False) -> int:
     command = [sys.executable, "-m", "streamlit", "run", STREAMLIT_APP]
     if share_on_network:
         command += ["--server.address", "0.0.0.0"]
+        from src.pairing import local_network_address  # lokaal: src hoeft niet te bestaan voor --guide
+
         address = local_network_address()
         print_header("Bereikbaar op je eigen netwerk")
         if address:
@@ -429,6 +438,9 @@ def main() -> int:
         setup_embeddings(base_url=args.ollama_url, model=args.embed_model, force=True, ollama_available=ollama_available)
     elif needs_embeddings(args, launching_app=launching_app):
         setup_embeddings(base_url=args.ollama_url, model=args.embed_model, ollama_available=ollama_available)
+
+    if launching_app or args.setup:
+        ensure_mock_dataset()
 
     if args.setup and not launching_app:
         print("\nSetup klaar. Start de app met:\n  python main.py")
