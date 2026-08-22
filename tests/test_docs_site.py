@@ -270,15 +270,21 @@ class PhoneTests(unittest.TestCase):
         self.assertIn("iOS", PAGE_TEXT)
 
     def test_page_offers_the_network_route_instead(self) -> None:
-        self.assertIn("python main.py --network", PAGE_TEXT)
+        """Reaching the app from a phone needs no flag any more, only the QR."""
+        self.assertIn("Op je telefoon openen", PAGE_TEXT)
         self.assertIn("wifi", PAGE_TEXT)
+        self.assertIn("python main.py --local-only", PAGE_TEXT, "de opt-out moet vindbaar blijven")
 
-    def test_network_flag_exists_and_is_off_by_default(self) -> None:
-        """The page promises this flag; main.py has to have it."""
+    def test_the_app_is_reachable_from_a_phone_without_a_restart(self) -> None:
+        """Switching this on later needed Ctrl+C, which killed the app first.
+
+        Streamlit fixes its bind address at startup, so no button can change it;
+        binding to the network right away is what removes the restart.
+        """
         source = Path("main.py").read_text(encoding="utf-8")
-        self.assertIn('"--network"', source)
-        self.assertIn("--server.address", source)
-        self.assertIn("share_on_network: bool = False", source)
+        self.assertIn("share_on_network: bool = True", source)
+        self.assertIn('"--local-only"', source)
+        self.assertIn('"--network"', source, "de oude vlag moet blijven werken")
 
     def test_readme_documents_the_phone_route(self) -> None:
         self.assertIn("--network", README_TEXT)

@@ -45,6 +45,18 @@ EXAMPLE_QUESTIONS = [
     "Toon alle velden van Inschrijvingen_aggr_UNL_2025.csv",
 ]
 
+# Vragen die naast de definitie ook het synthetische voorbeeldblok laten zien.
+# Ze staan apart, want ze illustreren iets anders: hoe de data eruitziet, niet
+# wat een begrip betekent.
+DATA_EXAMPLE_QUESTIONS = [
+    "Hoe ziet een rij in het aggregaatbestand eruit?",
+    "Welke waarden komen voor in Opleidingsvorm?",
+    "Welke codes staan er in Inschrijvingsvorm?",
+    "Hoe vaak komt elke waarde van Generatie voor?",
+    "Welke waarden heeft Croho-onderdeel actuele opleiding?",
+    "Wat betekent Aantal in het aggregaatbestand?",
+]
+
 # Answer speed on a laptop without a GPU is dominated by model size.
 MODEL_OPTIONS = {
     f"{DEFAULT_OLLAMA_MODEL} — standaard, beste kwaliteit": DEFAULT_OLLAMA_MODEL,
@@ -59,6 +71,7 @@ WEB_MODE_OPTIONS = {
     "Altijd proberen als extra context": "enhance",
     "Forceer webcontext": "force",
 }
+DEFAULT_WEB_MODE = "force"
 
 st.set_page_config(
     page_title=APP_TITLE,
@@ -345,10 +358,22 @@ def render_synthetic_examples(result: dict) -> None:
     are documented, but the counts are invented and must never read as evidence.
     """
     examples = result.get("synthetic_examples") or []
-    if not examples:
+    row = result.get("synthetic_row") or []
+    if not examples and not row:
         return
-    with st.expander("🧪 Voorbeeldwaarden uit synthetische data", expanded=False):
+    if row:
+        # De documentatie beschrijft velden, geen recordvorm; zonder deze zin
+        # leest het retrieval-antwoord ("geen definitie gevonden") als een fout,
+        # terwijl het antwoord er gewoon onder staat.
+        st.info(
+            "De documentatie beschrijft losse velden, niet hoe een rij eruitziet. "
+            "Hieronder staat dat wel — uit de synthetische dataset."
+        )
+    with st.expander("🧪 Voorbeeldwaarden uit synthetische data", expanded=bool(row)):
         st.caption(SYNTHETIC_NOTICE)
+        if row:
+            st.markdown("**Zo ziet één rij eruit**")
+            st.table({"Veld": [pair["field_name"] for pair in row], "Waarde": [pair["value"] for pair in row]})
         for entry in examples:
             lines = [
                 f"- `{value['value']}` — {value['rows']} rijen"
@@ -442,14 +467,30 @@ def render_sidebar() -> dict:
     st.sidebar.title(APP_TITLE)
     st.sidebar.caption("Instellingen")
 
-    web_mode_label = st.sidebar.selectbox("Webcontext-modus", list(WEB_MODE_OPTIONS), index=1)
+    # Alles staat standaard aan behalve debug: wie de app opent krijgt meteen de
+    # volledige laag, en zet zelf uit wat hij niet wil. Debug is het enige dat
+    # ruis toevoegt zonder een antwoord te verbeteren.
+    web_mode_label = st.sidebar.selectbox(
+        "Webcontext-modus",
+        list(WEB_MODE_OPTIONS),
+        index=list(WEB_MODE_OPTIONS.values()).index(DEFAULT_WEB_MODE),
+        help=(
+            "Forceer webcontext haalt bij elke vraag officiële webbronnen erbij. Dat geeft het "
+            "meeste materiaal, maar kost per vraag enkele seconden; 'Alleen bij ontbrekende lokale "
+            "context' is sneller."
+        ),
+    )
     settings = {
         "web_mode": WEB_MODE_OPTIONS[web_mode_label],
-        "allow_external_web": st.sidebar.checkbox("Gebruik overige externe webbronnen", value=False),
+        "allow_external_web": st.sidebar.checkbox("Gebruik overige externe webbronnen", value=True),
         "allow_llm_inference": st.sidebar.checkbox("Sta LLM-interpretatie toe", value=True),
         "show_source_status": st.sidebar.checkbox("Toon bronstatus", value=True),
         "use_semantic": st.sidebar.checkbox("Gebruik semantische zoeklaag", value=True),
-        "use_llm": st.sidebar.checkbox("Gebruik LLM-formuleerlaag", value=False),
+        "use_llm": st.sidebar.checkbox(
+            "Gebruik LLM-formuleerlaag",
+            value=True,
+            help="Vereist een draaiende Ollama. Staat die uit, dan krijg je het retrieval-antwoord.",
+        ),
     }
     model_label = st.sidebar.selectbox(
         "Ollama-model",
@@ -752,6 +793,15 @@ def main() -> None:
             if columns[position % 3].button(question, use_container_width=True, key=f"example-{position}"):
                 st.session_state.pending_question = question
                 st.rerun()
+
+        if settings.get("show_synthetic_examples"):
+            st.markdown("**Vragen over de data zelf** 🧪 — met voorbeeldwaarden uit de synthetische dataset")
+            data_columns = st.columns(3)
+            for position, question in enumerate(DATA_EXAMPLE_QUESTIONS):
+                if data_columns[position % 3].button(question, use_container_width=True, key=f"data-example-{position}"):
+                    st.session_state.pending_question = question
+                    st.rerun()
+            st.caption(SYNTHETIC_NOTICE)
 
     for index, turn in enumerate(st.session_state.turns):
         render_turn(index, turn, settings)

@@ -280,3 +280,41 @@ def examples_for_fields(matched_fields: Iterable[dict[str, Any]], limit: int = 4
         if values:
             out.append({"field_name": name, "values": values, "source_tier": SYNTHETIC_TIER})
     return out
+
+
+def example_row(fields: Iterable[str] | None = None, limit: int = 10) -> list[dict[str, str]]:
+    """Return one synthetic row as field/value pairs, for "how does a row look".
+
+    Reads the generated CSV rather than the profile: a profile knows which
+    values occur, but not which ones occur *together*, and the shape of a row
+    is exactly what this question is about.
+    """
+    try:
+        with MOCK_CSV.open(encoding="utf-8", newline="") as handle:
+            reader = csv.reader(handle, delimiter=";")
+            header = next(reader)
+            row = next(reader)
+    except (OSError, StopIteration):
+        return []
+
+    wanted = [canonical_term(name) for name in fields] if fields else []
+    pairs = [
+        {"field_name": name, "value": row[index] if index < len(row) else ""}
+        for index, name in enumerate(header)
+    ]
+    if wanted:
+        chosen = [pair for pair in pairs if canonical_term(pair["field_name"]) in wanted]
+        if chosen:
+            # De telling hoort erbij: zonder Aantal is een aggregaatrij niet te lezen.
+            count = [pair for pair in pairs if normalize_text(pair["field_name"]) == "aantal"]
+            return chosen + [pair for pair in count if pair not in chosen]
+    return pairs[:limit]
+
+
+def asks_for_a_row(query: str) -> bool:
+    """True when the question is about the shape of a record, not a field."""
+    text = normalize_text(query)
+    return any(
+        phrase in text
+        for phrase in ("hoe ziet een rij", "voorbeeldrij", "een rij eruit", "hoe ziet een record", "voorbeeld van een rij")
+    )

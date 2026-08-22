@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Iterator, Sequence
 
-from src.definitions.mock_data import examples_for_fields
+from src.definitions.mock_data import asks_for_a_row, example_row, examples_for_fields
 from src.definitions.search import answer_deep_context_question_json, answer_definition_question_json
 from src.llm.ollama_client import generate_with_ollama, stream_with_ollama
 from src.llm.ollama_setup import DEFAULT_OLLAMA_MODEL
@@ -98,7 +98,10 @@ def retrieve(
             use_semantic=use_semantic,
         )
     if include_synthetic_examples:
-        result["synthetic_examples"] = examples_for_fields(result.get("matched_fields") or [])
+        matched = result.get("matched_fields") or []
+        result["synthetic_examples"] = examples_for_fields(matched)
+        if asks_for_a_row(query):
+            result["synthetic_row"] = example_row([field.get("field_name", "") for field in matched])
     return result
 
 

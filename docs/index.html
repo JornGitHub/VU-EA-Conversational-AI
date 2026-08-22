@@ -454,19 +454,21 @@ python3 -m venv .venv
       technisch via Termux, maar de modellen van enkele gigabytes maken dat onpraktisch.
     </p>
     <p>
-      <strong>Wel: de app op je laptop, het scherm op je telefoon.</strong> Zolang beide op hetzelfde
-      wifi-netwerk zitten, start je hem zo:
+      <strong>Wel: de app op je laptop, het scherm op je telefoon — en dat werkt vanzelf.</strong>
+      <code>python main.py</code> luistert standaard ook op je lokale netwerk. In de app staat onder
+      <strong>📱 Op je telefoon openen</strong> het adres én een QR-code; scannen en je bent er. Laptop en
+      telefoon moeten wel op hetzelfde wifi zitten.
+    </p>
+    <p class="hint">
+      Liever niet? <code>python main.py --local-only</code> houdt de app op je eigen computer. Let op:
+      met de standaard kan iedereen op hetzelfde netwerk de app openen — prima op je eigen wifi, niet op
+      openbare wifi. Windows vraagt de eerste keer of Python door de firewall mag; sta dat toe voor
+      particuliere netwerken, anders kan je telefoon er niet bij.
     </p>
     <div class="cmd">
-      <div class="cmd-bar"><span>Op je laptop</span><button class="copy" type="button" data-copy="code-network">Kopieer</button></div>
-      <pre id="code-network">python main.py --network</pre>
+      <div class="cmd-bar"><span>Alleen op deze computer</span><button class="copy" type="button" data-copy="code-network">Kopieer</button></div>
+      <pre id="code-network">python main.py --local-only</pre>
     </div>
-    <p class="hint">
-      De terminal toont dan een adres als <code>http://192.168.1.24:8501</code>. In de app zelf zit onder
-      <strong>📱 Op je telefoon openen</strong> een QR-code voor datzelfde adres, dus scannen kan ook. De app
-      en je vragen blijven op je laptop; de telefoon toont alleen het scherm. Let op: iedereen op datzelfde
-      netwerk kan de app dan openen, dus doe dit niet op openbare wifi.
-    </p>
   </div>
 
   <h2>5. Werkt er iets niet?</h2>
@@ -522,9 +524,9 @@ python3 -m venv .venv
     <details>
       <summary>Ik wil de app op mijn telefoon of tablet bekijken</summary>
       <p>
-        Start hem op je laptop met <code>python main.py --network</code> en open het adres dat de terminal
-        toont in de browser van je telefoon. Beide apparaten moeten op hetzelfde wifi-netwerk zitten. Zie
-        stap 4.
+        Dat werkt zonder extra stappen: start hem op je laptop met <code>python main.py</code> en open het
+        adres uit het paneel <strong>📱 Op je telefoon openen</strong> in de zijbalk, of scan de QR-code
+        die daar staat. Beide apparaten moeten op hetzelfde wifi-netwerk zitten. Zie stap 4.
       </p>
     </details>
     <details>

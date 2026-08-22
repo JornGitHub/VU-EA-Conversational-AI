@@ -276,12 +276,17 @@ def ensure_mock_dataset() -> int:
     return 0
 
 
-def run_streamlit(share_on_network: bool = False) -> int:
+def run_streamlit(share_on_network: bool = True) -> int:
     """Start the Streamlit app in the browser.
 
-    With ``share_on_network`` the app also listens on the local network, so a
-    phone or tablet on the same wifi can open it. The app itself still runs
-    entirely on this machine.
+    Listening on the local network is the default. A button could not switch
+    this on later: Streamlit fixes its bind address when the server starts, so
+    the only alternative was Ctrl+C and a restart — which is exactly the step
+    that was in the way. Binding straight away means the QR code in the sidebar
+    always works.
+
+    ``--local-only`` puts it back on loopback for anyone who does not want the
+    app reachable from the network.
     """
     if importlib.util.find_spec("streamlit") is None:
         print_header("Streamlit app")
@@ -290,19 +295,27 @@ def run_streamlit(share_on_network: bool = False) -> int:
         return 1
 
     command = [sys.executable, "-m", "streamlit", "run", STREAMLIT_APP]
-    if share_on_network:
-        command += ["--server.address", "0.0.0.0"]
-        from src.pairing import local_network_address  # lokaal: src hoeft niet te bestaan voor --guide
+    if not share_on_network:
+        command += ["--server.address", "127.0.0.1"]
+        print_header("Alleen op deze computer")
+        print("De app is niet bereikbaar vanaf je telefoon. Laat --local-only weg om dat wel te doen.")
+        return run_command(command, "Streamlit app")
 
-        address = local_network_address()
-        print_header("Bereikbaar op je eigen netwerk")
-        if address:
-            print(f"Open op je telefoon of tablet:  http://{address}:8501")
-        else:
-            print("Kon het netwerkadres van deze machine niet bepalen.")
-        print("Streamlit toont hieronder zelf de exacte 'Network URL'; gebruik die als bovenstaande")
-        print("niet werkt. Telefoon en laptop moeten op hetzelfde wifi-netwerk zitten.")
-        print("Let op: iedereen op dit netwerk kan de app nu openen. Stop met Ctrl+C.")
+    command += ["--server.address", "0.0.0.0"]
+    from src.pairing import local_network_address  # lokaal: src hoeft niet te bestaan voor --guide
+
+    address = local_network_address()
+    print_header("Ook bereikbaar op je eigen netwerk")
+    if address:
+        print(f"Open op je telefoon of tablet:  http://{address}:8501")
+    else:
+        print("Kon het netwerkadres van deze machine niet bepalen.")
+    print("In de app staat dit adres ook als QR-code onder 'Op je telefoon openen'.")
+    print("Telefoon en laptop moeten op hetzelfde wifi-netwerk zitten.")
+    print("Iedereen op dit netwerk kan de app openen; wil je dat niet, start dan met --local-only.")
+    if sys.platform.startswith("win"):
+        print("Windows vraagt de eerste keer of Python via de firewall mag - sta dat toe voor")
+        print("particuliere netwerken, anders kan je telefoon er niet bij.")
     return run_command(command, "Streamlit app")
 
 
@@ -321,7 +334,8 @@ def print_test_guide() -> None:
         "retrieval_query_json": f'python main.py --query "{DEFAULT_QUERY}" --json',
         "retrieval_query_with_local_llm": f'python main.py --query "{DEFAULT_QUERY}" --llm',
         "streamlit_ui_manual_test": "python main.py --streamlit",
-        "open_from_phone_on_same_wifi": "python main.py --network",
+        "open_from_phone_on_same_wifi": "python main.py",
+        "keep_the_app_on_this_machine_only": "python main.py --local-only",
         "archive_root_leftovers": "python main.py --archive-root-leftovers",
         "project_hygiene_check": "python main.py --check-hygiene",
         "skip_dependency_install": "add --skip-install to any command",
@@ -369,7 +383,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--ollama-url", default=DEFAULT_BASE_URL, help=f"Base URL of the local Ollama server (default: {DEFAULT_BASE_URL}).")
     parser.add_argument("--web-mode", choices=["off", "fallback", "enhance", "force"], default="fallback", help="Free-only web context mode for --query.")
     parser.add_argument("--streamlit", action="store_true", help="Start app_streamlit.py explicitly (same as running without arguments).")
-    parser.add_argument("--network", action="store_true", help="Also serve the app on the local network, so a phone or tablet on the same wifi can open it.")
+    parser.add_argument("--network", action="store_true", help="Serveer de app ook op je lokale netwerk (dit is inmiddels de standaard; de vlag blijft werken).")
+    parser.add_argument("--local-only", action="store_true", help="Alleen op deze computer luisteren; niet bereikbaar vanaf je telefoon.")
     parser.add_argument("--archive-root-leftovers", action="store_true", help="Archive generated artifacts left in the project root.")
     parser.add_argument("--check-hygiene", action="store_true", help="Warn about generated artifacts left in the project root.")
     parser.add_argument("--guide", action="store_true", help="Print a JSON guide with common run/test commands.")
@@ -472,7 +487,7 @@ def main() -> int:
     print_run_summary(results, launching_app=launching_app)
 
     if launching_app:
-        results.append(("Streamlit app", run_streamlit(share_on_network=args.network)))
+        results.append(("Streamlit app", run_streamlit(share_on_network=not args.local_only)))
 
     return 0 if all(code == 0 for _label, code in results) else 1
 
