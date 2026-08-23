@@ -276,6 +276,33 @@ def ensure_mock_dataset() -> int:
     return 0
 
 
+def run_network_diagnosis(port: int = 8501) -> int:
+    """Explain why another device cannot reach this app, and offer the fix."""
+    from src.network_diagnosis import OK, PROBLEM, apply_windows_firewall_rule, diagnose
+
+    print_header("Netwerkdiagnose")
+    print("Draai dit terwijl de app draait, anders lijkt hij alleen 'niet gestart'.\n")
+    result = diagnose(port)
+    for check in result.checks:
+        marker = OK_MARK if check.status == OK else (FAIL_MARK if check.status == PROBLEM else "?")
+        print(f"{marker} {check.name}: {check.detail}")
+        if check.fix:
+            print(f"    -> {check.fix}")
+
+    print(f"\n{result.conclusion}")
+    if not result.fixable_here:
+        return 0
+
+    print(f"\nVoor te stellen regel:\n  {result.fix_command}")
+    answer = input("\nDeze firewallregel nu toevoegen? Windows vraagt om beheerdersrechten. [j/N] ").strip().lower()
+    if answer not in {"j", "ja", "y", "yes"}:
+        print("Overgeslagen. Je kunt het commando hierboven ook zelf in een PowerShell als beheerder draaien.")
+        return 0
+    succeeded, message = apply_windows_firewall_rule(port)
+    print(f"{OK_MARK if succeeded else FAIL_MARK} {message}")
+    return 0
+
+
 def run_streamlit(share_on_network: bool = True) -> int:
     """Start the Streamlit app in the browser.
 
@@ -340,6 +367,7 @@ def print_test_guide() -> None:
         "retrieval_query_with_local_llm": f'python main.py --query "{DEFAULT_QUERY}" --llm',
         "streamlit_ui_manual_test": "python main.py --streamlit",
         "open_from_phone_on_same_wifi": "python main.py",
+        "why_cant_my_phone_reach_it": "python main.py --diagnose-network",
         "keep_the_app_on_this_machine_only": "python main.py --local-only",
         "archive_root_leftovers": "python main.py --archive-root-leftovers",
         "project_hygiene_check": "python main.py --check-hygiene",
@@ -390,6 +418,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--streamlit", action="store_true", help="Start app_streamlit.py explicitly (same as running without arguments).")
     parser.add_argument("--network", action="store_true", help="Serveer de app ook op je lokale netwerk (dit is inmiddels de standaard; de vlag blijft werken).")
     parser.add_argument("--local-only", action="store_true", help="Alleen op deze computer luisteren; niet bereikbaar vanaf je telefoon.")
+    parser.add_argument("--diagnose-network", action="store_true", help="Zoek uit waarom een ander apparaat de app niet kan openen, en bied de fix aan.")
     parser.add_argument("--archive-root-leftovers", action="store_true", help="Archive generated artifacts left in the project root.")
     parser.add_argument("--check-hygiene", action="store_true", help="Warn about generated artifacts left in the project root.")
     parser.add_argument("--guide", action="store_true", help="Print a JSON guide with common run/test commands.")
@@ -441,6 +470,7 @@ def main() -> int:
     runs_checks = bool(
         args.all or args.tests or args.dry_build or args.query or args.archive_root_leftovers
         or args.check_hygiene or args.benchmark or args.benchmark_llm or args.build_embeddings
+        or args.diagnose_network
     )
     launching_app = args.streamlit or not (runs_checks or args.setup)
 
@@ -484,6 +514,8 @@ def main() -> int:
             results.append(("Archive root leftovers", run_archive_root_leftovers()))
         if args.check_hygiene:
             results.append(("Project hygiene", run_hygiene_check()))
+        if args.diagnose_network:
+            results.append(("Netwerkdiagnose", run_network_diagnosis()))
         if args.benchmark:
             results.append(("Retrieval benchmark", run_benchmark()))
         if args.benchmark_llm:
