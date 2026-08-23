@@ -157,14 +157,105 @@ class WindowsCommandTests(unittest.TestCase):
         self.assertFalse(succeeded)
         self.assertIn("beheerdersrechten", message)
 
-    def test_success_is_reported_only_on_a_zero_exit(self) -> None:
+    def test_success_is_reported_on_a_zero_exit_with_confirmation(self) -> None:
         completed = mock.MagicMock(returncode=0, stdout="", stderr="")
         with mock.patch.object(nd.sys, "platform", "win32"), \
              mock.patch.object(nd, "current_firewall_profile", return_value="Public"), \
+             mock.patch.object(nd, "_read_report", return_value="OK"), \
              mock.patch.object(nd.subprocess, "run", return_value=completed):
             succeeded, message = nd.apply_windows_firewall_rule(8501)
         self.assertTrue(succeeded)
         self.assertIn("Public", message)
+
+
+class ElevationFailureTests(unittest.TestCase):
+    """The elevated window closes itself, so its error must be captured.
+
+    A tester saw the rule fail and PowerShell disappear before the message
+    could be read — which was the one piece of information that mattered.
+    """
+
+    def test_the_inner_script_writes_its_error_to_a_file(self) -> None:
+        script = nd.elevation_script(8501, "python.exe", "Private", r"C:\Temp\r.txt")
+        encoded = script.split("'-EncodedCommand','")[1].split("'")[0]
+        inner = base64.b64decode(encoded).decode("utf-16-le")
+        self.assertIn("Set-Content", inner)
+        self.assertIn("$_.Exception.Message", inner)
+        self.assertIn("'OK'", inner)
+
+    def test_a_refused_elevation_is_told_apart_from_a_refused_rule(self) -> None:
+        """No report file means the elevated shell never ran at all."""
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "current_firewall_profile", return_value="Private"), \
+             mock.patch.object(nd, "_read_report", return_value=""), \
+             mock.patch.object(nd.subprocess, "run", return_value=mock.MagicMock(returncode=2, stdout="", stderr="")):
+            succeeded, message = nd.apply_windows_firewall_rule(8501)
+        self.assertFalse(succeeded)
+        self.assertIn("niet geopend", message)
+
+    def test_windows_own_error_is_passed_through(self) -> None:
+        windows_error = "Cannot create a file when that file already exists."
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "current_firewall_profile", return_value="Private"), \
+             mock.patch.object(nd, "_read_report", return_value=windows_error), \
+             mock.patch.object(nd.subprocess, "run", return_value=mock.MagicMock(returncode=1, stdout="", stderr="")):
+            succeeded, message = nd.apply_windows_firewall_rule(8501)
+        self.assertFalse(succeeded)
+        self.assertIn(windows_error, message)
+        self.assertIn("group policy", message.lower())
+
+    def test_success_needs_both_a_zero_exit_and_the_ok_marker(self) -> None:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "current_firewall_profile", return_value="Private"), \
+             mock.patch.object(nd, "_read_report", return_value=""), \
+             mock.patch.object(nd.subprocess, "run", return_value=mock.MagicMock(returncode=0, stdout="", stderr="")):
+            succeeded, _ = nd.apply_windows_firewall_rule(8501)
+        self.assertFalse(succeeded, "exitcode 0 zonder bevestiging is geen succes")
+
+    def test_the_it_request_carries_everything_needed(self) -> None:
+        text = nd.it_request_text(8501, r"C:\Python312\python.exe")
+        self.assertIn("8501", text)
+        self.assertIn(r"C:\Python312\python.exe", text)
+        self.assertIn("New-NetFirewallRule", text)
+
+
+class BlockRuleTests(unittest.TestCase):
+    """A Block rule beats an Allow rule in Windows Firewall, always."""
+
+    def _probe(self, output: str) -> list[nd.Check]:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", return_value=output):
+            return nd.check_windows_firewall(8501)
+
+    def test_existing_block_rules_are_reported(self) -> None:
+        checks = self._probe(
+            "CATEGORY=Private\nPROFILE=Private\nFIREWALL=True\nRULE=False\nBLOCKED=2\nADMIN=False\n"
+        )
+        names = [check.name for check in checks]
+        self.assertIn("Blokkeerregel voor Python", names)
+        blocker = next(check for check in checks if check.name == "Blokkeerregel voor Python")
+        self.assertEqual(nd.PROBLEM, blocker.status)
+        self.assertIn("Remove-NetFirewallRule", blocker.fix)
+
+    def test_no_block_rules_means_no_such_check(self) -> None:
+        checks = self._probe("CATEGORY=Private\nPROFILE=Private\nFIREWALL=True\nRULE=False\nBLOCKED=0\n")
+        self.assertNotIn("Blokkeerregel voor Python", [check.name for check in checks])
+
+    def test_a_block_rule_outranks_the_missing_allow_rule(self) -> None:
+        """Adding an Allow rule would change nothing while a Block rule stands."""
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=[
+                 nd.Check("Blokkeerregel voor Python", nd.PROBLEM, "twee stuks"),
+                 nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+                 nd.Check("Firewallregel voor deze app", nd.PROBLEM, "ontbreekt"),
+             ]):
+            result = nd.diagnose(8501, address="192.168.1.24")
+        self.assertIn("blokkeerregel", result.conclusion.lower())
+        self.assertFalse(result.fixable_here, "eerst blokkeerregel weg, anders helpt toevoegen niets")
+
+    def test_missing_admin_rights_are_flagged_before_trying(self) -> None:
+        checks = self._probe("CATEGORY=Private\nPROFILE=Private\nFIREWALL=True\nRULE=False\nBLOCKED=0\nADMIN=False\n")
+        self.assertIn("Beheerdersrechten", [check.name for check in checks])
 
 
 class SafetyTests(unittest.TestCase):
