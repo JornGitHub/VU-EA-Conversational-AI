@@ -10,7 +10,11 @@ interfaces and the QR code is drawn locally.
 
 from __future__ import annotations
 
+import ipaddress
+import re
 import socket
+import subprocess
+import sys
 from typing import Any
 
 QR_UNAVAILABLE_HINT = (
@@ -35,6 +39,95 @@ def local_network_address() -> str | None:
     return address if address and not address.startswith("127.") else None
 
 
+def _is_usable(address: str) -> bool:
+    """Keep private IPv4 addresses a phone on the same network could reach."""
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError:
+        return False
+    if parsed.version != 4 or parsed.is_loopback or parsed.is_link_local:
+        return False
+    # Subnetmaskers als 255.255.255.0 vallen in het gereserveerde bereik en
+    # tellen bij Python als "private"; die komen uit ipconfig-uitvoer mee.
+    if parsed.is_reserved or parsed.is_multicast or parsed.is_unspecified:
+        return False
+    return parsed.is_private
+
+
+def _addresses_from_hostname() -> list[str]:
+    """Ask the OS for this machine's own addresses.
+
+    On Windows this usually returns every adapter; on Linux it often returns
+    only loopback, which is why it is one source among several.
+    """
+    found: list[str] = []
+    try:
+        _, _, addresses = socket.gethostbyname_ex(socket.gethostname())
+        found.extend(addresses)
+    except (OSError, UnicodeError):
+        pass
+    try:
+        found.extend(info[4][0] for info in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET))
+    except (OSError, UnicodeError):
+        pass
+    return found
+
+
+def _addresses_from_system() -> list[str]:
+    """Read the interface list from the OS tooling, as a last source.
+
+    A laptop with a VPN, Docker or a second adapter has several addresses and
+    only one of them is the wifi the phone is on; guessing one and hiding the
+    rest is what leaves someone staring at a blank page.
+    """
+    if sys.platform.startswith("win"):
+        command = ["ipconfig"]
+    elif sys.platform == "darwin":
+        command = ["ifconfig"]
+    else:
+        command = ["ip", "-4", "-o", "addr", "show"]
+    try:
+        completed = subprocess.run(command, capture_output=True, text=True, timeout=4)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return re.findall(r"\b(?:\d{1,3}\.){3}\d{1,3}\b", completed.stdout or "")
+
+
+def _belongs_to_this_machine(address: str) -> bool:
+    """True when a socket can bind to this address, so it is really ours.
+
+    Needed because reading ``ipconfig``/``ip addr`` output with a plain address
+    pattern also picks up subnet masks, gateways and DNS servers. Offering one
+    of those as "try this instead" would send someone chasing an address that
+    was never going to answer. Binding is the OS's own answer to the question.
+    """
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+            probe.bind((address, 0))
+    except OSError:
+        return False
+    return True
+
+
+def local_network_addresses() -> list[str]:
+    """Return every address a phone might use, best guess first.
+
+    The routed address (the interface the OS would use to reach the internet)
+    comes first because it is right on a plain laptop-on-wifi; the rest are
+    there for the machine where it is not.
+    """
+    ordered: list[str] = []
+    primary = local_network_address()
+    if primary:
+        ordered.append(primary)
+    for address in _addresses_from_hostname() + _addresses_from_system():
+        if address in ordered or not _is_usable(address):
+            continue
+        if _belongs_to_this_machine(address):
+            ordered.append(address)
+    return ordered
+
+
 def is_reachable_from_network(server_address: str | None) -> bool:
     """True when Streamlit listens on more than the loopback interface.
 
@@ -52,6 +145,11 @@ def is_reachable_from_network(server_address: str | None) -> bool:
 def pairing_url(port: int = 8501) -> str | None:
     address = local_network_address()
     return f"http://{address}:{port}" if address else None
+
+
+def pairing_urls(port: int = 8501) -> list[str]:
+    """Every address worth trying, best guess first."""
+    return [f"http://{address}:{port}" for address in local_network_addresses()]
 
 
 def qr_svg(url: str, scale: int = 4) -> str | None:
@@ -75,13 +173,21 @@ def qr_svg(url: str, scale: int = 4) -> str | None:
     return buffer.getvalue().decode("utf-8")
 
 
+def reachable_urls_wanted(server_address: str | None) -> bool:
+    """Only enumerate interfaces when the app actually listens broadly."""
+    return is_reachable_from_network(server_address)
+
+
 def pairing_status(server_address: str | None, port: int = 8501) -> dict[str, Any]:
     """Describe how (or whether) a phone can reach this app right now."""
     url = pairing_url(port)
+    urls = pairing_urls(port) if reachable_urls_wanted(server_address) else []
     reachable = is_reachable_from_network(server_address)
     return {
         "reachable": bool(reachable and url),
         "url": url if reachable else None,
+        "alternatives": [other for other in urls if other != url] if reachable else [],
+        "port": port,
         "server_address": server_address,
         "hint": (
             ""

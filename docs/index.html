@@ -522,6 +522,20 @@ python3 -m venv .venv
       </p>
     </details>
     <details>
+      <summary>Op mijn telefoon blijft het scherm zwart en daarna volgt een time-out</summary>
+      <p>
+        De pagina laadt wel, maar de verbinding die de app daarna nodig heeft komt niet tot stand. Test eerst
+        op de laptop zelf: open daar het netwerkadres (<code>http://192.168.x.x:8501</code>, niet
+        <code>localhost</code>). Werkt dat niet, probeer dan een van de andere adressen die het paneel toont.
+        Werkt het op de laptop wél, dan is het één van drie: <strong>clientisolatie</strong> op het
+        wifi-netwerk (veel gast- en universiteitsnetwerken verbieden verkeer tussen apparaten — test met de
+        hotspot van je telefoon), de <strong>firewall</strong> die Python blokkeert, of een
+        <strong>verkeerd adres</strong> door een VPN of Docker. Controleer ook of je telefoon op wifi zit en
+        niet op 4G/5G. Het paneel <em>“Zwart scherm of server reageert niet?”</em> in de app loopt dit met je
+        af.
+      </p>
+    </details>
+    <details>
       <summary>Ik wil de app op mijn telefoon of tablet bekijken</summary>
       <p>
         Dat werkt zonder extra stappen: start hem op je laptop met <code>python main.py</code> en open het
