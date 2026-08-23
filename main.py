@@ -300,6 +300,13 @@ def run_network_diagnosis(port: int = 8501) -> int:
         return 0
     succeeded, message = apply_windows_firewall_rule(port)
     print(f"{OK_MARK if succeeded else FAIL_MARK} {message}")
+    if not succeeded:
+        from src.network_diagnosis import it_request_text
+
+        print("\nZelf draaien in een PowerShell als beheerder:")
+        print(f"  {result.fix_command}")
+        print("\nOf stuur dit naar je IT-beheerder:\n")
+        print(it_request_text(port))
     return 0
 
 
