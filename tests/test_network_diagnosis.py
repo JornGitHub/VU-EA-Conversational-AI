@@ -47,10 +47,19 @@ class WindowsProbeTests(unittest.TestCase):
         self.assertEqual(nd.PROBLEM, by_name["Windows Firewall"].status)
         self.assertEqual(nd.PROBLEM, by_name["Firewallregel voor deze app"].status)
 
-    def test_an_existing_rule_clears_the_firewall(self) -> None:
-        checks = self._probe("CATEGORY=Private\nPROFILE=Private\nFIREWALL=True\nRULE=True\n")
+    def test_a_rule_that_applies_here_clears_the_firewall(self) -> None:
+        checks = self._probe(
+            "CATEGORY=Private\nPROFILE=Private\nFIREWALL=True\nRULE=True\nRULEAPPLIES=True\n"
+            "RULEPROFILES=Private\n"
+        )
         by_name = {check.name: check for check in checks}
         self.assertEqual(nd.OK, by_name["Firewallregel voor deze app"].status)
+
+    def test_a_rule_we_cannot_confirm_applies_is_not_called_ok(self) -> None:
+        """Reporting OK for a rule doing nothing is worse than reporting nothing."""
+        checks = self._probe("CATEGORY=Private\nPROFILE=Private\nFIREWALL=True\nRULE=True\n")
+        by_name = {check.name: check for check in checks}
+        self.assertEqual(nd.PROBLEM, by_name["Firewallregel voor deze app"].status)
 
     def test_a_public_network_is_reported_because_it_changes_the_fix(self) -> None:
         """A rule scoped to Private does nothing on a network Windows calls Public."""
@@ -258,16 +267,121 @@ class BlockRuleTests(unittest.TestCase):
         self.assertIn("Beheerdersrechten", [check.name for check in checks])
 
 
+class RuleAppliesTests(unittest.TestCase):
+    """A rule that exists is not a rule that applies.
+
+    The tester's laptop had a rule named exactly right while the phone still
+    could not connect: the network is Public and the rule was scoped Private.
+    Checking only for the name reported "OK" for a rule doing nothing.
+    """
+
+    def _probe(self, output: str) -> list[nd.Check]:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", return_value=output):
+            return nd.check_windows_firewall(8501)
+
+    def test_a_rule_for_another_profile_is_a_problem_not_an_ok(self) -> None:
+        checks = self._probe(
+            "CATEGORY=Public\nPROFILE=Public\nFIREWALL=True\nALLOWINBOUND=True\n"
+            "RULE=True\nRULEAPPLIES=False\nRULEPROFILES=Private\nBLOCKED=0\n"
+        )
+        rule = next(check for check in checks if check.name == "Firewallregel voor deze app")
+        self.assertEqual(nd.PROBLEM, rule.status)
+        self.assertIn("Private", rule.detail)
+        self.assertIn("Public", rule.detail)
+
+    def test_a_rule_for_this_profile_is_ok(self) -> None:
+        checks = self._probe(
+            "CATEGORY=Public\nPROFILE=Public\nFIREWALL=True\nALLOWINBOUND=True\n"
+            "RULE=True\nRULEAPPLIES=True\nRULEPROFILES=Public\nBLOCKED=0\n"
+        )
+        rule = next(check for check in checks if check.name == "Firewallregel voor deze app")
+        self.assertEqual(nd.OK, rule.status)
+
+    def test_a_wrong_profile_rule_is_offered_as_fixable(self) -> None:
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=[
+                 nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+                 nd.Check("Firewallregel voor deze app", nd.PROBLEM,
+                          "Er is een regel 'X', maar die geldt voor Private en dit netwerk is 'Public'."),
+             ]), \
+             mock.patch.object(nd, "windows_firewall_command", return_value="Remove...; New..."):
+            result = nd.diagnose(8501, address="192.168.1.61")
+        self.assertTrue(result.fixable_here)
+        self.assertIn("ander netwerkprofiel", result.conclusion)
+
+    def test_the_fix_replaces_rather_than_stacks(self) -> None:
+        """Leaving the old rule beside the new one changes nothing."""
+        command = nd.windows_firewall_command(8501, "python.exe", "Public")
+        self.assertIn("Remove-NetFirewallRule", command)
+        self.assertLess(command.index("Remove-NetFirewallRule"), command.index("New-NetFirewallRule"))
+
+
+class PolicyTests(unittest.TestCase):
+    """Group policy can make the whole firewall route pointless."""
+
+    def _probe(self, output: str) -> list[nd.Check]:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", return_value=output):
+            return nd.check_windows_firewall(8501)
+
+    def test_ignored_inbound_rules_are_reported(self) -> None:
+        checks = self._probe(
+            "CATEGORY=Public\nPROFILE=Public\nFIREWALL=True\nALLOWINBOUND=False\n"
+            "RULE=True\nRULEAPPLIES=True\nRULEPROFILES=Public\nBLOCKED=0\n"
+        )
+        self.assertIn("Inkomende regels toegestaan", [check.name for check in checks])
+
+    def test_not_configured_is_not_treated_as_blocked(self) -> None:
+        """NotConfigured means the default applies, which allows the rules."""
+        checks = self._probe(
+            "CATEGORY=Public\nPROFILE=Public\nFIREWALL=True\nALLOWINBOUND=NotConfigured\n"
+            "RULE=True\nRULEAPPLIES=True\nRULEPROFILES=Public\nBLOCKED=0\n"
+        )
+        self.assertNotIn("Inkomende regels toegestaan", [check.name for check in checks])
+
+    def test_policy_verdict_stops_offering_a_fix_that_cannot_work(self) -> None:
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=[
+                 nd.Check("Inkomende regels toegestaan", nd.PROBLEM, "beleid negeert ze"),
+                 nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+                 nd.Check("Firewallregel voor deze app", nd.OK, "aanwezig"),
+             ]):
+            result = nd.diagnose(8501, address="192.168.1.61")
+        self.assertFalse(result.fixable_here)
+        self.assertIn("hotspot", result.conclusion)
+        self.assertIn("zoek.html", result.conclusion, "wie alleen wil opzoeken heeft een route zonder netwerk")
+
+
 class SafetyTests(unittest.TestCase):
     def test_a_failing_system_command_never_raises(self) -> None:
         with mock.patch.object(nd.subprocess, "run", side_effect=OSError("geen powershell")):
             self.assertEqual("", nd._run(["powershell"]))
 
     def test_diagnosis_never_reaches_outside_this_machine(self) -> None:
-        """Everything here is local; a diagnosis must not phone home."""
-        text = Path(nd.__file__).read_text(encoding="utf-8")
-        for forbidden in ("http://", "https://", "urllib", "requests"):
-            self.assertNotIn(forbidden, text, f"{forbidden} hoort hier niet")
+        """Everything here is local; a diagnosis must not phone home.
+
+        A URL inside a message is fine — that is advice, not a request. What
+        must not appear is a way to make one.
+        """
+        import ast
+
+        tree = ast.parse(Path(nd.__file__).read_text(encoding="utf-8"))
+        imported: set[str] = set()
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                imported.update(alias.name.split(".")[0] for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                imported.add(node.module.split(".")[0])
+        for forbidden in ("urllib", "requests", "http", "httpx", "ftplib", "smtplib"):
+            self.assertNotIn(forbidden, imported, f"{forbidden} hoort hier niet")
+
+    def test_the_only_connection_made_is_to_this_machine(self) -> None:
+        """The one socket we open goes to our own address, to test listening."""
+        with mock.patch.object(nd.socket, "create_connection") as connect:
+            nd.check_listening("192.168.1.61", 8501)
+        connect.assert_called_once()
+        self.assertEqual(("192.168.1.61", 8501), connect.call_args[0][0])
 
 
 if __name__ == "__main__":
