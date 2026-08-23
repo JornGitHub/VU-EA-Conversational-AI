@@ -432,7 +432,10 @@ def render_pairing_panel() -> None:
     """Show how to open this app on a phone: the address, and a QR to scan.
 
     Streamlit's default binds to localhost, in which case no address would work
-    — so the panel says how to restart rather than printing a dead URL.
+    — so the panel says how to restart rather than printing a dead URL. When it
+    does listen broadly, one address is still only a best guess on a laptop with
+    a VPN, Docker or a second adapter, so every candidate is offered along with
+    a way to tell the three failure causes apart.
     """
     try:
         server_address = st.get_option("server.address")
@@ -444,7 +447,7 @@ def render_pairing_panel() -> None:
     with st.sidebar.expander("📱 Op je telefoon openen", expanded=False):
         if not status["reachable"]:
             st.info(status["hint"])
-            st.code("python main.py --network", language="bash")
+            st.code("python main.py", language="bash")
             return
 
         url = status["url"]
@@ -456,10 +459,42 @@ def render_pairing_panel() -> None:
             st.caption(QR_UNAVAILABLE_HINT)
         st.code(url, language="text")
         st.caption(
-            "Telefoon en computer moeten op hetzelfde wifi-netwerk zitten. De app, de "
-            "documentatie en je vragen blijven op deze computer; je telefoon toont alleen "
-            "het scherm. Iedereen op dit netwerk kan de app nu openen."
+            "Telefoon en computer moeten op hetzelfde wifi-netwerk zitten (de telefoon dus niet op 4G/5G). "
+            "De app, de documentatie en je vragen blijven op deze computer; je telefoon toont alleen het "
+            "scherm. Iedereen op dit netwerk kan de app nu openen."
         )
+
+        alternatives = status.get("alternatives") or []
+        if alternatives:
+            with st.expander(f"Werkt dat adres niet? Er zijn er nog {len(alternatives)}"):
+                st.caption(
+                    "Deze computer heeft meerdere netwerkadressen — bijvoorbeeld door een VPN, Docker of "
+                    "een tweede adapter. Alleen het adres van je wifi werkt."
+                )
+                for other in alternatives:
+                    other_svg = qr_svg(other, scale=3)
+                    if other_svg:
+                        st.image(other_svg, width=130)
+                    st.code(other, language="text")
+
+        with st.expander("Zwart scherm of “server reageert niet”?"):
+            st.markdown(
+                f"""
+**Test eerst op deze computer zelf.** Open `{url}` in de browser van deze laptop — dus dat adres,
+niet `localhost`. Werkt dat niet, probeer dan een van de andere adressen hierboven.
+
+Werkt het hier wél en op je telefoon niet, dan zit het tussen de twee apparaten:
+
+1. **Wifi met clientisolatie.** Veel gast- en universiteitsnetwerken laten apparaten onderling geen
+   verkeer toe. Dan werkt géén enkel adres. Test het: zet deze laptop op de hotspot van je telefoon.
+   Werkt het dan wel, dan was dit de oorzaak.
+2. **Firewall.** Windows vraagt bij de eerste start of Python via de firewall mag. Gemist of geweigerd?
+   Dan wordt binnenkomend verkeer stilletjes weggegooid en blijft de pagina zwart tot je browser
+   opgeeft. Aanzetten: **Windows-beveiliging → Firewall- en netwerkbeveiliging → Een app door de
+   firewall toestaan** → zoek Python en vink *Privé* aan.
+3. **Verkeerd adres.** Zie het blok hierboven met de andere adressen.
+"""
+            )
 
 
 def render_sidebar() -> dict:

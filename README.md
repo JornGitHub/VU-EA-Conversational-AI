@@ -181,6 +181,29 @@ telefoon toont alleen het scherm.
 > eerste keer of Python door de firewall mag; sta dat toe voor particuliere netwerken, anders kan je telefoon
 > er niet bij.
 
+#### Zwart scherm op de telefoon, en daarna een time-out
+
+Dat de pagina laadt maar leeg blijft en pas na een halve minuut afhaakt, betekent bijna altijd: de HTML komt
+binnen, maar de websocket-verbinding die Streamlit nodig heeft komt niet tot stand. Er zijn drie oorzaken en
+je kunt ze uit elkaar houden.
+
+**Test eerst op de laptop zelf.** Open het netwerkadres (dus `http://192.168.x.x:8501`, niet `localhost`) in
+de browser van je laptop. Werkt dat niet, dan luistert de app niet op dat adres — probeer een van de andere
+adressen die het paneel toont.
+
+Werkt het op de laptop wel en op de telefoon niet, dan zit het tussen de twee apparaten:
+
+| Oorzaak | Hoe je het herkent | Wat je doet |
+|---------|--------------------|-------------|
+| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten | Zet je laptop op de hotspot van je telefoon. Werkt het dan wel, dan was dit de oorzaak. |
+| **Firewall** | Windows vroeg bij de eerste start of Python door de firewall mocht, en dat is gemist of geweigerd. Geblokkeerd verkeer wordt weggegooid, niet geweigerd — vandaar het lange wachten | **Windows-beveiliging → Firewall- en netwerkbeveiliging → Een app door de firewall toestaan** → zoek Python, vink *Privé* aan |
+| **Verkeerd adres** | Je hebt een VPN, Docker of een tweede netwerkadapter, dus het eerste adres is niet je wifi | Probeer de andere adressen; het paneel toont ze met een eigen QR-code |
+
+Controleer ook of je telefoon écht op wifi zit en niet op 4G/5G — dat is de stilste oorzaak van dit symptoom.
+
+Het koppelpaneel in de app bevat dezelfde uitleg onder **Zwart scherm of "server reageert niet"?**, met jouw
+eigen adressen erin ingevuld.
+
 ---
 
 ## 2. Wat `main.py` precies doet

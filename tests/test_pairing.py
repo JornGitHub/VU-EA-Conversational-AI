@@ -45,6 +45,75 @@ class ReachabilityTests(unittest.TestCase):
             self.assertIsNone(pairing.local_network_address())
 
 
+class AddressEnumerationTests(unittest.TestCase):
+    """One guessed address is not enough on a laptop with a VPN or Docker.
+
+    A phone that gets the wrong address shows a blank page and then times out,
+    which looks exactly like the app being broken.
+    """
+
+    def test_only_private_reachable_addresses_are_offered(self) -> None:
+        for address in ("192.168.1.24", "10.0.0.5", "172.16.3.9"):
+            self.assertTrue(pairing._is_usable(address), address)
+        for address in (
+            "127.0.0.1", "169.254.10.2", "8.8.8.8", "::1", "niet-een-adres", "",
+            "255.255.255.0", "255.255.0.0", "224.0.0.1", "0.0.0.0",
+        ):
+            self.assertFalse(pairing._is_usable(address), address)
+
+    def test_the_routed_address_comes_first(self) -> None:
+        """It is right on a plain laptop-on-wifi, so it stays the headline."""
+        with mock.patch.object(pairing, "local_network_address", return_value="192.168.1.24"), \
+             mock.patch.object(pairing, "_addresses_from_hostname", return_value=["172.17.0.1"]), \
+             mock.patch.object(pairing, "_addresses_from_system", return_value=["10.8.0.2", "192.168.1.24"]), \
+             mock.patch.object(pairing, "_belongs_to_this_machine", return_value=True):
+            self.assertEqual(["192.168.1.24", "172.17.0.1", "10.8.0.2"], pairing.local_network_addresses())
+
+    def test_duplicates_and_junk_are_dropped(self) -> None:
+        with mock.patch.object(pairing, "local_network_address", return_value="192.168.1.24"), \
+             mock.patch.object(pairing, "_addresses_from_hostname", return_value=["192.168.1.24", "127.0.0.1"]), \
+             mock.patch.object(pairing, "_addresses_from_system", return_value=["255.255.255.0", "8.8.8.8"]), \
+             mock.patch.object(pairing, "_belongs_to_this_machine", return_value=True):
+            self.assertEqual(["192.168.1.24"], pairing.local_network_addresses())
+
+    def test_addresses_that_are_not_ours_are_dropped(self) -> None:
+        """Reading ipconfig also yields subnet masks, gateways and DNS servers.
+
+        Those are private-looking and would be offered as "try this instead",
+        sending someone after an address that was never going to answer.
+        """
+        self.assertFalse(pairing._belongs_to_this_machine("255.255.255.0"))
+        self.assertFalse(pairing._belongs_to_this_machine("192.168.255.254"))
+        self.assertTrue(pairing._belongs_to_this_machine("127.0.0.1"))
+
+        with mock.patch.object(pairing, "local_network_address", return_value=None), \
+             mock.patch.object(pairing, "_addresses_from_hostname", return_value=[]), \
+             mock.patch.object(pairing, "_addresses_from_system", return_value=["192.168.1.1", "10.44.0.9"]):
+            self.assertEqual([], pairing.local_network_addresses())
+
+    def test_status_lists_the_alternatives_separately(self) -> None:
+        with mock.patch.object(pairing, "local_network_address", return_value="192.168.1.24"), \
+             mock.patch.object(pairing, "local_network_addresses", return_value=["192.168.1.24", "10.8.0.2"]):
+            status = pairing.pairing_status("0.0.0.0", port=8501)
+        self.assertEqual("http://192.168.1.24:8501", status["url"])
+        self.assertEqual(["http://10.8.0.2:8501"], status["alternatives"])
+        self.assertEqual(8501, status["port"])
+
+    def test_nothing_is_enumerated_when_the_app_is_local_only(self) -> None:
+        status = pairing.pairing_status("localhost")
+        self.assertEqual([], status["alternatives"])
+
+    def test_a_failing_system_command_costs_nothing(self) -> None:
+        """ipconfig/ip may be absent or slow; that must not break the panel."""
+        with mock.patch.object(pairing.subprocess, "run", side_effect=OSError("geen ipconfig")):
+            self.assertEqual([], pairing._addresses_from_system())
+
+    def test_a_broken_hostname_lookup_costs_nothing(self) -> None:
+        with mock.patch.object(pairing.socket, "gethostbyname_ex", side_effect=OSError), \
+             mock.patch.object(pairing.socket, "getaddrinfo", side_effect=OSError):
+            self.assertEqual([], pairing._addresses_from_hostname())
+
+
 class QrTests(unittest.TestCase):
     def test_qr_encodes_exactly_the_url(self) -> None:
         """A QR that points somewhere else is a silent trap."""

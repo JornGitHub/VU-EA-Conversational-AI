@@ -302,16 +302,21 @@ def run_streamlit(share_on_network: bool = True) -> int:
         return run_command(command, "Streamlit app")
 
     command += ["--server.address", "0.0.0.0"]
-    from src.pairing import local_network_address  # lokaal: src hoeft niet te bestaan voor --guide
+    from src.pairing import local_network_addresses  # lokaal: src hoeft niet te bestaan voor --guide
 
-    address = local_network_address()
+    addresses = local_network_addresses()
     print_header("Ook bereikbaar op je eigen netwerk")
-    if address:
-        print(f"Open op je telefoon of tablet:  http://{address}:8501")
+    if addresses:
+        print(f"Open op je telefoon of tablet:  http://{addresses[0]}:8501")
+        for other in addresses[1:]:
+            # Met een VPN, Docker of een tweede adapter is het eerste adres niet
+            # per se de wifi waar de telefoon op zit.
+            print(f"Werkt dat niet, probeer dan:    http://{other}:8501")
     else:
         print("Kon het netwerkadres van deze machine niet bepalen.")
-    print("In de app staat dit adres ook als QR-code onder 'Op je telefoon openen'.")
-    print("Telefoon en laptop moeten op hetzelfde wifi-netwerk zitten.")
+    print("In de app staan deze adressen ook als QR-code onder 'Op je telefoon openen'.")
+    print("Telefoon en laptop moeten op hetzelfde wifi-netwerk zitten (telefoon dus niet op 4G/5G).")
+    print("Blijft het scherm zwart? Zie het blok 'Zwart scherm' in datzelfde paneel.")
     print("Iedereen op dit netwerk kan de app openen; wil je dat niet, start dan met --local-only.")
     if sys.platform.startswith("win"):
         print("Windows vraagt de eerste keer of Python via de firewall mag - sta dat toe voor")
