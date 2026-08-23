@@ -232,6 +232,22 @@ ziet, dan doet hij niets — en dat is precies hoe het eruitziet alsof de fix ni
 controleert daarom of de regel ingeschakeld is, inkomend is, toestaat, én voor het huidige profiel geldt.
 Klopt dat laatste niet, dan biedt hij aan de regel te vervangen door één voor het juiste profiel.
 
+**Als Windows Firewall in orde is en er tóch niets doorkomt.** Dan kijkt de diagnose verder, want op een
+beheerde laptop is Windows Firewall zelden de enige poortwachter:
+
+* **Andere beveiligingssoftware.** Pakketten als endpoint-protection hebben een eigen firewall die inkomend
+  verkeer los van Windows blokkeert. De diagnose leest uit welke firewallproducten bij Windows geregistreerd
+  staan en noemt ze bij naam. De app kan daar niets aan veranderen; dat is een verzoek aan je IT-beheerder.
+* **Brede blokkeerregels.** Een beleidsregel die alle inkomend verkeer op dit profiel dichtzet, hangt niet aan
+  een programma en wint toch van onze toestaan-regel. Die worden geteld en bij naam genoemd.
+
+Deze tweede ronde draait alleen als Windows Firewall zelf niets verklaart — anders is de oorzaak al gevonden
+en kost het alleen tijd.
+
+**De route die niemand kan dichtzetten.** Blijft het hangen op het netwerk of op software buiten de app, dan
+toont het paneel de hotspot-route: zet de hotspot van je telefoon aan, verbind je laptop daarmee, herstart de
+app en scan de nieuwe QR-code. De telefoon is dan zelf het netwerk, dus er zit geen router of beleid tussen.
+
 **Als het beleid inkomende regels negeert.** Organisaties zetten op het profiel *Openbaar* vaak
 `AllowInboundRules` uit. Dan negeert Windows álle inkomende toestaan-regels, hoe correct ze ook zijn. De
 diagnose leest dat uit en zegt het: de firewallroute is dan dicht en blijft dicht. Wat overblijft is de

@@ -353,6 +353,82 @@ class PolicyTests(unittest.TestCase):
         self.assertIn("zoek.html", result.conclusion, "wie alleen wil opzoeken heeft een route zonder netwerk")
 
 
+class OtherBlockerTests(unittest.TestCase):
+    """Windows Firewall being fine does not mean nothing is blocking.
+
+    The tester's laptop reported a correct, applying rule for the right profile
+    and still nothing reached the phone — so the checks have to look past
+    Windows' own firewall.
+    """
+
+    BASIC = (
+        "CATEGORY=Public\nPROFILE=Public\nFIREWALL=True\nALLOWINBOUND=True\n"
+        "RULE=True\nRULEAPPLIES=True\nRULEPROFILES=Public\nBLOCKED=0\nADMIN=False\n"
+    )
+
+    def _diagnose(self, deep: str) -> nd.Diagnosis:
+        def fake_run(command, timeout=6):
+            return deep if "FirewallProduct" in command[-1] else self.BASIC
+
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", fake_run), \
+             mock.patch.object(nd, "check_listening",
+                               return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")):
+            return nd.diagnose(8501, address="192.168.1.61")
+
+    def test_a_third_party_firewall_is_named(self) -> None:
+        result = self._diagnose("FIREWALLPRODUCTS=Cisco Secure Endpoint\nBROADBLOCKS=0\nBROADNAMES=\n")
+        finding = next(check for check in result.checks if check.name == "Andere beveiligingssoftware")
+        self.assertEqual(nd.PROBLEM, finding.status)
+        self.assertIn("Cisco Secure Endpoint", finding.detail)
+        self.assertNotIn("BROADBLOCKS", finding.detail, "sleutels van andere regels horen niet in de naam")
+        self.assertFalse(result.fixable_here, "een ander pakket kan de app niet zelf openzetten")
+
+    def test_windows_own_firewall_is_not_reported_as_a_third_party(self) -> None:
+        result = self._diagnose("FIREWALLPRODUCTS=\nBROADBLOCKS=0\nBROADNAMES=\n")
+        self.assertNotIn("Andere beveiligingssoftware", [check.name for check in result.checks])
+
+    def test_broad_block_rules_are_reported_with_their_names(self) -> None:
+        result = self._diagnose("FIREWALLPRODUCTS=\nBROADBLOCKS=3\nBROADNAMES=Block inbound Public|Corp baseline\n")
+        finding = next(check for check in result.checks if check.name == "Brede blokkeerregels")
+        self.assertIn("Block inbound Public", finding.detail)
+        self.assertIn("Corp baseline", finding.detail)
+        self.assertIn("blokkeerregels", result.conclusion)
+
+    def test_nothing_extra_found_points_at_the_network(self) -> None:
+        result = self._diagnose("FIREWALLPRODUCTS=\nBROADBLOCKS=0\nBROADNAMES=\n")
+        self.assertIn("clientisolatie", result.conclusion)
+        self.assertIn("geen andere beveiligingssoftware", result.conclusion)
+
+    def test_the_slow_round_is_skipped_when_windows_already_explains_it(self) -> None:
+        """No point enumerating every rule when the cause is already known."""
+        calls: list[str] = []
+
+        def fake_run(command, timeout=6):
+            calls.append(command[-1])
+            return (
+                "CATEGORY=Public\nPROFILE=Public\nFIREWALL=True\nALLOWINBOUND=True\n"
+                "RULE=False\nRULEAPPLIES=False\nBLOCKED=0\n"
+            )
+
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", fake_run), \
+             mock.patch.object(nd, "check_listening",
+                               return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "windows_firewall_command", return_value="New-NetFirewallRule ..."):
+            nd.diagnose(8501, address="192.168.1.61")
+        self.assertFalse(any("FirewallProduct" in call for call in calls), calls)
+
+    def test_a_silent_deep_probe_adds_nothing(self) -> None:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", return_value=""):
+            self.assertEqual([], nd.check_other_blockers(8501))
+
+    def test_the_deep_probe_is_windows_only(self) -> None:
+        with mock.patch.object(nd.sys, "platform", "linux"):
+            self.assertEqual([], nd.check_other_blockers(8501))
+
+
 class SafetyTests(unittest.TestCase):
     def test_a_failing_system_command_never_raises(self) -> None:
         with mock.patch.object(nd.subprocess, "run", side_effect=OSError("geen powershell")):
