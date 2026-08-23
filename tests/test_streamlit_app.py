@@ -139,3 +139,22 @@ class DataExampleQuestionTests(unittest.TestCase):
         """Retrieval has nothing about record shape, so "not found" misleads."""
         self.assertIn("beschrijft losse velden, niet hoe een rij eruitziet", self.source)
         self.assertIn('expanded=bool(row)', self.source)
+
+
+class PhoneFallbackTests(unittest.TestCase):
+    """When the block is outside the app, offer the route nobody can close."""
+
+    def setUp(self) -> None:
+        self.source = Path("app_streamlit.py").read_text(encoding="utf-8")
+
+    def test_the_hotspot_route_is_spelled_out_when_no_fix_applies(self) -> None:
+        block = self.source.split('if not result["fixable_here"]:')[1].split("return")[0]
+        self.assertIn("hotspot", block.lower())
+        self.assertIn("python main.py", block)
+        self.assertIn("zoek.html", block, "opzoeken kan zonder netwerkverbinding")
+
+    def test_it_is_not_shown_when_the_app_can_fix_it_itself(self) -> None:
+        """Sending someone to a hotspot while a button would do is noise."""
+        index_fix = self.source.index('if not result["fixable_here"]:')
+        index_button = self.source.index("Firewallregel toevoegen")
+        self.assertLess(index_fix, index_button, "de fix-knop hoort na de vroege return te staan")

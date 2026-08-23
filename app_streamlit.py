@@ -449,6 +449,25 @@ def render_network_diagnosis(url: str, port: int) -> None:
     st.info(result["conclusion"])
 
     if not result["fixable_here"]:
+        # Zit de blokkade buiten de app, dan is dit de route die niemand kan
+        # dichtzetten: de telefoon is dan zelf het netwerk.
+        with st.expander("Route die altijd werkt: via de hotspot van je telefoon"):
+            st.markdown(
+                """
+1. Zet op je telefoon de **persoonlijke hotspot** aan.
+2. Verbind **deze laptop** met die hotspot (wifi-lijst → de naam van je telefoon).
+3. Herstart de app: `python main.py`.
+4. Open in dit paneel het nieuwe adres, of scan de nieuwe QR-code.
+
+De telefoon is dan zelf het netwerk, dus er is geen router of beleid dat ertussen kan zitten.
+Let op je databundel: de app zelf verstuurt niets naar buiten, maar je telefoon deelt wel internet.
+"""
+            )
+        st.caption(
+            "Wil je alleen iets opzoeken, dan hoeft dit allemaal niet: "
+            "[de zoekpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html) werkt op elke "
+            "telefoon zonder verbinding met deze laptop."
+        )
         return
 
     st.caption(

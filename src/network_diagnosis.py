@@ -276,6 +276,90 @@ def check_windows_firewall(port: int) -> list[Check]:
     return checks
 
 
+# Een tweede, tragere ronde. Apart gehouden zodat het opsommen van alle regels
+# de snelle basischecks niet kan ophouden of laten omvallen.
+_DEEP_PROBE = """
+$ErrorActionPreference = 'SilentlyContinue'
+$profileInfo = Get-NetConnectionProfile | Select-Object -First 1
+$category = if ($profileInfo) { [string]$profileInfo.NetworkCategory } else { '' }
+$fwName = switch ($category) { 'DomainAuthenticated' { 'Domain' } 'Public' { 'Public' } default { 'Private' } }
+
+# Andere beveiligingssoftware met een eigen firewall. Op een beheerde laptop is
+# dit de meest voorkomende reden dat Windows Firewall in orde lijkt en er tóch
+# niets doorkomt.
+$products = @(Get-CimInstance -Namespace root/SecurityCenter2 -ClassName FirewallProduct |
+              ForEach-Object { [string]$_.displayName } |
+              Where-Object { $_ -and $_ -notmatch 'Windows (Defender )?Firewall' })
+Write-Output ("FIREWALLPRODUCTS=" + ($products -join '|'))
+
+# Blokkeerregels die niet aan ons programma hangen: een beleidsregel die alle
+# inkomend verkeer op dit profiel dichtzet, wint ook van onze toestaan-regel.
+$broad = @(Get-NetFirewallRule -PolicyStore ActiveStore -Direction Inbound -Action Block -Enabled True |
+           Where-Object { $_.Profile -eq 'Any' -or $_.Profile -like ('*' + $fwName + '*') } |
+           Where-Object {
+               $port = $_ | Get-NetFirewallPortFilter
+               $app = $_ | Get-NetFirewallApplicationFilter
+               (-not $port -or $port.LocalPort -eq 'Any' -or $port.LocalPort -contains '%s') -and
+               (-not $app -or $app.Program -eq 'Any')
+           })
+Write-Output ("BROADBLOCKS=" + [string]$broad.Count)
+Write-Output ("BROADNAMES=" + (($broad | Select-Object -First 4 | ForEach-Object { [string]$_.DisplayName }) -join '|'))
+"""
+
+
+def _deep_probe(port: int) -> dict[str, str]:
+    """Second round: other security products, and broad inbound block rules."""
+    output = _run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _DEEP_PROBE % port],
+        timeout=60,
+    )
+    values: dict[str, str] = {}
+    for line in output.splitlines():
+        key, separator, value = line.strip().partition("=")
+        if separator:
+            values[key.strip().upper()] = value.strip()
+    return values
+
+
+def check_other_blockers(port: int) -> list[Check]:
+    """Look for what blocks traffic while Windows Firewall looks fine."""
+    if not sys.platform.startswith("win"):
+        return []
+
+    values = _deep_probe(port)
+    if not values:
+        return []
+
+    checks: list[Check] = []
+    products = [name for name in values.get("FIREWALLPRODUCTS", "").split("|") if name.strip()]
+    if products:
+        checks.append(
+            Check(
+                "Andere beveiligingssoftware",
+                PROBLEM,
+                "Naast Windows Firewall draait hier ook: " + ", ".join(products) + ". "
+                "Zulke pakketten hebben een eigen firewall die inkomend verkeer los van Windows "
+                "blokkeert - dat verklaart waarom Windows Firewall in orde is en er tóch niets doorkomt.",
+                "Sta poort " + str(port) + " inkomend toe in dat pakket, of vraag je IT-beheerder dat te doen.",
+            )
+        )
+
+    count = values.get("BROADBLOCKS", "0")
+    if count.isdigit() and int(count) > 0:
+        names = [name for name in values.get("BROADNAMES", "").split("|") if name.strip()]
+        checks.append(
+            Check(
+                "Brede blokkeerregels",
+                PROBLEM,
+                f"Er staan {count} inkomende blokkeerregels die niet aan een programma hangen en dit "
+                f"profiel raken" + (f" ({', '.join(names)})" if names else "") + ". Zulke regels winnen "
+                "van onze toestaan-regel.",
+                "Meestal opgelegd door je organisatie; niet vanuit de app te wijzigen.",
+            )
+        )
+    return checks
+
+
 def current_firewall_profile() -> str:
     """Which firewall profile applies to the network this machine is on."""
     if not sys.platform.startswith("win"):
@@ -429,6 +513,11 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     result = Diagnosis()
     result.checks.append(check_listening(address, port))
     result.checks.extend(check_windows_firewall(port))
+    # Alleen dieper graven als Windows Firewall zelf niets verklaart; anders is
+    # de oorzaak al gevonden en kost dit alleen tijd.
+    windows_explains = any(check.status == PROBLEM and check.name != "Windows Firewall" for check in result.checks[1:])
+    if not windows_explains:
+        result.checks.extend(check_other_blockers(port))
 
     listening = result.checks[0].status
     firewall_checks = result.checks[1:]
@@ -436,6 +525,8 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     firewall_on = any(check.name == "Windows Firewall" and check.status == PROBLEM for check in firewall_checks)
     has_block_rule = any(check.name == "Blokkeerregel voor Python" for check in firewall_checks)
     inbound_ignored = any(check.name == "Inkomende regels toegestaan" for check in firewall_checks)
+    other_product = next((check for check in firewall_checks if check.name == "Andere beveiligingssoftware"), None)
+    broad_blocks = any(check.name == "Brede blokkeerregels" for check in firewall_checks)
     wrong_profile = any(
         check.name == "Firewallregel voor deze app" and check.status == PROBLEM and "maar die geldt voor" in check.detail
         for check in firewall_checks
@@ -476,9 +567,25 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
         )
         result.fixable_here = True
         result.fix_command = windows_firewall_command(port)
+    elif other_product is not None:
+        result.conclusion = (
+            "Windows Firewall laat de app door, maar er draait andere beveiligingssoftware met een eigen "
+            "firewall. Dat is op een beheerde laptop de meest voorkomende reden dat alles in Windows in "
+            "orde lijkt en er tóch niets doorkomt. Zie de bevinding hierboven; de app kan daar niets aan "
+            "veranderen. Tot dat geregeld is: gebruik de hotspot van je telefoon, of de zoekpagina die "
+            "geen verbinding met deze laptop nodig heeft "
+            "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
+        )
+    elif broad_blocks:
+        result.conclusion = (
+            "Er staan brede inkomende blokkeerregels op dit netwerkprofiel die niet aan een programma "
+            "hangen. Die winnen van onze toestaan-regel, dus de app blijft onbereikbaar zolang ze er "
+            "staan. Dat is beleid van je organisatie en niet vanuit de app te wijzigen."
+        )
     elif firewall_checks and not missing_rule:
         result.conclusion = (
-            "De app luistert en de firewall laat hem door voor dit netwerkprofiel. Wat overblijft is het "
+            "De app luistert en de firewall laat hem door voor dit netwerkprofiel, en er is geen andere "
+            "beveiligingssoftware gevonden die inkomend verkeer blokkeert. Wat overblijft is het "
             "netwerk zelf: veel gast- en universiteitsnetwerken verbieden verkeer tussen apparaten "
             "(clientisolatie). Test dat door deze computer op de hotspot van je telefoon te zetten - "
             "werkt het daar wel, dan was dit de oorzaak. Gaat het je alleen om opzoeken, dan werkt de "
