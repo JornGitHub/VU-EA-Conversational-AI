@@ -524,9 +524,13 @@ python3 -m venv .venv
     <details>
       <summary>Op mijn telefoon blijft het scherm zwart en daarna volgt een time-out</summary>
       <p>
-        De pagina laadt wel, maar de verbinding die de app daarna nodig heeft komt niet tot stand. Test eerst
-        op de laptop zelf: open daar het netwerkadres (<code>http://192.168.x.x:8501</code>, niet
-        <code>localhost</code>). Werkt dat niet, probeer dan een van de andere adressen die het paneel toont.
+        De pagina laadt wel, maar de verbinding die de app daarna nodig heeft komt niet tot stand. Laat de
+        app het uitzoeken: klik in de zijbalk onder <strong>📱 Op je telefoon openen</strong> op
+        <strong>🔎 Waarom kan mijn telefoon er niet bij?</strong>, of draai
+        <code>python main.py --diagnose-network</code>. Blijkt de Windows Firewall de oorzaak, dan kan de app
+        de regel er met één klik bij zetten (Windows vraagt dan om beheerdersrechten). Liever zelf kijken?
+        Open het netwerkadres (<code>http://192.168.x.x:8501</code>, niet
+        <code>localhost</code>) in de browser van je laptop. Werkt dat niet, probeer dan een van de andere adressen die het paneel toont.
         Werkt het op de laptop wél, dan is het één van drie: <strong>clientisolatie</strong> op het
         wifi-netwerk (veel gast- en universiteitsnetwerken verbieden verkeer tussen apparaten — test met de
         hotspot van je telefoon), de <strong>firewall</strong> die Python blokkeert, of een

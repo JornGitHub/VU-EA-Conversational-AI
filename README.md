@@ -57,6 +57,7 @@ In PyCharm of VS Code is het equivalent: open `main.py` en klik op **Run** — e
 | `python main.py` | ✅ ja | installeren, modellen, index, app starten — en meteen bereikbaar vanaf je telefoon |
 | `python main.py --streamlit` | ✅ ja | hetzelfde, expliciet |
 | `python main.py --local-only` | ✅ ja | hetzelfde, maar **niet** bereikbaar vanaf je telefoon |
+| `python main.py --diagnose-network` | ❌ nee | uitzoeken waarom een ander apparaat er niet bij kan, en de firewallregel aanbieden |
 | `python main.py --all` | ❌ nee | tests + build-dry-run + één voorbeeldvraag, alles in de terminal |
 | `python main.py --tests` | ❌ nee | alleen de unittests |
 | `python main.py --query "..."` | ❌ nee | één vraag beantwoorden in de terminal (met `--json` als JSON) |
@@ -184,12 +185,41 @@ telefoon toont alleen het scherm.
 #### Zwart scherm op de telefoon, en daarna een time-out
 
 Dat de pagina laadt maar leeg blijft en pas na een halve minuut afhaakt, betekent bijna altijd: de HTML komt
-binnen, maar de websocket-verbinding die Streamlit nodig heeft komt niet tot stand. Er zijn drie oorzaken en
-je kunt ze uit elkaar houden.
+binnen, maar de websocket-verbinding die Streamlit nodig heeft komt niet tot stand.
 
-**Test eerst op de laptop zelf.** Open het netwerkadres (dus `http://192.168.x.x:8501`, niet `localhost`) in
-de browser van je laptop. Werkt dat niet, dan luistert de app niet op dat adres — probeer een van de andere
-adressen die het paneel toont.
+**Laat de app het uitzoeken.** In de zijbalk, onder **📱 Op je telefoon openen**, zit de knop
+**🔎 Waarom kan mijn telefoon er niet bij?**. Vanuit de terminal kan het ook:
+
+```bash
+python main.py --diagnose-network
+```
+
+Die controleert wat controleerbaar is en trekt een conclusie:
+
+| Controle | Wat het uitsluit |
+|----------|------------------|
+| Luistert de app op je netwerkadres? | Onderscheidt "staat dicht" van "staat open maar wordt geblokkeerd" — verkeer naar je eigen adres passeert de firewall niet, dus dit meet echt het luisteren. |
+| Welk netwerkprofiel geeft Windows dit netwerk? | Een firewallregel voor *Privé* doet niets op een netwerk dat Windows *Openbaar* noemt. Dit is een klassieke reden dat "de fix niet werkt". |
+| Staat de firewall aan, en is er een inkomende regel voor deze app? | Dit is de enige oorzaak die de app zelf kan verhelpen. |
+
+Vindt hij een ontbrekende firewallregel, dan biedt hij aan die toe te voegen. Windows vraagt daarbij eenmalig
+om beheerdersrechten. De regel is zo smal mogelijk: alleen deze Python, alleen TCP, alleen poort 8501, alleen
+het netwerkprofiel waar je nu op zit. Terugdraaien:
+
+```powershell
+Remove-NetFirewallRule -DisplayName "VU EA Conversational AI"
+```
+
+Heb je geen beheerdersrechten op je laptop — op een beheerde VU-machine is dat goed mogelijk — dan meldt hij
+dat, in plaats van te doen alsof het gelukt is. Vraag dan je IT-beheerder om poort 8501 inkomend open te
+zetten voor Python.
+
+**Eén ding kan geen enkele test vanaf deze machine vaststellen:** of het wifi-netwerk verkeer tussen apparaten
+toestaat. Faalt de diagnose op niets, dan is dat wat overblijft — zie de tabel hieronder.
+
+**Handmatig, als je liever zelf kijkt.** Open het netwerkadres (dus `http://192.168.x.x:8501`, niet
+`localhost`) in de browser van je laptop. Werkt dat niet, dan luistert de app niet op dat adres — probeer een
+van de andere adressen die het paneel toont.
 
 Werkt het op de laptop wel en op de telefoon niet, dan zit het tussen de twee apparaten:
 
@@ -444,6 +474,7 @@ VU-EA-Conversational-AI/
 │   ├── conversation/                # Vervolgvragen en gespreksgeschiedenis
 │   ├── llm/                         # Ollama-bootstrap, chatclient (streaming), embeddings, promptbouw
 │   ├── pairing.py                   # Netwerkadres + QR-code om de app op je telefoon te openen
+│   ├── network_diagnosis.py         # Waarom een ander apparaat er niet bij kan, plus de firewall-fix
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
 ├── docs/                            # GitHub Pages: startpagina, zoekpagina, startscripts, evaluation.md
 │   ├── zoek.html                    # Browser-only zoeklaag (werkt op een telefoon, zonder installatie)
@@ -471,6 +502,7 @@ python main.py --query "wat is instroom?" --llm  # met lokale LLM-formulering
 python main.py --build-embeddings                 # semantische index (her)bouwen
 python main.py --benchmark                       # retrieval-latency meten
 python main.py --local-only                      # app alleen op deze computer houden
+python main.py --diagnose-network                # waarom kan mijn telefoon er niet bij?
 python main.py --benchmark-llm                   # snelheid van het lokale LLM meten
 python main.py --check-hygiene                   # waarschuw over artefacten in de projectroot
 python main.py --archive-root-leftovers          # verplaats die artefacten naar data/archive/
@@ -487,6 +519,7 @@ python main.py --guide                           # JSON-overzicht van handige co
 | `--benchmark-llm` | Meet hoe snel het lokale model antwoordt (laadtijd, eerste woord, totaal) |
 | `--setup` | Alleen voorbereiden, app niet starten |
 | `--local-only` | Luister alleen op deze computer; niet bereikbaar vanaf je telefoon |
+| `--diagnose-network` | Zoek uit waarom een ander apparaat de app niet kan openen; biedt op Windows de firewallregel aan |
 | `--network` | Blijft werken, maar is inmiddels de standaard |
 | `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
 | `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
