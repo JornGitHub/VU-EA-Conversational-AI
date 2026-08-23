@@ -210,9 +210,34 @@ het netwerkprofiel waar je nu op zit. Terugdraaien:
 Remove-NetFirewallRule -DisplayName "VU EA Conversational AI"
 ```
 
-Heb je geen beheerdersrechten op je laptop — op een beheerde VU-machine is dat goed mogelijk — dan meldt hij
-dat, in plaats van te doen alsof het gelukt is. Vraag dan je IT-beheerder om poort 8501 inkomend open te
-zetten voor Python.
+**Als het toevoegen mislukt.** Het verhoogde PowerShell-venster sluit zichzelf zodra het klaar is, dus de
+foutmelding van Windows zou voorbijflitsen. Die wordt opgevangen en in de app getoond, want juist díe tekst
+zegt wat er aan de hand is:
+
+* *"toegang geweigerd"* of iets over **group policy** — het beleid van je organisatie verbiedt het aanmaken
+  van firewallregels. Dat is niet vanuit de app op te lossen.
+* **geen venster verschenen** — de UAC-vraag is geweigerd, of je hebt geen beheerdersrechten op deze laptop.
+
+In beide gevallen toont de app twee uitwegen: het commando om zelf in een PowerShell-als-beheerder te
+draaien, en een kant-en-klare tekst voor je IT-beheerder met poort, pad en de exacte regel erin.
+
+**Een blokkeerregel wint van een toestaan-regel.** Wie ooit op *Annuleren* klikte bij de firewallvraag van
+Windows, heeft daarmee blokkeerregels voor Python laten aanmaken. Zolang die er staan, verandert het
+toevoegen van een toestaan-regel niets — Windows geeft blokkeren altijd voorrang. De diagnose telt die regels
+en zet het verwijdercommando erbij, vóór hij een nieuwe regel voorstelt.
+
+**Een regel die bestaat is niet hetzelfde als een regel die geldt.** Een firewallregel hoort bij een
+netwerkprofiel: *Privé*, *Openbaar* of *Domein*. Staat de regel op Privé terwijl Windows je wifi als Openbaar
+ziet, dan doet hij niets — en dat is precies hoe het eruitziet alsof de fix niet werkte. De diagnose
+controleert daarom of de regel ingeschakeld is, inkomend is, toestaat, én voor het huidige profiel geldt.
+Klopt dat laatste niet, dan biedt hij aan de regel te vervangen door één voor het juiste profiel.
+
+**Als het beleid inkomende regels negeert.** Organisaties zetten op het profiel *Openbaar* vaak
+`AllowInboundRules` uit. Dan negeert Windows álle inkomende toestaan-regels, hoe correct ze ook zijn. De
+diagnose leest dat uit en zegt het: de firewallroute is dan dicht en blijft dicht. Wat overblijft is de
+hotspot van je telefoon, of — als je alleen iets wilt opzoeken — de
+[zoekpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die helemaal geen verbinding
+met je laptop nodig heeft.
 
 **Eén ding kan geen enkele test vanaf deze machine vaststellen:** of het wifi-netwerk verkeer tussen apparaten
 toestaat. Faalt de diagnose op niets, dan is dat wat overblijft — zie de tabel hieronder.

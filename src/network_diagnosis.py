@@ -113,18 +113,42 @@ $profileInfo = Get-NetConnectionProfile | Select-Object -First 1
 $category = if ($profileInfo) { [string]$profileInfo.NetworkCategory } else { '' }
 $fwName = switch ($category) { 'DomainAuthenticated' { 'Domain' } 'Public' { 'Public' } default { 'Private' } }
 $fw = Get-NetFirewallProfile -Profile $fwName
-$rule = Get-NetFirewallRule -DisplayName '%s'
+
+# De ActiveStore is wat er werkelijk geldt, inclusief wat groepsbeleid oplegt.
+$rules = @(Get-NetFirewallRule -DisplayName '%s' -PolicyStore ActiveStore)
+$ruleProfiles = ($rules | ForEach-Object { [string]$_.Profile }) -join '|'
+$applies = $false
+foreach ($r in $rules) {
+    $p = [string]$r.Profile
+    if ($r.Enabled -eq 'True' -and $r.Action -eq 'Allow' -and $r.Direction -eq 'Inbound' -and
+        ($p -eq 'Any' -or $p -like ('*' + $fwName + '*'))) { $applies = $true }
+}
+
+# Een Block-regel wint in Windows Firewall altijd van een Allow-regel. Wie ooit
+# op "Annuleren" klikte bij de firewallvraag heeft er twee, en dan haalt een
+# nieuwe Allow-regel niets uit.
+$blocked = @(Get-NetFirewallApplicationFilter -Program '%s' -PolicyStore ActiveStore |
+             Get-NetFirewallRule |
+             Where-Object { $_.Direction -eq 'Inbound' -and $_.Action -eq 'Block' -and $_.Enabled -eq 'True' })
+
 Write-Output ("CATEGORY=" + $category)
 Write-Output ("PROFILE=" + $fwName)
 Write-Output ("FIREWALL=" + [string]$fw.Enabled)
-Write-Output ("RULE=" + [string][bool]$rule)
+Write-Output ("ALLOWINBOUND=" + [string]$fw.AllowInboundRules)
+Write-Output ("DEFAULTIN=" + [string]$fw.DefaultInboundAction)
+Write-Output ("RULE=" + [string]($rules.Count -gt 0))
+Write-Output ("RULEAPPLIES=" + [string]$applies)
+Write-Output ("RULEPROFILES=" + $ruleProfiles)
+Write-Output ("BLOCKED=" + [string]$blocked.Count)
+Write-Output ("ADMIN=" + [string](([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)))
 """
 
 
 def _probe_windows() -> dict[str, str]:
     """Ask Windows for the network category, firewall state and our rule."""
     output = _run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _PROBE % RULE_NAME],
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
+         _PROBE % (RULE_NAME, sys.executable.replace("'", "''"))],
         timeout=25,
     )
     values: dict[str, str] = {}
@@ -180,19 +204,75 @@ def check_windows_firewall(port: int) -> list[Check]:
         )
     )
 
-    has_rule = _is_true(values.get("RULE", ""))
-    checks.append(
-        Check(
-            "Firewallregel voor deze app",
-            OK if has_rule else PROBLEM,
-            f"Er is een inkomende regel '{RULE_NAME}'."
-            if has_rule
-            else f"Er is geen inkomende regel voor poort {port}. Windows gooit verkeer van andere "
-                 "apparaten dan weg zonder te antwoorden - vandaar het zwarte scherm en pas veel "
-                 "later een time-out.",
-            "" if has_rule else "Voeg de regel toe (vraagt eenmalig om beheerdersrechten).",
+    blocked = values.get("BLOCKED", "0")
+    if blocked.isdigit() and int(blocked) > 0:
+        checks.append(
+            Check(
+                "Blokkeerregel voor Python",
+                PROBLEM,
+                f"Er staan {blocked} actieve blokkeerregels voor deze Python. Die ontstaan als ooit op "
+                "'Annuleren' is geklikt bij de firewallvraag van Windows. Een blokkeerregel wint altijd "
+                "van een toestaan-regel, dus die moeten eerst weg.",
+                "Verwijderen (vraagt beheerdersrechten): "
+                f"Get-NetFirewallApplicationFilter -Program '{sys.executable}' | Get-NetFirewallRule | "
+                "Where-Object { $_.Action -eq 'Block' } | Remove-NetFirewallRule",
+            )
         )
-    )
+
+    if values.get("ADMIN") and not _is_true(values.get("ADMIN", "")):
+        checks.append(
+            Check(
+                "Beheerdersrechten",
+                UNKNOWN,
+                "Je draait zonder beheerdersrechten. Windows vraagt er straks om; op een beheerde laptop "
+                "kan die vraag om inloggegevens vragen die je niet hebt.",
+            )
+        )
+
+    # Groepsbeleid kan inkomende toestaan-regels domweg negeren. Dan staat de
+    # regel er wel, en doet hij niets - precies het geval waarin "er is een
+    # regel" een geruststelling zou zijn die nergens op slaat.
+    allow_inbound = values.get("ALLOWINBOUND", "")
+    if allow_inbound and allow_inbound.strip().lower() == "false":
+        checks.append(
+            Check(
+                "Inkomende regels toegestaan",
+                PROBLEM,
+                f"Het beleid op deze laptop negeert álle inkomende toestaan-regels op profiel "
+                f"'{values.get('PROFILE', '')}'. Een firewallregel toevoegen verandert dus niets.",
+                "Dit is beleid van je organisatie en niet vanuit de app te wijzigen.",
+            )
+        )
+
+    has_rule = _is_true(values.get("RULE", ""))
+    applies = _is_true(values.get("RULEAPPLIES", ""))
+    profiles = values.get("RULEPROFILES", "").replace("|", ", ")
+    current = values.get("PROFILE", "")
+
+    if has_rule and not applies:
+        checks.append(
+            Check(
+                "Firewallregel voor deze app",
+                PROBLEM,
+                f"Er is een regel '{RULE_NAME}', maar die geldt voor "
+                f"{profiles or 'een ander profiel'} en dit netwerk is '{current}'. Daardoor doet hij "
+                "hier niets - dat is precies waarom het lijkt alsof de fix niet werkte.",
+                f"Vervang de regel door één voor profiel '{current}'.",
+            )
+        )
+    else:
+        checks.append(
+            Check(
+                "Firewallregel voor deze app",
+                OK if applies else PROBLEM,
+                f"Er is een inkomende regel '{RULE_NAME}' die geldt voor dit netwerk ({current})."
+                if applies
+                else f"Er is geen inkomende regel voor poort {port}. Windows gooit verkeer van andere "
+                     "apparaten dan weg zonder te antwoorden - vandaar het zwarte scherm en pas veel "
+                     "later een time-out.",
+                "" if applies else "Voeg de regel toe (vraagt eenmalig om beheerdersrechten).",
+            )
+        )
     return checks
 
 
@@ -211,7 +291,10 @@ def windows_firewall_command(port: int, python_path: str | None = None, profile:
     ``Remove-NetFirewallRule -DisplayName "VU EA Conversational AI"``.
     """
     program = python_path or sys.executable
+    # Eerst weg, dan opnieuw: anders staat een oude regel voor het verkeerde
+    # profiel er nog naast en verandert er niets.
     return (
+        f'Remove-NetFirewallRule -DisplayName "{RULE_NAME}" -ErrorAction SilentlyContinue; '
         f'New-NetFirewallRule -DisplayName "{RULE_NAME}" -Direction Inbound -Action Allow '
         f'-Protocol TCP -LocalPort {port} -Profile {profile or current_firewall_profile()} '
         f'-Program "{program}"'
@@ -228,15 +311,63 @@ def _encoded(command: str) -> str:
     return base64.b64encode(command.encode("utf-16-le")).decode("ascii")
 
 
-def elevation_script(port: int, python_path: str | None = None, profile: str | None = None) -> str:
-    """The outer command: ask for elevation, run the rule, pass the exit code back."""
+def elevation_script(port: int, python_path: str | None = None, profile: str | None = None,
+                     report_path: str = "") -> str:
+    """The outer command: ask for elevation, run the rule, keep the error.
+
+    The elevated window closes the moment it is done, so a failure used to
+    flash past unread — which is exactly the message needed to know whether
+    this is group policy, a missing right, or something else. The inner script
+    therefore writes its outcome to a file the caller can read afterwards.
+    """
+    report = report_path or "$env:TEMP\\vu-ea-firewall.txt"
     inner = (
-        f"try {{ {windows_firewall_command(port, python_path, profile)} -ErrorAction Stop | Out-Null; exit 0 }} "
-        f"catch {{ exit 1 }}"
+        f"$out = '{report}'; "
+        f"try {{ {windows_firewall_command(port, python_path, profile)} -ErrorAction Stop | Out-Null; "
+        f"Set-Content -Path $out -Value 'OK' -Encoding UTF8; exit 0 }} "
+        f"catch {{ Set-Content -Path $out -Value $_.Exception.Message -Encoding UTF8; exit 1 }}"
     )
     return (
-        "$p = Start-Process powershell -Verb RunAs -Wait -PassThru -ArgumentList "
-        f"'-NoProfile','-EncodedCommand','{_encoded(inner)}'; exit $p.ExitCode"
+        f"$out = '{report}'; Remove-Item $out -ErrorAction SilentlyContinue; "
+        "try { $p = Start-Process powershell -Verb RunAs -Wait -PassThru -ArgumentList "
+        f"'-NoProfile','-EncodedCommand','{_encoded(inner)}'; exit $p.ExitCode }} "
+        "catch { exit 2 }"
+    )
+
+
+def _read_report(report_path: str) -> str:
+    """Read (and remove) whatever the elevated script left behind."""
+    from pathlib import Path as _Path
+
+    try:
+        file = _Path(report_path)
+        message = file.read_text(encoding="utf-8", errors="replace").strip()
+        file.unlink(missing_ok=True)
+    except OSError:
+        return ""
+    return message
+
+
+def is_administrator() -> bool:
+    """True when this process can create firewall rules without elevating."""
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        import ctypes
+
+        return bool(ctypes.windll.shell32.IsUserAnAdmin())
+    except Exception:  # noqa: BLE001 - never let a probe break the panel
+        return False
+
+
+def it_request_text(port: int, python_path: str | None = None) -> str:
+    """A message to send to whoever does have the rights, ready to paste."""
+    return (
+        "Verzoek: sta binnenkomend TCP-verkeer toe op poort "
+        f"{port} voor {python_path or sys.executable}, alleen op het huidige netwerkprofiel.\n"
+        "Reden: een lokale Streamlit-app (VU EA Conversational AI) moet vanaf een telefoon op hetzelfde "
+        "netwerk te openen zijn. De app draait volledig lokaal en stuurt geen data naar buiten.\n"
+        "Regel:\n  " + windows_firewall_command(port, python_path)
     )
 
 
@@ -244,18 +375,23 @@ def apply_windows_firewall_rule(port: int, python_path: str | None = None) -> tu
     """Add the inbound rule, asking Windows for elevation.
 
     Returns (succeeded, message). Creating a firewall rule needs administrator
-    rights, so this raises a UAC prompt; on a managed laptop where the user is
-    not an administrator that prompt asks for credentials and can be refused.
-    Both outcomes are reported honestly rather than assumed to have worked.
+    rights, so this raises a UAC prompt; on a managed laptop that prompt can
+    ask for credentials the user does not have, and group policy can refuse the
+    rule even to an administrator. Both are reported with the message Windows
+    itself gave, instead of a generic failure.
     """
     if not sys.platform.startswith("win"):
         return False, "Dit is alleen van toepassing op Windows."
 
+    import os
+    import tempfile
+
     profile = current_firewall_profile()
+    report_path = os.path.join(tempfile.gettempdir(), "vu-ea-firewall.txt")
     try:
         completed = subprocess.run(
             ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
-             elevation_script(port, python_path, profile)],
+             elevation_script(port, python_path, profile, report_path)],
             capture_output=True,
             text=True,
             timeout=180,
@@ -263,15 +399,26 @@ def apply_windows_firewall_rule(port: int, python_path: str | None = None) -> tu
     except (OSError, subprocess.SubprocessError) as error:
         return False, f"Kon het venster voor beheerdersrechten niet openen: {error}"
 
-    if completed.returncode != 0:
-        return False, (
-            "De regel is niet toegevoegd. Meestal is de vraag om beheerdersrechten geweigerd, of heb "
-            "je op deze laptop geen beheerdersrechten. Vraag dan je IT-beheerder om poort "
-            f"{port} inkomend open te zetten voor Python, profiel {profile}."
+    reported = _read_report(report_path)
+    if completed.returncode == 0 and reported.upper().startswith("OK"):
+        return True, (
+            f"De firewallregel is toegevoegd voor profiel {profile}. Probeer je telefoon opnieuw en "
+            "ververs de pagina daar."
         )
-    return True, (
-        f"De firewallregel is toegevoegd voor profiel {profile}. Probeer je telefoon opnieuw; "
-        "ververs de pagina daar."
+
+    if completed.returncode == 2 or not reported:
+        # De verhoogde PowerShell is nooit gestart: UAC geweigerd of geblokkeerd.
+        return False, (
+            "Windows heeft het venster met beheerdersrechten niet geopend, of de vraag is geweigerd. "
+            "Heb je op deze laptop geen beheerdersrechten, dan kan dit niet vanuit de app - zie het "
+            "verzoek voor je IT-beheerder hieronder."
+        )
+
+    return False, (
+        f"Windows weigerde de regel:\n\n{reported}\n\n"
+        "Staat hier iets over 'group policy' of 'toegang geweigerd', dan verbiedt het beleid van je "
+        "organisatie het aanmaken van firewallregels. Dat is niet vanuit de app op te lossen; gebruik "
+        "het verzoek voor je IT-beheerder hieronder, of de hotspot van je telefoon als tijdelijke route."
     )
 
 
@@ -287,12 +434,40 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     firewall_checks = result.checks[1:]
     missing_rule = any(check.name == "Firewallregel voor deze app" and check.status == PROBLEM for check in firewall_checks)
     firewall_on = any(check.name == "Windows Firewall" and check.status == PROBLEM for check in firewall_checks)
+    has_block_rule = any(check.name == "Blokkeerregel voor Python" for check in firewall_checks)
+    inbound_ignored = any(check.name == "Inkomende regels toegestaan" for check in firewall_checks)
+    wrong_profile = any(
+        check.name == "Firewallregel voor deze app" and check.status == PROBLEM and "maar die geldt voor" in check.detail
+        for check in firewall_checks
+    )
 
     if listening == PROBLEM:
         result.conclusion = (
             "De app luistert niet op je netwerkadres. Start hem zonder --local-only; "
             "andere apparaten kunnen er nu sowieso niet bij."
         )
+    elif inbound_ignored:
+        result.conclusion = (
+            "Het beleid op deze laptop negeert inkomende toestaan-regels op dit netwerkprofiel. Een "
+            "firewallregel toevoegen verandert dus niets, hoe vaak je het ook probeert. Twee routes "
+            "blijven over: zet deze laptop op de hotspot van je telefoon, of gebruik voor opzoekwerk de "
+            "zoekpagina die geen verbinding met deze laptop nodig heeft "
+            "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
+        )
+    elif has_block_rule:
+        result.conclusion = (
+            "Er staat een blokkeerregel voor deze Python in de firewall. Die wint van elke toestaan-regel, "
+            "dus die moet eerst weg - anders verandert het toevoegen van een regel niets. Het commando "
+            "daarvoor staat hierboven; het vraagt om beheerdersrechten."
+        )
+    elif wrong_profile:
+        result.conclusion = (
+            "De firewallregel bestaat wel, maar geldt voor een ander netwerkprofiel dan waar je nu op "
+            "zit. Daardoor doet hij niets - dat is waarom het leek alsof de fix niet werkte. Hieronder "
+            "kun je hem vervangen door één voor het juiste profiel."
+        )
+        result.fixable_here = True
+        result.fix_command = windows_firewall_command(port)
     elif firewall_on and missing_rule:
         result.conclusion = (
             "De Windows Firewall blokkeert inkomende verbindingen naar deze app. Dat verklaart "
@@ -303,9 +478,12 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
         result.fix_command = windows_firewall_command(port)
     elif firewall_checks and not missing_rule:
         result.conclusion = (
-            "De app luistert en de firewall laat hem door. Wat overblijft is het netwerk zelf: veel "
-            "gast- en universiteitsnetwerken verbieden verkeer tussen apparaten (clientisolatie). "
-            "Test dat door deze computer op de hotspot van je telefoon te zetten."
+            "De app luistert en de firewall laat hem door voor dit netwerkprofiel. Wat overblijft is het "
+            "netwerk zelf: veel gast- en universiteitsnetwerken verbieden verkeer tussen apparaten "
+            "(clientisolatie). Test dat door deze computer op de hotspot van je telefoon te zetten - "
+            "werkt het daar wel, dan was dit de oorzaak. Gaat het je alleen om opzoeken, dan werkt de "
+            "zoekpagina op elke telefoon zonder verbinding met deze laptop: "
+            "https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html"
         )
     else:
         result.conclusion = (

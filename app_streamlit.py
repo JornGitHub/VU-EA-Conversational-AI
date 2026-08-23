@@ -26,7 +26,7 @@ from src.definitions.corpus import corpus_stats
 from src.definitions.mock_data import SYNTHETIC_NOTICE, load_profile
 from src.definitions.search import is_meaningful_llm_inference
 from src.definitions.semantic import semantic_status
-from src.network_diagnosis import OK, PROBLEM, apply_windows_firewall_rule, diagnose
+from src.network_diagnosis import OK, PROBLEM, apply_windows_firewall_rule, diagnose, it_request_text
 from src.pairing import QR_UNAVAILABLE_HINT, pairing_status, qr_svg
 from src.llm.ollama_client import warm_up
 from src.llm.ollama_setup import DEFAULT_BASE_URL, DEFAULT_OLLAMA_MODEL, is_server_running
@@ -460,9 +460,29 @@ def render_network_diagnosis(url: str, port: int) -> None:
     if st.button("🛡️ Firewallregel toevoegen (vraagt om beheerdersrechten)", use_container_width=True):
         with st.spinner("Windows vraagt nu om toestemming…"):
             succeeded, message = apply_windows_firewall_rule(port)
-        (st.success if succeeded else st.error)(message)
+        st.session_state.firewall_result = {"ok": succeeded, "message": message}
         if succeeded:
             st.session_state.network_diagnosis = None
+
+    outcome = st.session_state.get("firewall_result")
+    if not outcome:
+        return
+    if outcome["ok"]:
+        st.success(outcome["message"])
+        return
+
+    # Het verhoogde venster sluit zichzelf, dus de melding van Windows staat hier
+    # in plaats van dat hij voorbijflitst.
+    st.error(outcome["message"])
+    with st.expander("Lukt het niet? Zelf draaien, of aan je beheerder vragen"):
+        st.markdown("**Zelf, in een PowerShell die je als beheerder opent:**")
+        st.code(result["fix_command"], language="powershell")
+        st.markdown("**Of stuur dit naar je IT-beheerder:**")
+        st.code(it_request_text(port), language="text")
+        st.caption(
+            "Werkt geen van beide, dan blijft de hotspot van je telefoon over: zet deze laptop daarop, "
+            "dan hoeft er niets door een firewall heen."
+        )
 
 
 def render_pairing_panel() -> None:
