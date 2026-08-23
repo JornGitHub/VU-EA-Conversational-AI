@@ -26,6 +26,7 @@ from src.definitions.corpus import corpus_stats
 from src.definitions.mock_data import SYNTHETIC_NOTICE, load_profile
 from src.definitions.search import is_meaningful_llm_inference
 from src.definitions.semantic import semantic_status
+from src.network_diagnosis import OK, PROBLEM, apply_windows_firewall_rule, diagnose
 from src.pairing import QR_UNAVAILABLE_HINT, pairing_status, qr_svg
 from src.llm.ollama_client import warm_up
 from src.llm.ollama_setup import DEFAULT_BASE_URL, DEFAULT_OLLAMA_MODEL, is_server_running
@@ -428,6 +429,42 @@ def cached_retrieval(
 # --------------------------------------------------------------------------- #
 # Sidebar
 # --------------------------------------------------------------------------- #
+def render_network_diagnosis(url: str, port: int) -> None:
+    """Run the checks that can be run here, and offer the one fix we can apply.
+
+    Kept behind a button: the checks shell out to PowerShell on Windows, which
+    is far too slow to do on every rerun of the script.
+    """
+    if st.button("🔎 Waarom kan mijn telefoon er niet bij?", use_container_width=True):
+        with st.spinner("Bezig met controleren…"):
+            st.session_state.network_diagnosis = diagnose(port).as_dict()
+
+    result = st.session_state.get("network_diagnosis")
+    if not result:
+        return
+
+    for check in result["checks"]:
+        icon = {OK: "✅", PROBLEM: "❌"}.get(check["status"], "❔")
+        st.markdown(f"{icon} **{check['name']}** — {check['detail']}")
+    st.info(result["conclusion"])
+
+    if not result["fixable_here"]:
+        return
+
+    st.caption(
+        "Deze regel laat alleen deze Python binnen, alleen op TCP-poort "
+        f"{port}, alleen op dit netwerkprofiel. Terugdraaien kan met "
+        "`Remove-NetFirewallRule -DisplayName \"VU EA Conversational AI\"`."
+    )
+    st.code(result["fix_command"], language="powershell")
+    if st.button("🛡️ Firewallregel toevoegen (vraagt om beheerdersrechten)", use_container_width=True):
+        with st.spinner("Windows vraagt nu om toestemming…"):
+            succeeded, message = apply_windows_firewall_rule(port)
+        (st.success if succeeded else st.error)(message)
+        if succeeded:
+            st.session_state.network_diagnosis = None
+
+
 def render_pairing_panel() -> None:
     """Show how to open this app on a phone: the address, and a QR to scan.
 
@@ -476,6 +513,8 @@ def render_pairing_panel() -> None:
                     if other_svg:
                         st.image(other_svg, width=130)
                     st.code(other, language="text")
+
+        render_network_diagnosis(url, port)
 
         with st.expander("Zwart scherm of “server reageert niet”?"):
             st.markdown(
