@@ -226,6 +226,19 @@ Windows, heeft daarmee blokkeerregels voor Python laten aanmaken. Zolang die er 
 toevoegen van een toestaan-regel niets — Windows geeft blokkeren altijd voorrang. De diagnose telt die regels
 en zet het verwijdercommando erbij, vóór hij een nieuwe regel voorstelt.
 
+**Een regel die bestaat is niet hetzelfde als een regel die geldt.** Een firewallregel hoort bij een
+netwerkprofiel: *Privé*, *Openbaar* of *Domein*. Staat de regel op Privé terwijl Windows je wifi als Openbaar
+ziet, dan doet hij niets — en dat is precies hoe het eruitziet alsof de fix niet werkte. De diagnose
+controleert daarom of de regel ingeschakeld is, inkomend is, toestaat, én voor het huidige profiel geldt.
+Klopt dat laatste niet, dan biedt hij aan de regel te vervangen door één voor het juiste profiel.
+
+**Als het beleid inkomende regels negeert.** Organisaties zetten op het profiel *Openbaar* vaak
+`AllowInboundRules` uit. Dan negeert Windows álle inkomende toestaan-regels, hoe correct ze ook zijn. De
+diagnose leest dat uit en zegt het: de firewallroute is dan dicht en blijft dicht. Wat overblijft is de
+hotspot van je telefoon, of — als je alleen iets wilt opzoeken — de
+[zoekpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die helemaal geen verbinding
+met je laptop nodig heeft.
+
 **Eén ding kan geen enkele test vanaf deze machine vaststellen:** of het wifi-netwerk verkeer tussen apparaten
 toestaat. Faalt de diagnose op niets, dan is dat wat overblijft — zie de tabel hieronder.
 
