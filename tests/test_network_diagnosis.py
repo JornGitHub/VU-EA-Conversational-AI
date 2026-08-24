@@ -442,17 +442,27 @@ class ListenerMatchesRuleTests(unittest.TestCase):
              mock.patch.object(nd, "_run", return_value=output):
             return nd.check_listener_matches_rule(8501)
 
-    def test_a_different_executable_is_flagged(self) -> None:
+    def test_a_rule_for_another_executable_is_flagged(self) -> None:
         checks = self._check(
             "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\Python312\\python.exe\n"
+            "RULEPROGRAMS=C:\\proj\\.venv\\Scripts\\python.exe\n"
         )
         finding = next(check for check in checks if check.name == "Programma achter de poort")
         self.assertEqual(nd.PROBLEM, finding.status)
         self.assertIn("Python312", finding.detail)
+        self.assertIn(".venv", finding.detail, "beide kanten van het verschil horen erin te staan")
 
-    def test_the_same_executable_passes(self) -> None:
+    def test_a_rule_for_the_listening_executable_passes(self) -> None:
+        """Compare with the rule, never with sys.executable.
+
+        After the fix the rule names the base interpreter while sys.executable
+        is still the virtual environment. Comparing against sys.executable
+        reports a mismatch that no amount of fixing can ever clear — which is
+        exactly what a tester ran into.
+        """
         checks = self._check(
-            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\proj\\.venv\\Scripts\\python.exe\n"
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\Python312\\python.exe\n"
+            "RULEPROGRAMS=C:\\Python312\\python.exe\n"
         )
         finding = next(check for check in checks if check.name == "Programma achter de poort")
         self.assertEqual(nd.OK, finding.status)
@@ -460,19 +470,34 @@ class ListenerMatchesRuleTests(unittest.TestCase):
     def test_the_comparison_ignores_case(self) -> None:
         """Windows paths differ in case between tools all the time."""
         checks = self._check(
-            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\PROJ\\.VENV\\SCRIPTS\\PYTHON.EXE\n"
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\PY312\\PYTHON.EXE\n"
+            "RULEPROGRAMS=c:\\py312\\python.exe\n"
         )
         finding = next(check for check in checks if check.name == "Programma achter de poort")
         self.assertEqual(nd.OK, finding.status)
 
+    def test_a_rule_bound_to_no_program_covers_everything(self) -> None:
+        checks = self._check(
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\Py312\\python.exe\nRULEPROGRAMS=Any\n"
+        )
+        finding = next(check for check in checks if check.name == "Programma achter de poort")
+        self.assertEqual(nd.OK, finding.status)
+
+    def test_without_a_rule_there_is_no_verdict_to_give(self) -> None:
+        """The missing-rule check covers that; two verdicts would contradict."""
+        checks = self._check(
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\Py312\\python.exe\nRULEPROGRAMS=\n"
+        )
+        self.assertNotIn("Programma achter de poort", [check.name for check in checks])
+
     def test_a_loopback_only_listener_is_flagged(self) -> None:
-        checks = self._check("LISTENADDRESSES=127.0.0.1\nLISTENPATHS=\n")
+        checks = self._check("LISTENADDRESSES=127.0.0.1\nLISTENPATHS=\nRULEPROGRAMS=\n")
         finding = next(check for check in checks if check.name == "Luisteradres")
         self.assertEqual(nd.PROBLEM, finding.status)
         self.assertIn("--local-only", finding.fix)
 
     def test_binding_to_all_interfaces_is_not_flagged(self) -> None:
-        checks = self._check("LISTENADDRESSES=0.0.0.0|::\nLISTENPATHS=\n")
+        checks = self._check("LISTENADDRESSES=0.0.0.0|::\nLISTENPATHS=\nRULEPROGRAMS=\n")
         self.assertNotIn("Luisteradres", [check.name for check in checks])
 
     def test_a_silent_probe_adds_nothing(self) -> None:
