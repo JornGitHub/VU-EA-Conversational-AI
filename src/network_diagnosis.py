@@ -336,8 +336,14 @@ foreach ($id in ($conns | ForEach-Object { $_.OwningProcess } | Sort-Object -Uni
     $proc = Get-Process -Id $id
     if ($proc -and $proc.Path) { $paths += [string]$proc.Path }
 }
+# Wat de regel wérkelijk toestaat, uit Windows zelf. Aannemen dat dat
+# sys.executable is, is precies de fout die deze check moet vinden.
+$rules = @(Get-NetFirewallRule -DisplayName '%s' -PolicyStore ActiveStore |
+           Where-Object { $_.Direction -eq 'Inbound' -and $_.Action -eq 'Allow' -and $_.Enabled -eq 'True' })
+$rulePrograms = @($rules | Get-NetFirewallApplicationFilter | ForEach-Object { [string]$_.Program })
 Write-Output ("LISTENADDRESSES=" + $addresses)
 Write-Output ("LISTENPATHS=" + (($paths | Sort-Object -Unique) -join '|'))
+Write-Output ("RULEPROGRAMS=" + (($rulePrograms | Sort-Object -Unique) -join '|'))
 """
 
 
@@ -351,7 +357,7 @@ def listening_program(port: int) -> str | None:
     if not sys.platform.startswith("win"):
         return None
     for line in _run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _LISTENER_PROBE % port],
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _LISTENER_PROBE % (port, RULE_NAME)],
         timeout=30,
     ).splitlines():
         key, separator, value = line.strip().partition("=")
@@ -373,7 +379,7 @@ def check_listener_matches_rule(port: int) -> list[Check]:
 
     values: dict[str, str] = {}
     for line in _run(
-        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _LISTENER_PROBE % port],
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _LISTENER_PROBE % (port, RULE_NAME)],
         timeout=30,
     ).splitlines():
         key, separator, value = line.strip().partition("=")
@@ -396,30 +402,35 @@ def check_listener_matches_rule(port: int) -> list[Check]:
         )
 
     paths = [item for item in values.get("LISTENPATHS", "").split("|") if item.strip()]
-    if paths:
-        expected = sys.executable.lower()
-        actual = [item for item in paths if item.lower() != expected]
-        if actual:
-            checks.append(
-                Check(
-                    "Programma achter de poort",
-                    PROBLEM,
-                    f"Poort {port} wordt opengehouden door {', '.join(actual)}, terwijl de firewallregel "
-                    f"voor {sys.executable} geldt. Een regel hoort bij één programma, dus die doet hier "
-                    "niets.",
-                    "Maak de regel opnieuw aan voor het programma dat de poort vasthoudt.",
-                    actual[0],
-                )
+    allowed = [item for item in values.get("RULEPROGRAMS", "").split("|") if item.strip()]
+    if not paths or not allowed:
+        # Zonder een van beide valt er niets te vergelijken; de losse checks
+        # voor "luistert de app" en "is er een regel" dekken die gevallen al.
+        return checks
+
+    # "Any" betekent: de regel is niet aan een programma gebonden.
+    covered = {item.lower() for item in allowed}
+    matches = "any" in covered or any(item.lower() in covered for item in paths)
+    if matches:
+        checks.append(
+            Check(
+                "Programma achter de poort",
+                OK,
+                f"Poort {port} wordt opengehouden door {paths[0]}, en de firewallregel geldt voor dat "
+                "programma.",
             )
-        else:
-            checks.append(
-                Check(
-                    "Programma achter de poort",
-                    OK,
-                    f"Poort {port} wordt opengehouden door {paths[0]}, hetzelfde programma als in de "
-                    "firewallregel.",
-                )
+        )
+    else:
+        checks.append(
+            Check(
+                "Programma achter de poort",
+                PROBLEM,
+                f"Poort {port} wordt opengehouden door {', '.join(paths)}, terwijl de firewallregel geldt "
+                f"voor {', '.join(allowed)}. Een regel hoort bij één programma, dus die doet hier niets.",
+                "Maak de regel opnieuw aan voor het programma dat de poort vasthoudt.",
+                paths[0],
             )
+        )
     return checks
 
 
