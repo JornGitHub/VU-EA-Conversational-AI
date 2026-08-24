@@ -481,7 +481,11 @@ Let op je databundel: de app zelf verstuurt niets naar buiten, maar je telefoon 
             succeeded, message = apply_windows_firewall_rule(port)
         st.session_state.firewall_result = {"ok": succeeded, "message": message}
         if succeeded:
-            st.session_state.network_diagnosis = None
+            # Opnieuw meten in plaats van wissen: anders staat de oude rode
+            # bevinding naast de groene melding en weet je niet wat nu geldt.
+            with st.spinner("Opnieuw controleren…"):
+                st.session_state.network_diagnosis = diagnose(port).as_dict()
+            st.rerun()
 
     outcome = st.session_state.get("firewall_result")
     if not outcome:
