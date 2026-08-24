@@ -158,3 +158,28 @@ class PhoneFallbackTests(unittest.TestCase):
         index_fix = self.source.index('if not result["fixable_here"]:')
         index_button = self.source.index("Firewallregel toevoegen")
         self.assertLess(index_fix, index_button, "de fix-knop hoort na de vroege return te staan")
+
+
+class DiagnosisRefreshTests(unittest.TestCase):
+    """After a successful fix the panel must show the new state, not the old.
+
+    Leaving the previous red finding on screen next to a green "rule added"
+    leaves the reader guessing which one is true now.
+    """
+
+    def setUp(self) -> None:
+        self.source = Path("app_streamlit.py").read_text(encoding="utf-8")
+
+    def test_a_successful_fix_re_runs_the_diagnosis(self) -> None:
+        block = self.source.split("apply_windows_firewall_rule(port)")[1].split("outcome =")[0]
+        self.assertIn("diagnose(port).as_dict()", block)
+        self.assertIn("st.rerun()", block)
+
+    def test_it_does_not_merely_clear_the_old_result(self) -> None:
+        block = self.source.split("apply_windows_firewall_rule(port)")[1].split("outcome =")[0]
+        self.assertNotIn("network_diagnosis = None", block)
+
+    def test_a_failed_fix_keeps_the_findings_on_screen(self) -> None:
+        """The findings are what the failure message refers to."""
+        block = self.source.split("apply_windows_firewall_rule(port)")[1].split("outcome =")[0]
+        self.assertIn("if succeeded:", block)
