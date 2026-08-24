@@ -321,6 +321,84 @@ def _deep_probe(port: int) -> dict[str, str]:
     return values
 
 
+# Welk proces houdt de poort werkelijk open, en op welk adres? Een firewallregel
+# geldt voor één programma; hoort de poort bij een ándere python.exe dan die in
+# de regel staat, dan doet de regel niets voor dit proces.
+_LISTENER_PROBE = """
+$ErrorActionPreference = 'SilentlyContinue'
+$conns = @(Get-NetTCPConnection -LocalPort %s -State Listen)
+$addresses = ($conns | ForEach-Object { [string]$_.LocalAddress } | Sort-Object -Unique) -join '|'
+$paths = @()
+foreach ($id in ($conns | ForEach-Object { $_.OwningProcess } | Sort-Object -Unique)) {
+    $proc = Get-Process -Id $id
+    if ($proc -and $proc.Path) { $paths += [string]$proc.Path }
+}
+Write-Output ("LISTENADDRESSES=" + $addresses)
+Write-Output ("LISTENPATHS=" + (($paths | Sort-Object -Unique) -join '|'))
+"""
+
+
+def check_listener_matches_rule(port: int) -> list[Check]:
+    """Does the firewall rule name the executable that owns the port?
+
+    A rule is bound to one program. Start the app with one interpreter and
+    create the rule from another - a virtual environment next to the system
+    Python, say - and the rule is perfectly valid and completely irrelevant.
+    """
+    if not sys.platform.startswith("win"):
+        return []
+
+    values: dict[str, str] = {}
+    for line in _run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _LISTENER_PROBE % port],
+        timeout=30,
+    ).splitlines():
+        key, separator, value = line.strip().partition("=")
+        if separator:
+            values[key.strip().upper()] = value.strip()
+    if not values:
+        return []
+
+    checks: list[Check] = []
+    addresses = [item for item in values.get("LISTENADDRESSES", "").split("|") if item.strip()]
+    if addresses and not any(item in {"0.0.0.0", "::"} for item in addresses):
+        checks.append(
+            Check(
+                "Luisteradres",
+                PROBLEM,
+                f"Poort {port} staat alleen open op {', '.join(addresses)}, niet op alle interfaces. "
+                "Andere apparaten kunnen er daardoor niet bij.",
+                "Start de app zonder --local-only: python main.py",
+            )
+        )
+
+    paths = [item for item in values.get("LISTENPATHS", "").split("|") if item.strip()]
+    if paths:
+        expected = sys.executable.lower()
+        actual = [item for item in paths if item.lower() != expected]
+        if actual:
+            checks.append(
+                Check(
+                    "Programma achter de poort",
+                    PROBLEM,
+                    f"Poort {port} wordt opengehouden door {', '.join(actual)}, terwijl de firewallregel "
+                    f"voor {sys.executable} geldt. Een regel hoort bij één programma, dus die doet hier "
+                    "niets.",
+                    "Maak de regel opnieuw aan vanuit dezelfde omgeving als waarmee je de app start.",
+                )
+            )
+        else:
+            checks.append(
+                Check(
+                    "Programma achter de poort",
+                    OK,
+                    f"Poort {port} wordt opengehouden door {paths[0]}, hetzelfde programma als in de "
+                    "firewallregel.",
+                )
+            )
+    return checks
+
+
 def check_other_blockers(port: int) -> list[Check]:
     """Look for what blocks traffic while Windows Firewall looks fine."""
     if not sys.platform.startswith("win"):
@@ -517,6 +595,9 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     # de oorzaak al gevonden en kost dit alleen tijd.
     windows_explains = any(check.status == PROBLEM and check.name != "Windows Firewall" for check in result.checks[1:])
     if not windows_explains:
+        result.checks.extend(check_listener_matches_rule(port))
+        windows_explains = any(check.status == PROBLEM and check.name != "Windows Firewall" for check in result.checks[1:])
+    if not windows_explains:
         result.checks.extend(check_other_blockers(port))
 
     listening = result.checks[0].status
@@ -526,6 +607,8 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     has_block_rule = any(check.name == "Blokkeerregel voor Python" for check in firewall_checks)
     inbound_ignored = any(check.name == "Inkomende regels toegestaan" for check in firewall_checks)
     other_product = next((check for check in firewall_checks if check.name == "Andere beveiligingssoftware"), None)
+    wrong_program = any(check.name == "Programma achter de poort" and check.status == PROBLEM for check in firewall_checks)
+    narrow_listen = any(check.name == "Luisteradres" and check.status == PROBLEM for check in firewall_checks)
     broad_blocks = any(check.name == "Brede blokkeerregels" for check in firewall_checks)
     wrong_profile = any(
         check.name == "Firewallregel voor deze app" and check.status == PROBLEM and "maar die geldt voor" in check.detail
@@ -564,6 +647,19 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "De Windows Firewall blokkeert inkomende verbindingen naar deze app. Dat verklaart "
             "precies wat je ziet: de verbinding wordt weggegooid in plaats van geweigerd, dus je "
             "telefoon wacht tot hij opgeeft. Dit is hieronder met één klik op te lossen."
+        )
+        result.fixable_here = True
+        result.fix_command = windows_firewall_command(port)
+    elif narrow_listen:
+        result.conclusion = (
+            "De poort staat niet op alle netwerkinterfaces open, dus andere apparaten kunnen er niet bij. "
+            "Start de app opnieuw met `python main.py` (zonder --local-only)."
+        )
+    elif wrong_program:
+        result.conclusion = (
+            "De firewallregel geldt voor een andere python.exe dan degene die de poort openhoudt. Een "
+            "regel hoort bij één programma, dus deze doet niets voor de draaiende app. Maak de regel "
+            "opnieuw aan vanuit dezelfde omgeving als waarmee je de app start - de knop hieronder doet dat."
         )
         result.fixable_here = True
         result.fix_command = windows_firewall_command(port)
