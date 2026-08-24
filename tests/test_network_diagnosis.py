@@ -429,6 +429,82 @@ class OtherBlockerTests(unittest.TestCase):
             self.assertEqual([], nd.check_other_blockers(8501))
 
 
+class ListenerMatchesRuleTests(unittest.TestCase):
+    """A rule is bound to one executable; the listener may be another.
+
+    Create the rule from the system Python while the app runs from a virtual
+    environment and the rule is valid, correct, and irrelevant.
+    """
+
+    def _check(self, output: str) -> list[nd.Check]:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd.sys, "executable", r"C:\proj\.venv\Scripts\python.exe"), \
+             mock.patch.object(nd, "_run", return_value=output):
+            return nd.check_listener_matches_rule(8501)
+
+    def test_a_different_executable_is_flagged(self) -> None:
+        checks = self._check(
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\Python312\\python.exe\n"
+        )
+        finding = next(check for check in checks if check.name == "Programma achter de poort")
+        self.assertEqual(nd.PROBLEM, finding.status)
+        self.assertIn("Python312", finding.detail)
+
+    def test_the_same_executable_passes(self) -> None:
+        checks = self._check(
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\proj\\.venv\\Scripts\\python.exe\n"
+        )
+        finding = next(check for check in checks if check.name == "Programma achter de poort")
+        self.assertEqual(nd.OK, finding.status)
+
+    def test_the_comparison_ignores_case(self) -> None:
+        """Windows paths differ in case between tools all the time."""
+        checks = self._check(
+            "LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\PROJ\\.VENV\\SCRIPTS\\PYTHON.EXE\n"
+        )
+        finding = next(check for check in checks if check.name == "Programma achter de poort")
+        self.assertEqual(nd.OK, finding.status)
+
+    def test_a_loopback_only_listener_is_flagged(self) -> None:
+        checks = self._check("LISTENADDRESSES=127.0.0.1\nLISTENPATHS=\n")
+        finding = next(check for check in checks if check.name == "Luisteradres")
+        self.assertEqual(nd.PROBLEM, finding.status)
+        self.assertIn("--local-only", finding.fix)
+
+    def test_binding_to_all_interfaces_is_not_flagged(self) -> None:
+        checks = self._check("LISTENADDRESSES=0.0.0.0|::\nLISTENPATHS=\n")
+        self.assertNotIn("Luisteradres", [check.name for check in checks])
+
+    def test_a_silent_probe_adds_nothing(self) -> None:
+        self.assertEqual([], self._check(""))
+
+    def test_a_mismatch_is_offered_as_fixable(self) -> None:
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=[
+                 nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+                 nd.Check("Firewallregel voor deze app", nd.OK, "aanwezig"),
+             ]), \
+             mock.patch.object(nd, "check_listener_matches_rule", return_value=[
+                 nd.Check("Programma achter de poort", nd.PROBLEM, "andere python.exe"),
+             ]), \
+             mock.patch.object(nd, "windows_firewall_command", return_value="Remove...; New..."):
+            result = nd.diagnose(8501, address="192.168.1.61")
+        self.assertTrue(result.fixable_here)
+        self.assertIn("andere python.exe", result.conclusion)
+
+    def test_finding_the_mismatch_skips_the_slower_round(self) -> None:
+        """The cause is known; enumerating every firewall rule is just delay."""
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=[nd.Check("Windows Firewall", nd.PROBLEM, "aan")]), \
+             mock.patch.object(nd, "check_listener_matches_rule", return_value=[
+                 nd.Check("Programma achter de poort", nd.PROBLEM, "andere python.exe"),
+             ]), \
+             mock.patch.object(nd, "check_other_blockers") as deep, \
+             mock.patch.object(nd, "windows_firewall_command", return_value="x"):
+            nd.diagnose(8501, address="192.168.1.61")
+        deep.assert_not_called()
+
+
 class SafetyTests(unittest.TestCase):
     def test_a_failing_system_command_never_raises(self) -> None:
         with mock.patch.object(nd.subprocess, "run", side_effect=OSError("geen powershell")):

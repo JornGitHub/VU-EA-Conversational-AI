@@ -310,7 +310,7 @@ def run_network_diagnosis(port: int = 8501) -> int:
     return 0
 
 
-def run_streamlit(share_on_network: bool = True) -> int:
+def run_streamlit(share_on_network: bool = True, port: int = 8501) -> int:
     """Start the Streamlit app in the browser.
 
     Listening on the local network is the default. A button could not switch
@@ -328,7 +328,7 @@ def run_streamlit(share_on_network: bool = True) -> int:
         print("Draai `python main.py` zonder --skip-install, of `pip install -r requirements.txt`.")
         return 1
 
-    command = [sys.executable, "-m", "streamlit", "run", STREAMLIT_APP]
+    command = [sys.executable, "-m", "streamlit", "run", STREAMLIT_APP, "--server.port", str(port)]
     if not share_on_network:
         command += ["--server.address", "127.0.0.1"]
         print_header("Alleen op deze computer")
@@ -341,11 +341,11 @@ def run_streamlit(share_on_network: bool = True) -> int:
     addresses = local_network_addresses()
     print_header("Ook bereikbaar op je eigen netwerk")
     if addresses:
-        print(f"Open op je telefoon of tablet:  http://{addresses[0]}:8501")
+        print(f"Open op je telefoon of tablet:  http://{addresses[0]}:{port}")
         for other in addresses[1:]:
             # Met een VPN, Docker of een tweede adapter is het eerste adres niet
             # per se de wifi waar de telefoon op zit.
-            print(f"Werkt dat niet, probeer dan:    http://{other}:8501")
+            print(f"Werkt dat niet, probeer dan:    http://{other}:{port}")
     else:
         print("Kon het netwerkadres van deze machine niet bepalen.")
     print("In de app staan deze adressen ook als QR-code onder 'Op je telefoon openen'.")
@@ -375,6 +375,7 @@ def print_test_guide() -> None:
         "streamlit_ui_manual_test": "python main.py --streamlit",
         "open_from_phone_on_same_wifi": "python main.py",
         "why_cant_my_phone_reach_it": "python main.py --diagnose-network",
+        "try_another_port_when_8501_is_blocked": "python main.py --port 8080",
         "keep_the_app_on_this_machine_only": "python main.py --local-only",
         "archive_root_leftovers": "python main.py --archive-root-leftovers",
         "project_hygiene_check": "python main.py --check-hygiene",
@@ -426,6 +427,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--network", action="store_true", help="Serveer de app ook op je lokale netwerk (dit is inmiddels de standaard; de vlag blijft werken).")
     parser.add_argument("--local-only", action="store_true", help="Alleen op deze computer luisteren; niet bereikbaar vanaf je telefoon.")
     parser.add_argument("--diagnose-network", action="store_true", help="Zoek uit waarom een ander apparaat de app niet kan openen, en bied de fix aan.")
+    parser.add_argument("--port", type=int, default=8501, help="Poort waarop de app luistert (standaard 8501). Beveiligingssoftware laat 8080 soms wel door waar 8501 dichtzit.")
     parser.add_argument("--archive-root-leftovers", action="store_true", help="Archive generated artifacts left in the project root.")
     parser.add_argument("--check-hygiene", action="store_true", help="Warn about generated artifacts left in the project root.")
     parser.add_argument("--guide", action="store_true", help="Print a JSON guide with common run/test commands.")
@@ -522,7 +524,7 @@ def main() -> int:
         if args.check_hygiene:
             results.append(("Project hygiene", run_hygiene_check()))
         if args.diagnose_network:
-            results.append(("Netwerkdiagnose", run_network_diagnosis()))
+            results.append(("Netwerkdiagnose", run_network_diagnosis(args.port)))
         if args.benchmark:
             results.append(("Retrieval benchmark", run_benchmark()))
         if args.benchmark_llm:
@@ -531,7 +533,7 @@ def main() -> int:
     print_run_summary(results, launching_app=launching_app)
 
     if launching_app:
-        results.append(("Streamlit app", run_streamlit(share_on_network=not args.local_only)))
+        results.append(("Streamlit app", run_streamlit(share_on_network=not args.local_only, port=args.port)))
 
     return 0 if all(code == 0 for _label, code in results) else 1
 

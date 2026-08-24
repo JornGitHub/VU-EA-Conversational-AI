@@ -184,8 +184,15 @@ telefoon toont alleen het scherm.
 
 #### Zwart scherm op de telefoon, en daarna een time-out
 
-Dat de pagina laadt maar leeg blijft en pas na een halve minuut afhaakt, betekent bijna altijd: de HTML komt
-binnen, maar de websocket-verbinding die Streamlit nodig heeft komt niet tot stand.
+Let eerst op wat je browser precies zegt, want dat scheidt twee heel verschillende problemen:
+
+* *"kon de pagina niet openen"* / *"server reageert niet"* — de verbinding komt **helemaal niet** tot stand.
+  Er zit iets tussen: een firewall, beveiligingssoftware, of het netwerk. Dat is het geval dat hieronder
+  behandeld wordt.
+* **De pagina laadt wel en blijft daarna leeg** — dan is de HTML binnengekomen en komt alleen de
+  websocket-verbinding niet tot stand. Dat is zeldzaam en wijst op iets tussen browser en app (een proxy).
+
+Bij het eerste geval gaat het dus om bereikbaarheid, niet om Streamlit.
 
 **Laat de app het uitzoeken.** In de zijbalk, onder **📱 Op je telefoon openen**, zit de knop
 **🔎 Waarom kan mijn telefoon er niet bij?**. Vanuit de terminal kan het ook:
@@ -243,6 +250,20 @@ beheerde laptop is Windows Firewall zelden de enige poortwachter:
 
 Deze tweede ronde draait alleen als Windows Firewall zelf niets verklaart — anders is de oorzaak al gevonden
 en kost het alleen tijd.
+
+**Een andere poort proberen.** Beveiligingssoftware werkt vaak met poortlijsten: 8080 mag wel, 8501 niet.
+Dat is in één commando te testen:
+
+```bash
+python main.py --port 8080
+```
+
+Werkt het daarmee wel, dan zat de blokkade op de poort en niet op de app.
+
+**Hoort de firewallregel wel bij dit programma?** Een regel geldt voor één executable. Start je de app met de
+Python uit je virtual environment terwijl de regel voor je systeem-Python is gemaakt, dan is de regel volkomen
+geldig en volkomen irrelevant. De diagnose kijkt daarom welk proces poort 8501 werkelijk openhoudt en
+vergelijkt dat pad met de regel — en biedt aan de regel opnieuw aan te maken als ze niet overeenkomen.
 
 **De route die niemand kan dichtzetten.** Blijft het hangen op het netwerk of op software buiten de app, dan
 toont het paneel de hotspot-route: zet de hotspot van je telefoon aan, verbind je laptop daarmee, herstart de
@@ -544,6 +565,7 @@ python main.py --build-embeddings                 # semantische index (her)bouwe
 python main.py --benchmark                       # retrieval-latency meten
 python main.py --local-only                      # app alleen op deze computer houden
 python main.py --diagnose-network                # waarom kan mijn telefoon er niet bij?
+python main.py --port 8080                       # andere poort, als 8501 geblokkeerd wordt
 python main.py --benchmark-llm                   # snelheid van het lokale LLM meten
 python main.py --check-hygiene                   # waarschuw over artefacten in de projectroot
 python main.py --archive-root-leftovers          # verplaats die artefacten naar data/archive/
@@ -561,6 +583,7 @@ python main.py --guide                           # JSON-overzicht van handige co
 | `--setup` | Alleen voorbereiden, app niet starten |
 | `--local-only` | Luister alleen op deze computer; niet bereikbaar vanaf je telefoon |
 | `--diagnose-network` | Zoek uit waarom een ander apparaat de app niet kan openen; biedt op Windows de firewallregel aan |
+| `--port N` | Laat de app op een andere poort luisteren (standaard 8501); handig als beveiligingssoftware 8501 blokkeert |
 | `--network` | Blijft werken, maar is inmiddels de standaard |
 | `--model NAAM` | Welk chatmodel gedownload en gebruikt wordt (standaard `qwen3:8b`) |
 | `--embed-model NAAM` | Welk embeddingmodel gebruikt wordt (standaard `nomic-embed-text`) |
