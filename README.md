@@ -260,10 +260,15 @@ python main.py --port 8080
 
 Werkt het daarmee wel, dan zat de blokkade op de poort en niet op de app.
 
-**Hoort de firewallregel wel bij dit programma?** Een regel geldt voor één executable. Start je de app met de
-Python uit je virtual environment terwijl de regel voor je systeem-Python is gemaakt, dan is de regel volkomen
-geldig en volkomen irrelevant. De diagnose kijkt daarom welk proces poort 8501 werkelijk openhoudt en
-vergelijkt dat pad met de regel — en biedt aan de regel opnieuw aan te maken als ze niet overeenkomen.
+**Hoort de firewallregel wel bij dit programma?** Een regel geldt voor één executable, en dat is niet
+vanzelfsprekend degene waarmee jij de app start: een virtual environment op Windows kan draaien onder de
+image van de basisinterpreter, en de firewall kijkt naar die image. Staat de regel op
+`.venv\Scripts\python.exe` terwijl de poort wordt opengehouden door
+`AppData\Local\Programs\Python\Python312\python.exe`, dan is de regel geldig, correct en volstrekt
+irrelevant — en de firewall lijkt in orde.
+
+De diagnose leest daarom welk proces de poort werkelijk openhoudt, vergelijkt dat pad met de regel, en maakt
+de regel bij een verschil opnieuw aan **voor het luisterende programma**.
 
 **De route die niemand kan dichtzetten.** Blijft het hangen op het netwerk of op software buiten de app, dan
 toont het paneel de hotspot-route: zet de hotspot van je telefoon aan, verbind je laptop daarmee, herstart de
