@@ -505,6 +505,91 @@ class ListenerMatchesRuleTests(unittest.TestCase):
         deep.assert_not_called()
 
 
+class ReportEncodingTests(unittest.TestCase):
+    """PowerShell 5.1 writes a BOM; the success marker sits behind it.
+
+    A tester saw "Windows weigerde de regel:" followed by the word OK — the
+    rule had been created and I reported it as a failure, twice.
+    """
+
+    def _apply(self, reported: str, returncode: int = 0) -> tuple[bool, str]:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "current_firewall_profile", return_value="Public"), \
+             mock.patch.object(nd, "_read_report", return_value=reported), \
+             mock.patch.object(nd.subprocess, "run",
+                               return_value=mock.MagicMock(returncode=returncode, stdout="", stderr="")):
+            return nd.apply_windows_firewall_rule(8501)
+
+    def test_a_marker_behind_a_bom_still_counts_as_success(self) -> None:
+        succeeded, message = self._apply("\ufeffOK")
+        self.assertTrue(succeeded, message)
+
+    def test_a_plain_marker_counts_as_success(self) -> None:
+        self.assertTrue(self._apply("OK")[0])
+
+    def test_a_real_error_is_still_a_failure(self) -> None:
+        succeeded, message = self._apply("\ufeffAccess is denied.", returncode=1)
+        self.assertFalse(succeeded)
+        self.assertIn("Access is denied", message)
+
+    def test_the_bom_is_stripped_when_reading_the_file(self) -> None:
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as folder:
+            report = Path(folder) / "report.txt"
+            report.write_bytes("\ufeffOK\r\n".encode("utf-8"))
+            self.assertEqual("OK", nd._read_report(str(report)))
+            self.assertFalse(report.exists(), "het rapport hoort opgeruimd te worden")
+
+    def test_the_elevated_script_writes_the_marker_without_a_bom(self) -> None:
+        script = nd.elevation_script(8501, "python.exe", "Public", r"C:\T\r.txt")
+        inner = base64.b64decode(script.split("'-EncodedCommand','")[1].split("'")[0]).decode("utf-16-le")
+        self.assertIn("-Value 'OK' -Encoding ASCII", inner)
+
+
+class RuleTargetsTheListenerTests(unittest.TestCase):
+    """The rule must name the program that holds the port.
+
+    On the tester's laptop the port was held by the base interpreter while
+    sys.executable was the virtual environment's python.exe. Recreating the
+    rule from sys.executable would have rebuilt the very rule that did nothing.
+    """
+
+    def test_the_listening_program_is_read_from_windows(self) -> None:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run",
+                               return_value="LISTENADDRESSES=0.0.0.0\nLISTENPATHS=C:\\Py312\\python.exe\n"):
+            self.assertEqual(r"C:\Py312\python.exe", nd.listening_program(8501))
+
+    def test_no_listener_falls_back_rather_than_guessing_wrong(self) -> None:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd, "_run", return_value="LISTENADDRESSES=\nLISTENPATHS=\n"):
+            self.assertIsNone(nd.listening_program(8501))
+
+    def test_the_command_prefers_the_listening_program(self) -> None:
+        with mock.patch.object(nd.sys, "platform", "win32"), \
+             mock.patch.object(nd.sys, "executable", r"C:\proj\.venv\Scripts\python.exe"), \
+             mock.patch.object(nd, "listening_program", return_value=r"C:\Py312\python.exe"):
+            command = nd.windows_firewall_command(8501, profile="Public")
+        self.assertIn(r'-Program "C:\Py312\python.exe"', command)
+        self.assertNotIn(".venv", command)
+
+    def test_the_mismatch_fix_names_the_listener_not_the_app(self) -> None:
+        mismatch = nd.Check(
+            "Programma achter de poort", nd.PROBLEM, "andere python.exe",
+            program=r"C:\Py312\python.exe",
+        )
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=[nd.Check("Windows Firewall", nd.PROBLEM, "aan")]), \
+             mock.patch.object(nd, "check_listener_matches_rule", return_value=[mismatch]), \
+             mock.patch.object(nd, "current_firewall_profile", return_value="Public"), \
+             mock.patch.object(nd.sys, "executable", r"C:\proj\.venv\Scripts\python.exe"):
+            result = nd.diagnose(8501, address="192.168.1.61")
+        self.assertTrue(result.fixable_here)
+        self.assertIn(r"C:\Py312\python.exe", result.fix_command)
+        self.assertNotIn(".venv", result.fix_command)
+
+
 class SafetyTests(unittest.TestCase):
     def test_a_failing_system_command_never_raises(self) -> None:
         with mock.patch.object(nd.subprocess, "run", side_effect=OSError("geen powershell")):

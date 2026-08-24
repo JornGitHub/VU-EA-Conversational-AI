@@ -45,6 +45,9 @@ class Check:
     status: str
     detail: str
     fix: str = ""
+    # Alleen gevuld waar het ertoe doet: het pad dat de poort openhoudt, zodat
+    # de fix de juiste executable kan noemen in plaats van te gokken.
+    program: str = ""
 
 
 @dataclass
@@ -338,6 +341,26 @@ Write-Output ("LISTENPATHS=" + (($paths | Sort-Object -Unique) -join '|'))
 """
 
 
+def listening_program(port: int) -> str | None:
+    """Return the executable Windows sees holding this port, if it can tell.
+
+    This is the path a firewall rule has to name. It is not always
+    ``sys.executable``: a virtual environment's python.exe can run under the
+    base interpreter's image, and the firewall matches on the image.
+    """
+    if not sys.platform.startswith("win"):
+        return None
+    for line in _run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", _LISTENER_PROBE % port],
+        timeout=30,
+    ).splitlines():
+        key, separator, value = line.strip().partition("=")
+        if separator and key.strip().upper() == "LISTENPATHS":
+            paths = [item for item in value.split("|") if item.strip()]
+            return paths[0] if paths else None
+    return None
+
+
 def check_listener_matches_rule(port: int) -> list[Check]:
     """Does the firewall rule name the executable that owns the port?
 
@@ -384,7 +407,8 @@ def check_listener_matches_rule(port: int) -> list[Check]:
                     f"Poort {port} wordt opengehouden door {', '.join(actual)}, terwijl de firewallregel "
                     f"voor {sys.executable} geldt. Een regel hoort bij één programma, dus die doet hier "
                     "niets.",
-                    "Maak de regel opnieuw aan vanuit dezelfde omgeving als waarmee je de app start.",
+                    "Maak de regel opnieuw aan voor het programma dat de poort vasthoudt.",
+                    actual[0],
                 )
             )
         else:
@@ -449,10 +473,12 @@ def windows_firewall_command(port: int, python_path: str | None = None, profile:
     """Return the PowerShell command that opens this port for this app.
 
     Deliberately narrow: TCP only, this one port, the profile Windows actually
-    applies to this network, and tied to this interpreter. Undo it with
+    applies to this network, and tied to one program. That program is the one
+    holding the port, which is not always ``sys.executable`` - naming the wrong
+    one produces a rule that is valid and does nothing. Undo it with
     ``Remove-NetFirewallRule -DisplayName "VU EA Conversational AI"``.
     """
-    program = python_path or sys.executable
+    program = python_path or listening_program(port) or sys.executable
     # Eerst weg, dan opnieuw: anders staat een oude regel voor het verkeerde
     # profiel er nog naast en verandert er niets.
     return (
@@ -486,7 +512,7 @@ def elevation_script(port: int, python_path: str | None = None, profile: str | N
     inner = (
         f"$out = '{report}'; "
         f"try {{ {windows_firewall_command(port, python_path, profile)} -ErrorAction Stop | Out-Null; "
-        f"Set-Content -Path $out -Value 'OK' -Encoding UTF8; exit 0 }} "
+        f"Set-Content -Path $out -Value 'OK' -Encoding ASCII; exit 0 }} "
         f"catch {{ Set-Content -Path $out -Value $_.Exception.Message -Encoding UTF8; exit 1 }}"
     )
     return (
@@ -503,7 +529,9 @@ def _read_report(report_path: str) -> str:
 
     try:
         file = _Path(report_path)
-        message = file.read_text(encoding="utf-8", errors="replace").strip()
+        # PowerShell 5.1 zet een BOM voor de inhoud; zonder strippen leest een
+        # geslaagde run als een mislukte.
+        message = file.read_text(encoding="utf-8-sig", errors="replace").strip().lstrip("\ufeff")
         file.unlink(missing_ok=True)
     except OSError:
         return ""
@@ -561,7 +589,9 @@ def apply_windows_firewall_rule(port: int, python_path: str | None = None) -> tu
     except (OSError, subprocess.SubprocessError) as error:
         return False, f"Kon het venster voor beheerdersrechten niet openen: {error}"
 
-    reported = _read_report(report_path)
+    # De BOM wordt bij het lezen al gestript, maar de beslissing hangt hiervan af
+    # en mag niet omvallen op een byte die je niet ziet staan.
+    reported = _read_report(report_path).lstrip("\ufeff").strip()
     if completed.returncode == 0 and reported.upper().startswith("OK"):
         return True, (
             f"De firewallregel is toegevoegd voor profiel {profile}. Probeer je telefoon opnieuw en "
@@ -607,7 +637,11 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     has_block_rule = any(check.name == "Blokkeerregel voor Python" for check in firewall_checks)
     inbound_ignored = any(check.name == "Inkomende regels toegestaan" for check in firewall_checks)
     other_product = next((check for check in firewall_checks if check.name == "Andere beveiligingssoftware"), None)
-    wrong_program = any(check.name == "Programma achter de poort" and check.status == PROBLEM for check in firewall_checks)
+    wrong_program_check = next(
+        (check for check in firewall_checks if check.name == "Programma achter de poort" and check.status == PROBLEM),
+        None,
+    )
+    wrong_program = wrong_program_check is not None
     narrow_listen = any(check.name == "Luisteradres" and check.status == PROBLEM for check in firewall_checks)
     broad_blocks = any(check.name == "Brede blokkeerregels" for check in firewall_checks)
     wrong_profile = any(
@@ -658,11 +692,11 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     elif wrong_program:
         result.conclusion = (
             "De firewallregel geldt voor een andere python.exe dan degene die de poort openhoudt. Een "
-            "regel hoort bij één programma, dus deze doet niets voor de draaiende app. Maak de regel "
-            "opnieuw aan vanuit dezelfde omgeving als waarmee je de app start - de knop hieronder doet dat."
+            "regel hoort bij één programma, dus deze doet niets voor de draaiende app. De knop hieronder "
+            "maakt de regel opnieuw aan, nu voor het programma dat de poort werkelijk vasthoudt."
         )
         result.fixable_here = True
-        result.fix_command = windows_firewall_command(port)
+        result.fix_command = windows_firewall_command(port, wrong_program_check.program or None)
     elif other_product is not None:
         result.conclusion = (
             "Windows Firewall laat de app door, maar er draait andere beveiligingssoftware met een eigen "
