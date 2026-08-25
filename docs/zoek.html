@@ -232,6 +232,32 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
   }
   .offline { font-size: 0.85rem; color: var(--text-soft); margin-top: 4px; }
+  /* Antwoordkaart: bovenaan, want dat is waar de vraag om ging. */
+  .answer {
+    background: var(--surface); border: 1px solid var(--accent);
+    border-left: 3px solid var(--accent); border-radius: var(--radius);
+    padding: 16px 18px; margin: 0 0 16px;
+  }
+  .answer.none { border-color: var(--border); border-left-color: var(--warn); }
+  .answer h2 {
+    font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.07em;
+    color: var(--accent); margin: 0 0 8px;
+  }
+  .answer.none h2 { color: var(--warn); }
+  .answer .lead { font-weight: 600; margin: 0 0 10px; }
+  .answer p { margin: 0 0 10px; }
+  .answer p:last-child { margin-bottom: 0; }
+  .answer .label {
+    font-size: 0.74rem; text-transform: uppercase; letter-spacing: 0.05em;
+    color: var(--text-soft); margin: 14px 0 4px;
+  }
+  .answer ul { margin: 0 0 6px; padding-left: 1.2em; }
+  .answer ul.codes, .answer ul.related { padding-left: 0; }
+  .answer .src { color: var(--text-soft); font-size: 0.85rem; margin: 12px 0 0; }
+  .answer .how {
+    color: var(--text-soft); font-size: 0.8rem; margin: 10px 0 0;
+    border-top: 1px solid var(--border); padding-top: 8px;
+  }
 </style>
 </head>
 
@@ -262,6 +288,8 @@
     </div>
   </div>
 
+  <section id="answer" aria-live="polite"></section>
+
   <p id="meta">Laden…</p>
   <ul class="suggest" id="suggest" hidden></ul>
   <div id="results"></div>
@@ -269,9 +297,10 @@
   <div class="note">
     <strong>Wat dit wel en niet is.</strong> Dit is de zoeklaag van de app: dezelfde definities,
     veldbeschrijvingen en codelijsten, rechtstreeks uit de officiële documentatie in deze repository.
-    Wat hier <em>niet</em> zit, is de taalmodel-laag die antwoorden formuleert en vervolgvragen begrijpt —
-    die draait lokaal en heeft een computer nodig. Er staat geen studentdata in deze pagina en die komt
-    er ook niet in.
+    De antwoorden bovenaan stelt deze pagina zelf samen uit die documentatie: elk feit erin staat
+    letterlijk in de bron. Wat hier <em>niet</em> draait is de taalmodel-laag van de volledige app, die
+    vrij formuleert en langere gesprekken volgt — daar is een computer met Ollama voor nodig. Er staat
+    geen studentdata in deze pagina en die komt er ook niet in.
   </div>
 
   <footer>
@@ -292,12 +321,16 @@
   var results = document.getElementById('results');
   var suggest = document.getElementById('suggest');
 
+  // Voorbeelden als vraag, niet als zoekterm: de pagina geeft nu antwoord, en
+  // dat blijft onzichtbaar als het eerste wat je aantikt een los woord is.
+  // Elke vraag hieronder moet ook echt een antwoord opleveren - een voorbeeld
+  // dat "hier staat niets over" oplevert is erger dan geen voorbeeld.
   var EXAMPLES = [
-    'internationale student',
-    'Opleidingsvorm',
-    'peildatum',
-    'verblijfsjaar',
-    'eerstejaars'
+    'Wat is een internationale student?',
+    'Welke waarden heeft Opleidingsvorm?',
+    'In welk bestand staat Verblijfsjaar?',
+    'Wat betekent code 6 bij CROHO-onderdeel actuele opleiding?',
+    'Verschil tussen Echte neveninschrijving en Onechte neveninschrijving'
   ];
 
   var STOP = {'de':1,'het':1,'een':1,'van':1,'is':1,'wat':1,'welke':1,'in':1,'op':1,'en':1,'of':1,
@@ -376,6 +409,415 @@
     return safe.replace(new RegExp('(' + pattern.join('|') + ')', 'gi'), '<mark>$1</mark>');
   }
 
+  // ---------------------------------------------------------- antwoord ----
+  // Op de laptop laat de app een lokaal taalmodel het antwoord formuleren. Dat
+  // model draait niet op een telefoon, en op een netwerk met clientisolatie
+  // (eduroam) is de laptop er ook niet. Deze laag stelt het antwoord daarom op
+  // het toestel zelf samen, uit dezelfde documentatie: elk feit staat er
+  // letterlijk in, alleen de zinnen eromheen komen van deze pagina. Verzinnen
+  // kan het niet — er is niets om mee te verzinnen.
+
+  // Antwoorden alleen als de vraag echt iets uit de documentatie noemt.
+  // NAME_HIT is de laagste score die een naamtreffer kan opleveren.
+  var ANSWER_MIN_SCORE = NAME_HIT;
+  var answerBox = document.getElementById('answer');
+  var lastSubject = '';
+
+  // Langste eerst, anders eet 'wat is' de zin op voordat 'wat is een' aan bod komt.
+  var QUESTION_PREFIXES = [
+    'wat is de betekenis van', 'wat wordt bedoeld met', 'wat houdt in',
+    'wat betekent het veld', 'wat betekent de', 'wat betekent het', 'wat betekent',
+    'wat is het veld', 'wat is een', 'wat is de', 'wat is het', 'wat is',
+    'wat zijn de', 'wat zijn',
+    'waar vind ik het veld', 'waar vind ik de', 'waar vind ik het', 'waar vind ik',
+    'waar staat het veld', 'waar staat de', 'waar staat het', 'waar staat',
+    'waar zit de', 'waar zit het', 'waar zit',
+    'in welk bestand staat het veld', 'in welk bestand staat de', 'in welk bestand staat',
+    'in welk bestand vind ik', 'in welke dataset staat', 'in welke dataset vind ik',
+    'welk bestand bevat', 'welke dataset bevat', 'welk bestand', 'welke dataset',
+    'welke waarden heeft het veld', 'welke waarden heeft de', 'welke waarden heeft',
+    'welke waarden kan', 'welke waarden zijn er voor', 'welke waarden zijn er bij',
+    'welke waarden', 'welke codes heeft het veld', 'welke codes heeft', 'welke codes',
+    'mogelijke waarden van het veld', 'mogelijke waarden van', 'mogelijke waarden',
+    'welk veldnummer heeft het veld', 'welk veldnummer heeft', 'welk veldnummer is',
+    'het hoeveelste veld is', 'welk nummer heeft het veld', 'welk nummer heeft',
+    'geef de definitie van', 'definitie van het veld', 'definitie van',
+    'leg uit wat', 'leg uit', 'vertel me over', 'vertel over', 'uitleg over',
+    'betekenis van het veld', 'betekenis van'
+  ].sort(function (a, b) { return b.length - a.length; });
+
+  var SUBJECT_TAILS = [
+    ' in de documentatie', ' in de 1cijferho documentatie', ' in 1cijferho', ' in 1cho',
+    ' volgens de documentatie', ' precies', ' eigenlijk'
+  ];
+  var LEADING_FILLER = {'het': 1, 'de': 1, 'een': 1, 'veld': 1, 'variabele': 1,
+                        'kolom': 1, 'begrip': 1, 'term': 1, 'en': 1};
+
+  // De vraag terugbrengen tot waar hij over gaat. Zonder dit zoekt de pagina op
+  // "wat is een internationale student" en mist ze de exacte naamtreffer.
+  function subjectOf(raw) {
+    var text = norm(raw);
+    if (!text) { return ''; }
+
+    text = text.replace(/^(?:code|waarde)\s+[a-z0-9]+\s+(?:bij|in|van|voor|uit)\s+/, '');
+
+    var stripping = true;
+    while (stripping) {
+      stripping = false;
+      for (var i = 0; i < QUESTION_PREFIXES.length; i += 1) {
+        var prefix = QUESTION_PREFIXES[i];
+        if (text.indexOf(prefix + ' ') === 0) {
+          text = text.slice(prefix.length + 1);
+          stripping = true;
+          break;
+        }
+      }
+    }
+
+    SUBJECT_TAILS.forEach(function (tail) {
+      if (text.length > tail.length && text.slice(-tail.length) === tail) {
+        text = text.slice(0, -tail.length);
+      }
+    });
+
+    var words = text.split(' ').filter(Boolean);
+    while (words.length && LEADING_FILLER[words[0]]) { words.shift(); }
+    return words.join(' ').trim();
+  }
+
+  function intentOf(raw) {
+    var q = norm(raw);
+    if (/\b(verschil|vergelijk|versus)\b/.test(q)) { return 'comparison'; }
+    if (/\b(?:code|waarde)\s+[a-z0-9]+\b/.test(q)) { return 'code'; }
+    // Ook "en de waarden daarvan?" vraagt om de codelijst; dat is een
+    // vervolgvraag zonder vraagwoord ervoor.
+    if (/\b(waarden|codes|codelijst|waardenlijst)\b/.test(q)) { return 'values'; }
+    if (/veldnummer|hoeveelste veld|welk nummer/.test(q)) { return 'number'; }
+    if (/waar vind ik|waar staat|waar zit|welk bestand|welke dataset|in welk bestand|in welke dataset/.test(q)) { return 'location'; }
+    if (/wat is|wat betekent|wat zijn|definitie|betekenis|leg uit|wat wordt bedoeld|wat houdt/.test(q)) { return 'definition'; }
+    return 'general';
+  }
+
+  // Een vervolgvraag verwijst terug ("en de waarden daarvan?") of houdt na het
+  // strippen van de vraagwoorden niets dan een voornaamwoord over ("waar staat
+  // dat?"). Onzin als "zxqwv" doet geen van beide en erft dus geen oud onderwerp,
+  // en een nieuwe vraag waar toevallig "die" in staat evenmin.
+  var BACK_REFERENCE = /\b(daarvan|daarbij|daarin|daarover|daarmee|ervan|erbij|erin|ervoor|hiervan|hierbij|hierin)\b/;
+  var PRONOUNS = {'die': 1, 'dat': 1, 'deze': 1, 'dit': 1, 'ze': 1, 'zij': 1, 'hem': 1, 'hij': 1};
+
+  function refersBack(raw, subject) {
+    if (BACK_REFERENCE.test(norm(raw))) { return true; }
+    var words = subject.split(' ').filter(Boolean);
+    return words.length > 0 && words.every(function (word) {
+      return PRONOUNS[word] || LEADING_FILLER[word];
+    });
+  }
+
+  function codeInQuery(raw) {
+    var match = norm(raw).match(/\b(?:code|waarde)\s+([a-z0-9]+)\b/);
+    return match ? match[1] : '';
+  }
+
+  // Items met answerable === false zijn wel vindbaar maar niet als antwoord te
+  // gebruiken: hun brontekst is een tabelfragment of een afgeknipte alinea. Ze
+  // worden apart bijgehouden, zodat de pagina kan zeggen wat er aan de hand is
+  // in plaats van "niets gevonden" bij iets dat er wel degelijk staat.
+  function bestFor(text, kind) {
+    if (!DATA) { return null; }
+    var query = norm(text);
+    if (!query) { return null; }
+    var queryTokens = tokens(text);
+    var best = null;
+    var blocked = null;
+    DATA.entries.forEach(function (entry) {
+      if (kind && entry.kind !== kind) { return; }
+      var value = score(entry, query, queryTokens);
+      if (value < ANSWER_MIN_SCORE) { return; }
+      if (entry.answerable === false) {
+        if (!blocked || value > blocked.score) { blocked = {entry: entry, score: value, blocked: true}; }
+      } else if (!best || value > best.score) {
+        best = {entry: entry, score: value};
+      }
+    });
+    return best || blocked;
+  }
+
+  // Een veldnummer of codelijst bestaat alleen bij een veld, dus daar eerst kijken.
+  function resolve(subject, intent) {
+    if (intent === 'values' || intent === 'code' || intent === 'number') {
+      var field = bestFor(subject, 'field');
+      if (field && !field.blocked) { return field; }
+    }
+    return bestFor(subject);
+  }
+
+  function datasetsOf(entry) {
+    if (entry.kind === 'field') { return entry.dataset ? [entry.dataset] : []; }
+    return entry.datasets || [];
+  }
+
+  // 12 van de 96 items noemen zichzelf als verwante term; als knop is dat een
+  // knop die niets doet.
+  function relatedNames(entry) {
+    return (entry.related || []).filter(function (name) {
+      return norm(name) !== norm(entry.name);
+    });
+  }
+
+  function sourceOf(entry) {
+    var parts = [entry.source || '1cHO-documentatie'];
+    var sets = datasetsOf(entry);
+    if (sets.length) { parts.push(sets.join(', ')); }
+    return parts.join(' — ');
+  }
+
+  // Blokken. 'fact', 'list', 'codes' en 'meaning' dragen tekst die letterlijk uit
+  // de documentatie komt; 'line' is een zin van deze pagina, met alleen namen en
+  // getallen uit de data erin. De test controleert dat onderscheid.
+  function fact(text) { return {kind: 'fact', text: String(text || '')}; }
+  function line(text) { return {kind: 'line', text: String(text || '')}; }
+  function listOf(label, items) { return {kind: 'list', label: label, items: items.map(String)}; }
+  function codesOf(label, items) { return {kind: 'codes', label: label, items: items}; }
+
+  function fieldLead(entry) {
+    var where = entry.dataset ? ' in ' + entry.dataset : '';
+    var type = entry.type ? ', type ' + entry.type : '';
+    return entry.name + ' is veld ' + entry.number + where + type + '.';
+  }
+
+  function detailBlocks(entry) {
+    var blocks = [];
+    if (entry.codes && entry.codes.length) {
+      blocks.push(codesOf('Mogelijke waarden', entry.codes));
+    }
+    if (entry.notes && entry.notes.length) {
+      blocks.push(listOf('Let op', entry.notes));
+    }
+    var sets = datasetsOf(entry);
+    if (entry.kind === 'definition' && sets.length) {
+      blocks.push(listOf('Te vinden in', sets));
+    }
+    return blocks;
+  }
+
+  function composeFor(entry, intent, raw) {
+    var blocks = [];
+    var lead = entry.kind === 'field' ? fieldLead(entry) : '';
+    var sets = datasetsOf(entry);
+
+    if (intent === 'code') {
+      var wanted = codeInQuery(raw);
+      var found = (entry.codes || []).filter(function (item) {
+        return norm(item.code) === norm(wanted);
+      })[0];
+      if (found) {
+        blocks.push({kind: 'meaning', name: entry.name, code: found.code, text: found.meaning});
+      } else if (entry.codes && entry.codes.length) {
+        blocks.push(line('Code ' + wanted + ' staat niet in de codelijst van ' + entry.name + '.'));
+        blocks.push(codesOf('Wel gedocumenteerd', entry.codes));
+      } else {
+        blocks.push(line('Bij ' + entry.name + ' staat geen codelijst in de documentatie.'));
+        blocks.push(fact(entry.text));
+      }
+      return {lead: lead, blocks: blocks};
+    }
+
+    if (intent === 'values') {
+      if (entry.codes && entry.codes.length) {
+        blocks.push(line(entry.name + ' heeft ' + entry.codes.length + ' gedocumenteerde waarden:'));
+        blocks.push(codesOf('', entry.codes));
+      } else {
+        blocks.push(line('De documentatie geeft bij ' + entry.name + ' geen codelijst' +
+                         (entry.type ? '; het veld is van het type ' + entry.type : '') + '.'));
+        blocks.push(fact(entry.text));
+      }
+      return {lead: lead, blocks: blocks};
+    }
+
+    if (intent === 'number') {
+      if (entry.kind === 'field') {
+        blocks.push(fact(entry.text));
+      } else {
+        blocks.push(line(entry.name + ' is een begrip uit de documentatie, geen veld, en heeft dus geen veldnummer.'));
+        blocks.push(fact(entry.text));
+      }
+      return {lead: lead, blocks: blocks};
+    }
+
+    if (intent === 'location') {
+      if (sets.length === 1) {
+        blocks.push(line(entry.name + ' staat in ' + sets[0] +
+                         (entry.kind === 'field' ? ', als veld ' + entry.number : '') + '.'));
+      } else if (sets.length > 1) {
+        blocks.push(line(entry.name + ' komt in ' + sets.length + ' bestanden voor:'));
+        blocks.push(listOf('', sets));
+      } else {
+        blocks.push(line('De documentatie noemt bij ' + entry.name + ' geen bestand.'));
+      }
+      blocks.push(fact(entry.text));
+      return {lead: '', blocks: blocks};
+    }
+
+    blocks.push(fact(entry.text));
+    return {lead: lead, blocks: blocks.concat(detailBlocks(entry))};
+  }
+
+  function comparisonSides(raw) {
+    var q = norm(raw).replace(/^.*?(?:verschil tussen|verschil van|verschil|vergelijk)\s+/, '');
+    return q.split(/\s+(?:en|versus|vs|tegenover)\s+/)
+            .map(function (part) { return part.trim(); })
+            .filter(Boolean);
+  }
+
+  function composeComparison(raw) {
+    var sides = comparisonSides(raw);
+    var hits = sides.map(function (side) { return bestFor(side); }).filter(Boolean);
+    var seen = {};
+    hits = hits.filter(function (hit) {
+      if (seen[hit.entry.name]) { return false; }
+      seen[hit.entry.name] = 1;
+      return true;
+    });
+    if (hits.length < 2) { return null; }
+
+    var left = hits[0].entry;
+    var right = hits[1].entry;
+    var blocks = [];
+    [left, right].forEach(function (entry) {
+      blocks.push(listOf(entry.kind === 'field' ? fieldLead(entry) : entry.name, [entry.text]));
+      blocks.push({kind: 'sub', text: 'Bron: ' + sourceOf(entry)});
+    });
+    blocks.push(line('De documentatie zet deze twee niet naast elkaar. Hierboven staat per stuk ' +
+                     'wat er letterlijk over geschreven is.'));
+    return {
+      ok: true,
+      intent: 'comparison',
+      title: left.name + ' tegenover ' + right.name,
+      lead: '',
+      blocks: blocks,
+      related: [],
+      source: ''
+    };
+  }
+
+  function compose(raw) {
+    if (!DATA || !norm(raw)) { return null; }
+    var intent = intentOf(raw);
+
+    if (intent === 'comparison') {
+      var compared = composeComparison(raw);
+      if (compared) { return compared; }
+    }
+
+    var subject = subjectOf(raw);
+    // Volgorde van kandidaten. Een expliciete terugverwijzing ("de waarden
+    // daarvan") gaat over het vorige onderwerp, ook als er toevallig een item
+    // bestaat dat op het woord "waarden" lijkt.
+    var candidates = [];
+    if (lastSubject && (subject === '' || refersBack(raw, subject))) {
+      candidates.push({text: lastSubject, followUp: true});
+    }
+    if (subject) { candidates.push({text: subject, followUp: false}); }
+
+    var chosen = null;
+    var blocked = null;
+    for (var i = 0; i < candidates.length && !chosen; i += 1) {
+      var found = resolve(candidates[i].text, intent);
+      if (!found) { continue; }
+      if (found.blocked) { blocked = blocked || found; continue; }
+      chosen = {hit: found, followUp: candidates[i].followUp};
+    }
+    if (!chosen) {
+      return {ok: false, intent: intent, subject: subject,
+              blocked: blocked ? blocked.entry.name : ''};
+    }
+
+    var hit = chosen.hit;
+    var followUp = chosen.followUp;
+    var entry = hit.entry;
+    lastSubject = entry.name;
+    var body = composeFor(entry, intent, raw);
+    return {
+      ok: true,
+      intent: intent,
+      entry: entry,
+      followUp: followUp,
+      title: entry.name,
+      lead: body.lead,
+      blocks: body.blocks,
+      related: relatedNames(entry).slice(0, 6),
+      source: sourceOf(entry)
+    };
+  }
+
+  function renderBlock(block, queryTokens) {
+    if (block.kind === 'fact' || block.kind === 'line') {
+      return block.text ? '<p>' + highlight(block.text, queryTokens) + '</p>' : '';
+    }
+    if (block.kind === 'sub') {
+      return '<p class="src">' + escapeHtml(block.text) + '</p>';
+    }
+    if (block.kind === 'meaning') {
+      return '<p><code>' + escapeHtml(block.code) + '</code> in ' + escapeHtml(block.name) +
+             ' betekent: <strong>' + highlight(block.text, queryTokens) + '</strong></p>';
+    }
+    var head = block.label ? '<p class="label">' + escapeHtml(block.label) + '</p>' : '';
+    if (block.kind === 'codes') {
+      return head + '<ul class="codes">' + block.items.map(function (item) {
+        return '<li><code>' + escapeHtml(item.code) + '</code><span>' +
+               highlight(item.meaning, queryTokens) + '</span></li>';
+      }).join('') + '</ul>';
+    }
+    return head + '<ul>' + block.items.map(function (item) {
+      return '<li>' + highlight(item, queryTokens) + '</li>';
+    }).join('') + '</ul>';
+  }
+
+  var HOW = '<p class="how">Samengesteld op dit toestel uit de meegeleverde documentatie. ' +
+            'Elk feit hierboven staat letterlijk in de bron; er is geen taalmodel aan te pas gekomen.</p>';
+
+  function renderAnswer(model, queryTokens) {
+    if (!model) { answerBox.innerHTML = ''; return; }
+
+    if (!model.ok) {
+      var body = model.blocked
+        ? '<p class="lead">Over ' + escapeHtml(model.blocked) + ' staat wel iets in de documentatie, ' +
+          'maar daar is het een tabelfragment en geen definitie.</p>' +
+          '<p>Hieronder staat de brontekst ongewijzigd, zodat je zelf kunt zien wat er staat. ' +
+          'Er een antwoord van maken zou betekenen dat deze pagina er iets bij verzint.</p>'
+        : '<p class="lead">Hier staat niets over in de documentatie op dit toestel.</p>' +
+          '<p>Zoek op de exacte veld- of begripsnaam uit de 1cijferHO-documentatie. ' +
+          'De volledige app op een computer kan er bovendien webbronnen bij halen.</p>';
+      answerBox.innerHTML = '<div class="answer none"><h2>Antwoord</h2>' + body + '</div>';
+      return;
+    }
+
+    var parts = ['<div class="answer"><h2>Antwoord</h2>'];
+    if (model.followUp) {
+      parts.push('<p class="label">Vervolgvraag over ' + escapeHtml(model.title) + '</p>');
+    }
+    parts.push('<p class="lead">' + escapeHtml(model.lead || model.title) + '</p>');
+    model.blocks.forEach(function (block) { parts.push(renderBlock(block, queryTokens)); });
+    if (model.related && model.related.length) {
+      parts.push('<p class="label">Verwant</p><ul class="related">');
+      model.related.forEach(function (name) {
+        parts.push('<li><button type="button" data-goto="' + escapeHtml(name) + '">' +
+                   escapeHtml(name) + '</button></li>');
+      });
+      parts.push('</ul>');
+    }
+    if (model.source) {
+      parts.push('<p class="src">Bron: ' + escapeHtml(model.source) + '</p>');
+    }
+    parts.push(HOW);
+    parts.push('</div>');
+    answerBox.innerHTML = parts.join('');
+  }
+
+  // De tests draaien deze pagina in een echte browser; zonder haak is er niets
+  // om de samenstelling los van de opmaak op te controleren.
+  window.__vuea = {compose: compose, subjectOf: subjectOf, intentOf: intentOf, refersBack: refersBack};
+
   function render(hits, queryTokens) {
     if (!hits.length) {
       results.innerHTML = '<p class="empty">Niets gevonden. Probeer de exacte veld- of begripsnaam uit de documentatie.</p>';
@@ -393,7 +835,7 @@
         });
         parts.push('</ul>');
       }
-      var links = (entry.related || []).concat(entry.aliases && entry.kind === 'definition' ? [] : []);
+      var links = relatedNames(entry);
       if (links.length) {
         parts.push('<ul class="related">');
         links.slice(0, 8).forEach(function (name) {
@@ -420,19 +862,27 @@
   function search() {
     if (!DATA) { return; }
     var raw = input.value;
-    var query = norm(raw);
-    var queryTokens = tokens(raw);
+    // Op het onderwerp zoeken, niet op de hele vraag. Anders raakt "wat is een
+    // internationale student" de exacte naam nooit, en haalt "welke waarden
+    // heeft opleidingsvorm" op het woord "waarden" elk kopje boven een
+    // codelijst naar boven.
+    var subject = subjectOf(raw);
+    var query = norm(subject) || norm(raw);
+    var subjectTokens = tokens(subject);
+    var queryTokens = subjectTokens.length ? subjectTokens : tokens(raw);
     var pool = DATA.entries.filter(function (entry) {
       return filter === 'all' || entry.kind === filter;
     });
 
     if (!query) {
+      renderAnswer(null, []);
       meta.textContent = pool.length + ' items — begin te typen, of kies een voorbeeld.';
       suggest.hidden = false;
       render(pool.slice(0, 12), []);
       return;
     }
     suggest.hidden = true;
+    renderAnswer(compose(raw), queryTokens);
 
     var hits = [];
     pool.forEach(function (entry) {
@@ -482,7 +932,7 @@
 
   // Doorklikken naar een verwant veld: sneller dan de naam overtypen op een
   // telefoon, en het maakt de verwijzingen in de documentatie navigeerbaar.
-  document.getElementById('results').addEventListener('click', function (event) {
+  document.body.addEventListener('click', function (event) {
     var target = event.target.closest('[data-goto]');
     if (!target) { return; }
     input.value = target.getAttribute('data-goto');

@@ -145,8 +145,10 @@ komt geen enkele website, hoe hij er ook uitziet.
 
 ### Kan het op een telefoon?
 
-**Zoeken kan wel, meteen, zonder installatie — en zonder netwerk.** De zoeklaag is een opzoekactie over een
-paar honderd definities, klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
+**Vragen stellen kan wel, meteen, zonder installatie — en zonder netwerk.** De zoeklaag is een opzoekactie
+over een paar honderd definities, klein genoeg om in de browser te draaien. Daar staat een antwoordlaag
+bovenop die de vraag leest en er een antwoord met bron van maakt. Samen staan ze als losse pagina op
+GitHub Pages:
 
 **<https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html>**
 
@@ -161,9 +163,32 @@ hoe goed de firewall ook staat. Deze route heeft de laptop niet nodig, dus er va
 Verwante velden zijn aantikbaar: een verwijzing in de documentatie brengt je naar dat veld, wat op een
 telefoon een stuk prettiger is dan een naam overtypen.
 
-Dezelfde definities, veldbeschrijvingen en codelijsten als in de app, rechtstreeks uit de officiële
-documentatie. Wat daar niet zit is de taalmodel-laag (antwoorden formuleren, vervolgvragen begrijpen);
-die draait lokaal en heeft een computer nodig. Bouwen doe je met `python scripts/build_pages_data.py`,
+#### De antwoordlaag op de telefoon
+
+De pagina laat niet alleen treffers zien, ze beantwoordt de vraag. Ze herkent waar de vraag om gaat en
+welk soort antwoord erbij hoort:
+
+| Vraag | Wat de pagina doet |
+| --- | --- |
+| *Wat is een internationale student?* | De definitie, met de bestanden waarin het begrip voorkomt |
+| *Welke waarden heeft Opleidingsvorm?* | De codelijst: `1 = voltijd`, `2 = deeltijd`, `3 = duaal onderwijs` |
+| *Wat betekent code 6 bij CROHO-onderdeel?* | `6` betekent *economie* — en bij een code die er niet staat, dát er niets over staat |
+| *In welk bestand vind ik Opleidingsvorm?* | De bestanden, met het veldnummer erbij |
+| *Verschil tussen X en Y?* | Beide definities naast elkaar, met de mededeling dat de bron ze zelf niet vergelijkt |
+| *En de waarden daarvan?* | Hetzelfde onderwerp als de vorige vraag; het onderwerp blijft staan |
+
+**Dit is geen taalmodel, en het doet ook niet alsof.** Elk feit in een antwoord staat letterlijk in de
+documentatie; de pagina kiest en ordent, ze formuleert niet. Dat is precies waarom ze op een telefoon kan
+draaien: er is geen model te laden, geen server te bereiken, geen wachttijd. Een test controleert de claim
+door voor vijftien vragen elk feit uit elk antwoord terug te zoeken in de gepubliceerde data.
+
+Waar de bron onbruikbaar is, zegt de pagina dat. Een deel van de documentatie is bij het extraheren midden
+in een tabel afgeknipt; zulke items blijven vindbaar, maar `scripts/build_pages_data.py` markeert ze
+(`"answerable": false`) en de antwoordlaag weigert er een definitie van te maken. Onzin levert geen
+antwoord op, en een vervolgvraag erft geen oud onderwerp.
+
+Wat hier niet zit is de taalmodel-laag: vrij formuleren, doorvragen over meerdere beurten, nuances
+combineren. Die draait lokaal en heeft een computer nodig. Bouwen doe je met `python scripts/build_pages_data.py`,
 dat schrijft `docs/data/definities.json` (± 80 kB) uit dezelfde kennisbank die de app gebruikt. Er gaat
 geen studentdata en geen synthetische data in die export — alleen documentatie die al publiek in deze
 repository staat.
@@ -240,6 +265,29 @@ zegt wat er aan de hand is:
 In beide gevallen toont de app twee uitwegen: het commando om zelf in een PowerShell-als-beheerder te
 draaien, en een kant-en-klare tekst voor je IT-beheerder met poort, pad en de exacte regel erin.
 
+#### De hotspot-route: de enige waar niets tussen kan zitten
+
+Deelt je telefoon zijn verbinding, dan is de telefoon zelf de router. Er is dan geen bedrijfsnetwerk, geen
+beleid en geen clientisolatie tussen de twee apparaten. Dat maakt het de route die het altijd doet.
+
+1. Zet op je telefoon de **persoonlijke hotspot** aan.
+2. Verbind **deze laptop** met die hotspot.
+3. Klik in het paneel op **🔄 Nieuw adres ophalen** en scan de nieuwe QR-code.
+
+**Herstarten hoeft niet.** De app luistert op `0.0.0.0`, en zo'n socket hoort niet bij de netwerkkaarten
+die er tijdens het starten waren: hij accepteert ook op een adres dat pas later verschijnt. Nagemeten door
+een socket op `0.0.0.0` te binden, dáárna een nieuw adres op de machine te zetten en er verbinding mee te
+maken — dat lukt. Ctrl+C is dus niet nodig, en dat was precies de stap die deze route onbereikbaar liet
+voelen.
+
+Het paneel herkent de bekende hotspot-bereiken (`172.20.10.x` voor iPhone, `192.168.43.x` voor Android,
+`192.168.137.x` voor de mobiele hotspot van Windows) en bevestigt dat je erop zit. De diagnose weet het
+ook: op een hotspot noemt hij clientisolatie niet meer als verklaring, want die kán het daar niet zijn.
+
+Eén ding blijft over: Windows kan de hotspot als een **nieuw netwerkprofiel** zien, en een firewallregel
+geldt per profiel. Blijft het scherm zwart, druk dan nog eens op **🔎 Waarom kan mijn telefoon er niet
+bij?** — die ziet het profielverschil en biedt de juiste regel aan.
+
 **Als het adres het netwerk verraadt.** Staat alles op de laptop goed en heeft de laptop een publiek
 adres, dan noemt de diagnose dat als de conclusie in plaats van een vage "het zal het netwerk wel zijn". Er
 is dan geen firewallregel die helpt: de blokkade zit in het netwerk, voordat het verkeer hier is. Het
@@ -295,9 +343,9 @@ app en scan de nieuwe QR-code. De telefoon is dan zelf het netwerk, dus er zit g
 **Als het beleid inkomende regels negeert.** Organisaties zetten op het profiel *Openbaar* vaak
 `AllowInboundRules` uit. Dan negeert Windows álle inkomende toestaan-regels, hoe correct ze ook zijn. De
 diagnose leest dat uit en zegt het: de firewallroute is dan dicht en blijft dicht. Wat overblijft is de
-hotspot van je telefoon, of — als je alleen iets wilt opzoeken — de
-[zoekpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die helemaal geen verbinding
-met je laptop nodig heeft.
+hotspot van je telefoon, of de
+[vraagpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die je vraag op het toestel
+zelf beantwoordt en daarvoor helemaal geen verbinding met je laptop nodig heeft.
 
 **Eén ding kan geen enkele test vanaf deze machine vaststellen:** of het wifi-netwerk verkeer tussen apparaten
 toestaat. Faalt de diagnose op niets, dan is dat wat overblijft — zie de tabel hieronder.
@@ -310,7 +358,7 @@ Werkt het op de laptop wel en op de telefoon niet, dan zit het tussen de twee ap
 
 | Oorzaak | Hoe je het herkent | Wat je doet |
 |---------|--------------------|-------------|
-| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten. Herkenbaar aan een publiek adres (`130.37.x.x`) in plaats van `192.168.x.x` — het paneel zegt het er zelf bij | Zet je laptop op de hotspot van je telefoon. Werkt het dan wel, dan was dit de oorzaak. |
+| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten. Herkenbaar aan een publiek adres (`130.37.x.x`) in plaats van `192.168.x.x` — het paneel zegt het er zelf bij | Zet je laptop op de hotspot van je telefoon en klik op **🔄 Nieuw adres ophalen**; herstarten hoeft niet. Werkt het dan wel, dan was dit de oorzaak. |
 | **Firewall** | Windows vroeg bij de eerste start of Python door de firewall mocht, en dat is gemist of geweigerd. Geblokkeerd verkeer wordt weggegooid, niet geweigerd — vandaar het lange wachten | **Windows-beveiliging → Firewall- en netwerkbeveiliging → Een app door de firewall toestaan** → zoek Python, vink *Privé* aan |
 | **Verkeerd adres** | Je hebt een VPN, Docker of een tweede netwerkadapter, dus het eerste adres is niet je wifi | Probeer de andere adressen; het paneel toont ze met een eigen QR-code |
 
@@ -606,7 +654,7 @@ VU-EA-Conversational-AI/
 │   ├── network_diagnosis.py         # Waarom een ander apparaat er niet bij kan, plus de firewall-fix
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
 ├── docs/                            # GitHub Pages: startpagina, zoekpagina, startscripts, evaluation.md
-│   ├── zoek.html                    # Browser-only zoeklaag (telefoon, offline, installeerbaar)
+│   ├── zoek.html                    # Zoek- én antwoordlaag in de browser (telefoon, offline, installeerbaar)
 │   ├── manifest.webmanifest         # Maakt de zoekpagina installeerbaar op een beginscherm
 │   ├── sw.js                        # Service worker: bewaart pagina + definities voor offline gebruik
 │   ├── icons/                       # App-iconen voor het beginscherm

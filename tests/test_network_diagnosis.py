@@ -170,6 +170,21 @@ class AddressShapeTests(unittest.TestCase):
         self.assertTrue(result.fixable_here)
         self.assertIn("firewall", result.conclusion.lower())
 
+    def test_a_hotspot_address_is_recognised_as_the_route_with_nothing_between(self) -> None:
+        check = nd.check_address_shape("172.20.10.3")
+        self.assertEqual(nd.OK, check.status)
+        self.assertIn("iPhone", check.detail)
+
+    def test_on_a_hotspot_client_isolation_is_not_offered_as_an_excuse(self) -> None:
+        """Sending someone to the hotspot they are already on helps nobody."""
+        result = self._diagnose("172.20.10.3", [
+            nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+            nd.Check("Firewallregel voor deze app", nd.OK, "aanwezig"),
+        ])
+        self.assertNotIn("zet deze laptop op de hotspot", result.conclusion.lower())
+        self.assertIn("al op een gedeelde telefoonverbinding", result.conclusion)
+        self.assertIn("4G/5G", result.conclusion)
+
     def test_the_finding_sits_next_to_the_listening_check(self) -> None:
         result = self._diagnose("192.168.1.24", [])
         self.assertEqual("Soort netwerkadres", result.checks[1].name)

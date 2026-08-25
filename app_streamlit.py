@@ -456,10 +456,17 @@ def render_network_diagnosis(url: str, port: int) -> None:
                 """
 1. Zet op je telefoon de **persoonlijke hotspot** aan.
 2. Verbind **deze laptop** met die hotspot (wifi-lijst → de naam van je telefoon).
-3. Herstart de app: `python main.py`.
-4. Open in dit paneel het nieuwe adres, of scan de nieuwe QR-code.
+3. Klik hierboven op **🔄 Nieuw adres ophalen**. Scan de nieuwe QR-code.
 
-De telefoon is dan zelf het netwerk, dus er is geen router of beleid dat ertussen kan zitten.
+**De app hoeft niet opnieuw op te starten.** Hij luistert op alle netwerkkaarten, ook op eentje die er
+pas later bij komt — je laptop krijgt van de hotspot gewoon een nieuw adres en de app is daar meteen
+bereikbaar. Ctrl+C is dus niet nodig.
+
+De telefoon is dan zelf het netwerk, dus er is geen router of beleid dat ertussen kan zitten. Windows kan
+dit wél als een nieuw netwerkprofiel zien; blijft het scherm zwart, druk dan opnieuw op
+**🔎 Waarom kan mijn telefoon er niet bij?** — die maakt zo nodig de firewallregel voor het profiel waar
+je nu op zit.
+
 Let op je databundel: de app zelf verstuurt niets naar buiten, maar je telefoon deelt wel internet.
 """
             )
@@ -532,6 +539,11 @@ def render_pairing_panel() -> None:
             return
 
         url = status["url"]
+        if status.get("hotspot"):
+            st.success(
+                f"Je zit op {status['hotspot']}. Daar is je telefoon zelf het netwerk, dus er kan geen "
+                "netwerkbeleid tussen de twee apparaten zitten — dit is de route die het altijd doet."
+            )
         if status.get("public_address"):
             # De QR-code blijft staan: op een netwerk zonder clientisolatie doet
             # hij het gewoon. Maar hem tonen zonder te zeggen wat dit adres
@@ -550,6 +562,17 @@ def render_pairing_panel() -> None:
             "De app, de documentatie en je vragen blijven op deze computer; je telefoon toont alleen het "
             "scherm. Iedereen op dit netwerk kan de app nu openen."
         )
+
+        # Van wifi wisselen geeft deze laptop een ander adres. De app hoeft daar
+        # niet voor herstart te worden - hij luistert op alle netwerkkaarten,
+        # ook op eentje die er later bij komt - maar het paneel moet het adres
+        # wel opnieuw uitlezen.
+        if st.button("🔄 Nieuw adres ophalen", use_container_width=True,
+                     help="Van wifi of hotspot gewisseld? Hiermee leest de app het nieuwe adres uit. "
+                          "De app zelf hoeft niet opnieuw te starten."):
+            st.session_state.pop("network_diagnosis", None)
+            st.session_state.pop("firewall_result", None)
+            st.rerun()
 
         alternatives = status.get("alternatives") or []
         if alternatives:
