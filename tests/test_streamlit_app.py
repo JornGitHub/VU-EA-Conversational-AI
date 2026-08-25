@@ -150,14 +150,49 @@ class PhoneFallbackTests(unittest.TestCase):
     def test_the_hotspot_route_is_spelled_out_when_no_fix_applies(self) -> None:
         block = self.source.split('if not result["fixable_here"]:')[1].split("return")[0]
         self.assertIn("hotspot", block.lower())
-        self.assertIn("python main.py", block)
         self.assertIn("zoek.html", block, "opzoeken kan zonder netwerkverbinding")
+
+    def test_the_hotspot_route_does_not_ask_for_a_restart(self) -> None:
+        """It used to say "herstart de app", and that was wrong.
+
+        The app binds the wildcard address, so it also listens on a network card
+        that only appears when you join the hotspot. Telling someone to Ctrl+C is
+        asking them to throw away a running app for nothing - and it was exactly
+        the step that made the route feel out of reach.
+        """
+        block = self.source.split('if not result["fixable_here"]:')[1].split("return")[0]
+        self.assertNotIn("Herstart de app", block)
+        self.assertIn("hoeft niet opnieuw op te starten", block)
+        self.assertIn("Nieuw adres ophalen", block)
 
     def test_it_is_not_shown_when_the_app_can_fix_it_itself(self) -> None:
         """Sending someone to a hotspot while a button would do is noise."""
         index_fix = self.source.index('if not result["fixable_here"]:')
         index_button = self.source.index("Firewallregel toevoegen")
         self.assertLess(index_fix, index_button, "de fix-knop hoort na de vroege return te staan")
+
+
+class SwitchingNetworksTests(unittest.TestCase):
+    """Changing wifi changes this laptop's address, not the running app."""
+
+    def setUp(self) -> None:
+        self.source = Path("app_streamlit.py").read_text(encoding="utf-8")
+
+    def test_the_panel_can_pick_up_a_new_address_without_a_restart(self) -> None:
+        self.assertIn("🔄 Nieuw adres ophalen", self.source)
+
+    def test_a_stale_diagnosis_is_dropped_with_the_old_address(self) -> None:
+        """Findings about the previous network would read as findings about this one."""
+        # Op de knopaanroep splitsen, niet op het label: dat staat ook in de
+        # hotspot-uitleg erboven, en dan valt het blok tussen de twee stukken.
+        block = self.source.split('if st.button("🔄 Nieuw adres ophalen"')[1].split("alternatives =")[0]
+        self.assertIn('st.session_state.pop("network_diagnosis"', block)
+        self.assertIn('st.session_state.pop("firewall_result"', block)
+        self.assertIn("st.rerun()", block)
+
+    def test_being_on_a_hotspot_is_confirmed_rather_than_left_to_guess(self) -> None:
+        self.assertIn('status.get("hotspot")', self.source)
+        self.assertIn("zelf het netwerk", self.source)
 
 
 class DiagnosisRefreshTests(unittest.TestCase):

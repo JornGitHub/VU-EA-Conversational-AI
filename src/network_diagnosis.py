@@ -28,7 +28,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
-from .pairing import is_local_network_address, local_network_address
+from .pairing import hotspot_kind, is_local_network_address, local_network_address
 
 RULE_NAME = "VU EA Conversational AI"
 
@@ -94,6 +94,14 @@ def check_address_shape(address: str | None) -> Check:
             UNKNOWN,
             "Kon geen netwerkadres van deze computer bepalen.",
             "Controleer of deze computer met wifi of ethernet verbonden is.",
+        )
+    hotspot = hotspot_kind(address)
+    if hotspot:
+        return Check(
+            "Soort netwerkadres",
+            OK,
+            f"{address} komt van {hotspot}. Daar is de telefoon zelf het netwerk, dus er zit geen "
+            "netwerkbeleid tussen de twee apparaten.",
         )
     if is_local_network_address(address):
         return Check(
@@ -683,6 +691,7 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     result.checks.insert(1, address_check)
     listening = listening_check.status
     public_address = address_check.status == PROBLEM
+    on_hotspot = bool(hotspot_kind(address))
     firewall_checks = [
         check for check in result.checks
         if check is not listening_check and check is not address_check
@@ -776,6 +785,16 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "routes blijven over: zet deze laptop op de hotspot van je telefoon, of gebruik de "
             "zoekpagina, die je vraag op de telefoon zelf beantwoordt en deze laptop niet nodig heeft "
             "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
+        )
+    elif on_hotspot:
+        # Op een hotspot is clientisolatie geen verklaring meer, dus die mag hier
+        # niet als uitweg genoemd worden: dan stuur je iemand naar de plek waar
+        # hij al staat.
+        result.conclusion = (
+            "Je zit al op een gedeelde telefoonverbinding, en daar is de telefoon zelf het netwerk — "
+            "clientisolatie kan het dus niet zijn. De app luistert en de firewall laat hem door. Blijft "
+            "het scherm zwart, controleer dan of je telefoon écht op zijn eigen hotspot zit en niet op "
+            "4G/5G, en of je het adres hierboven gebruikt en niet localhost."
         )
     elif firewall_checks and not missing_rule:
         result.conclusion = (
