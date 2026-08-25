@@ -451,6 +451,30 @@ Beide antwoordfuncties geven een JSON-structuur terug met onder andere `answer`,
 
 In de UI komt daar nog een cache per vraag+instelling overheen, zodat het omzetten van een sidebar-optie niet elk antwoord opnieuw berekent.
 
+**Tweede ronde: profileren in plaats van gokken.** Een profiel over 100 vragen liet zien waar de tijd heen
+ging, en het was twee keer hetzelfde patroon — dezelfde statische strings steeds opnieuw verwerken.
+
+| Wat | Voor | Na |
+|-----|------|-----|
+| `import src.chatbot` | ± 677 ms | **± 79 ms** |
+| Retrieval per vraag (p50, web uit) | ± 4,0 ms | **± 0,2 ms** |
+| Functieaanroepen per vraag | ± 15.200 | **± 1.400** |
+
+* **Bibliotheken die een vraag niet gebruikt.** `requests` (± 290 ms) en `python-docx` (± 200 ms) werden bij
+  het importeren van de retrieval-laag meegeladen, terwijl de eerste alleen nodig is als er werkelijk iets
+  van het web wordt gehaald en de tweede alleen bij het bouwen van de kennisbank. Allebei uitgesteld tot
+  eerste gebruik. Een test bewaakt dat: `import src.chatbot` mag geen van beide binnenhalen.
+* **Normaliseren van statische tekst.** `normalize_text` werd ruim 71.000 keer per 100 vragen aangeroepen,
+  `tokenize` 35.000 keer, grotendeels op dezelfde veldnamen. Die zijn nu gecachet (begrensd, zodat
+  gebruikersinvoer geen langzaam geheugenlek wordt). `tokenize` geeft een lijst terug maar cachet de tuple
+  erachter, zodat een caller die het resultaat aanpast de cache niet beschadigt.
+* **Veldcatalogus één keer voorbereiden.** `field_term_score` normaliseerde en tokeniseerde bij élke vraag de
+  naam en aliassen van alle 54 velden. Dat gebeurt nu eenmalig; de scorefunctie werkt op voorbereide vormen.
+
+Dat laatste raakt de ranking, dus die is vastgelegd vóór de wijziging en erna vergeleken: **1080 scores over
+20 vragen, 0 verschillen.** Een test controleert bovendien dat de voorbereide scoring exact gelijk is aan de
+losse berekening, voor elke vraag tegen elk veld.
+
 ### 5.5 Stap 4 — Bronbeleid en bronlagen
 
 Voor vragen over `Inschrijvingen_aggr_UNL_2025.csv` is het primaire document standaard `Aggregaatbestand inschrijvingen_1cHO2025.docx`. De build detecteert dit document zowel via `sources/1cHO Documentatie/...` als via de legacy-map `1cHO Documentatie/...`.

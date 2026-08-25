@@ -9,6 +9,7 @@ every name it used before.
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from typing import Any
 
 Entry = dict[str, Any]
@@ -71,11 +72,21 @@ SEARCHABLE_FIELDS = (
 )
 
 
+@lru_cache(maxsize=100_000)
+def _normalize_cached(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", text.lower())).strip()
+
+
 def normalize_text(text: Any) -> str:
-    """Normalize text for matching while preserving Dutch accented letters."""
-    return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", str(text).lower())).strip()
+    """Normalize text for matching while preserving Dutch accented letters.
+
+    Cached: answering one question normalizes the same field names and terms
+    tens of thousands of times, and the corpus does not change between calls.
+    """
+    return _normalize_cached(text if isinstance(text, str) else str(text))
 
 
+@lru_cache(maxsize=100_000)
 def singularize_token(token: str) -> str:
     """Very small Dutch-ish singularization helper for query/term matching."""
     if len(token) > 4 and token.endswith("en"):
@@ -85,11 +96,22 @@ def singularize_token(token: str) -> str:
     return token
 
 
-def tokenize(text: Any, *, remove_stopwords: bool = True) -> list[str]:
-    tokens = [singularize_token(token) for token in normalize_text(text).split()]
+@lru_cache(maxsize=50_000)
+def _tokenize_cached(text: str, remove_stopwords: bool) -> tuple[str, ...]:
+    tokens = [singularize_token(token) for token in _normalize_cached(text).split()]
     if remove_stopwords:
         tokens = [token for token in tokens if token and token not in STOPWORDS]
-    return tokens
+    return tuple(tokens)
+
+
+def tokenize(text: Any, *, remove_stopwords: bool = True) -> list[str]:
+    """Return tokens for matching.
+
+    A list, because callers mutate what they get back; the cache holds the
+    immutable tuple behind it.
+    """
+    source = text if isinstance(text, str) else str(text)
+    return list(_tokenize_cached(source, remove_stopwords))
 
 
 def as_list(value: Any) -> list[Any]:

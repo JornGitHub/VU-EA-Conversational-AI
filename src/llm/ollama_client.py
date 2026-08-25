@@ -19,7 +19,6 @@ from __future__ import annotations
 import json
 from typing import Any, Iterator
 
-import requests
 
 DEFAULT_BASE_URL = "http://127.0.0.1:11434"
 DEFAULT_TIMEOUT = 300
@@ -36,10 +35,22 @@ DEFAULT_OPTIONS: dict[str, Any] = {
     "num_predict": 400,
 }
 
-_SESSION: requests.Session | None = None
+_SESSION: "requests.Session | None" = None
 
 
-def _session() -> requests.Session:
+def _requests():
+    """Import requests on first use.
+
+    It costs about 290 ms to import, and a question answered from local
+    documentation never touches it. Annotations are strings here
+    (``from __future__ import annotations``), so nothing else needs it either.
+    """
+    import requests
+
+    return requests
+
+
+def _session() -> "requests.Session":
     """Return a session that ignores proxy environment variables.
 
     Ollama runs on localhost; routing those calls through a corporate proxy set
@@ -47,7 +58,7 @@ def _session() -> requests.Session:
     """
     global _SESSION
     if _SESSION is None:
-        session = requests.Session()
+        session = _requests().Session()
         session.trust_env = False
         _SESSION = session
     return _SESSION
@@ -82,7 +93,7 @@ def _connection_error(exc: Exception, base_url: str) -> RuntimeError:
     )
 
 
-def _http_error(exc: requests.exceptions.HTTPError, model: str) -> RuntimeError:
+def _http_error(exc: "requests.exceptions.HTTPError", model: str) -> RuntimeError:
     detail = exc.response.text if exc.response is not None else str(exc)
     if "not found" in detail.lower():
         return RuntimeError(
@@ -91,7 +102,7 @@ def _http_error(exc: requests.exceptions.HTTPError, model: str) -> RuntimeError:
     return RuntimeError(f"Ollama gaf een HTTP-fout terug voor model '{model}': {detail}")
 
 
-def _rejects_think(response: requests.Response) -> bool:
+def _rejects_think(response: "requests.Response") -> bool:
     """True when the server refused the request because of the ``think`` field."""
     if response.status_code != 400:
         return False
@@ -115,9 +126,9 @@ def generate_with_ollama(
             if think is not None and _rejects_think(response):
                 continue  # older server or non-thinking model: retry without the field
             response.raise_for_status()
-        except requests.exceptions.HTTPError as exc:
+        except _requests().exceptions.HTTPError as exc:
             raise _http_error(exc, model) from exc
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+        except (_requests().exceptions.ConnectionError, _requests().exceptions.Timeout) as exc:
             raise _connection_error(exc, base_url) from exc
 
         try:
@@ -168,9 +179,9 @@ def stream_with_ollama(
                     if event.get("done"):
                         return
                 return
-        except requests.exceptions.HTTPError as exc:
+        except _requests().exceptions.HTTPError as exc:
             raise _http_error(exc, model) from exc
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+        except (_requests().exceptions.ConnectionError, _requests().exceptions.Timeout) as exc:
             raise _connection_error(exc, base_url) from exc
 
 
@@ -189,6 +200,6 @@ def warm_up(model: str, base_url: str = DEFAULT_BASE_URL, timeout: int = 600) ->
             payload = build_payload("hoi", model, stream=False, think=None, options={"num_predict": 1})
             response = _session().post(url, json=payload, timeout=timeout)
         response.raise_for_status()
-    except requests.exceptions.RequestException:
+    except _requests().exceptions.RequestException:
         return False
     return True

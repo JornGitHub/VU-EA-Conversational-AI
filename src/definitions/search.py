@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from difflib import SequenceMatcher
 from functools import lru_cache
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 from src.definitions.inschrijvingen_catalog import GLOBAL_TRANSFORMATIONS, SELECTION_INFO, load_catalog
 from src.definitions.context_pack import build_context_pack
@@ -444,36 +444,77 @@ def catalog_fields() -> list[dict[str, Any]]:
     return load_catalog()
 
 
-def field_term_score(query: str, field: dict[str, Any]) -> float:
-    q = normalize_text(query)
-    name = normalize_text(field.get("field_name", ""))
-    aliases = [normalize_text(a) for a in field.get("aliases", [])]
+class PreparedField(NamedTuple):
+    """A catalog field with its matching forms worked out once.
+
+    Field names and aliases are static; normalizing and tokenizing all 54 of
+    them on every question was about a third of the time spent answering one.
+    """
+
+    field: dict[str, Any]
+    name: str
+    name_tokens: frozenset[str]
+    aliases: tuple[tuple[str, frozenset[str]], ...]
+
+
+@lru_cache(maxsize=8)
+def _prepared_catalog(signature: int) -> tuple[PreparedField, ...]:
+    prepared = []
+    for field in catalog_fields():
+        name = normalize_text(field.get("field_name", ""))
+        aliases = tuple(
+            (alias, frozenset(tokenize(alias)))
+            for alias in (normalize_text(value) for value in field.get("aliases", []))
+        )
+        prepared.append(PreparedField(field, name, frozenset(tokenize(name)), aliases))
+    return tuple(prepared)
+
+
+def prepared_catalog() -> tuple[PreparedField, ...]:
+    return _prepared_catalog(len(catalog_fields()))
+
+
+def score_prepared_field(query_norm: str, query_tokens: frozenset[str], prepared: PreparedField) -> float:
+    """Score one prepared field against an already-normalized query."""
+    name = prepared.name
     score = 0.0
-    if name and name in q:
-        score += 100 + len(name.split())
-    name_tokens = set(tokenize(name))
-    query_tokens = set(tokenize(q))
-    if name_tokens:
-        score += 20 * (len(name_tokens & query_tokens) / len(name_tokens))
-    for alias in aliases:
-        alias_tokens = set(tokenize(alias))
-        if alias and alias in q:
+    if name and name in query_norm:
+        score += 100 + name.count(" ") + 1
+    if prepared.name_tokens:
+        score += 20 * (len(prepared.name_tokens & query_tokens) / len(prepared.name_tokens))
+    for alias, alias_tokens in prepared.aliases:
+        if alias and alias in query_norm:
             score += 35
         elif alias_tokens and alias_tokens <= query_tokens:
             score += 25
-    if "actueel" in q and "actueel" in name:
+    if "actueel" in query_norm and "actueel" in name:
         score += 20
-    if "historisch" in q and "historisch" in name:
+    if "historisch" in query_norm and "historisch" in name:
         score += 20
-    if "peildatum" in q and "peildatum" in name:
-        score += 30
-    if "peildatum" not in q and "peildatum" in name:
-        score -= 20
+    if "peildatum" in name:
+        score += 30 if "peildatum" in query_norm else -20
     return score
 
 
+def field_term_score(query: str, field: dict[str, Any]) -> float:
+    """Score one field. Kept for callers that hold a single field."""
+    query_norm = normalize_text(query)
+    name = normalize_text(field.get("field_name", ""))
+    aliases = tuple(
+        (alias, frozenset(tokenize(alias)))
+        for alias in (normalize_text(value) for value in field.get("aliases", []))
+    )
+    prepared = PreparedField(field, name, frozenset(tokenize(name)), aliases)
+    return score_prepared_field(query_norm, frozenset(tokenize(query_norm)), prepared)
+
+
 def match_catalog_fields(query: str, limit: int = 4, min_score: float = 18.0) -> list[dict[str, Any]]:
-    scored = [(field_term_score(query, field), field) for field in catalog_fields()]
+    query_norm = normalize_text(query)
+    query_tokens = frozenset(tokenize(query_norm))
+    scored = [
+        (score_prepared_field(query_norm, query_tokens, prepared), prepared.field)
+        for prepared in prepared_catalog()
+    ]
     scored.sort(key=lambda item: (item[0], len(str(item[1].get("field_name", "")))), reverse=True)
     matches: list[dict[str, Any]] = []
     seen: set[str] = set()

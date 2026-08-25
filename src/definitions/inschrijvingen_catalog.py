@@ -11,7 +11,6 @@ import re
 from pathlib import Path
 from typing import Any
 
-from docx import Document
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DATA_DIR = PROJECT_ROOT / "data"
@@ -116,6 +115,10 @@ def build_catalog(source_path: Path | None = None) -> list[dict[str, Any]]:
     source_path = source_path or find_primary_source()
     if source_path is None:
         raise FileNotFoundError(PRIMARY_SOURCE_DOCUMENT)
+    # python-docx kost ± 200 ms aan importtijd en is alleen hier nodig, bij het
+    # bouwen van de catalogus - niet bij het beantwoorden van een vraag.
+    from docx import Document
+
     doc = Document(source_path)
     table = doc.tables[0]
     rows = []
