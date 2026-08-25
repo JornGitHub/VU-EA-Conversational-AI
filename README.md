@@ -451,6 +451,26 @@ Beide antwoordfuncties geven een JSON-structuur terug met onder andere `answer`,
 
 In de UI komt daar nog een cache per vraag+instelling overheen, zodat het omzetten van een sidebar-optie niet elk antwoord opnieuw berekent.
 
+**De weblaag was daarna de flessenhals.** Retrieval kost ± 4 ms; met de standaard *Forceer webcontext* kostte een
+vraag ± 4 seconden. Twee oorzaken, allebei verholpen:
+
+* **De hete route cachete niets.** Alleen `fetch_web_source` gebruikte de cache, en dat is niet de functie die
+  het antwoordpad aanroept. Elke vraag haalde dezelfde officiële pagina's opnieuw op. Er is nu een cache per
+  URL met een houdbaarheid van 7 dagen; het gaat om gepubliceerde documentatie, en `retrieved_at` laat zien
+  hoe oud een bron is.
+* **Vijftien pagina's achter elkaar.** Netwerkwerk stond op een rij, elk met een timeout van 15 seconden. Dat
+  gaat nu door een threadpool van maximaal 8; één trage bron houdt de rest niet meer op.
+
+| Meting (`web_mode="force"`, 5 vragen) | Voor | Na |
+|---------------------------------------|------|-----|
+| p50 per vraag | ± 3951 ms | **± 11 ms** |
+| Slechtste geval | ± 4187 ms | **± 75 ms** |
+| Koude cache (niets lokaal) | ± 3951 ms | **± 1386 ms** |
+
+Een expliciet meegegeven provider gaat nooit via de cache: dat is een instructie over wáár de inhoud vandaan
+moet komen, en de cache hoort die niet stil te overrulen. De ruwe cache staat in `.gitignore` — pure snelheid,
+per machine, altijd opnieuw op te halen.
+
 ### 5.5 Stap 4 — Bronbeleid en bronlagen
 
 Voor vragen over `Inschrijvingen_aggr_UNL_2025.csv` is het primaire document standaard `Aggregaatbestand inschrijvingen_1cHO2025.docx`. De build detecteert dit document zowel via `sources/1cHO Documentatie/...` als via de legacy-map `1cHO Documentatie/...`.

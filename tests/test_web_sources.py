@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import os
 import sys
+import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -352,3 +355,131 @@ class WebExcerptAndDisclaimerTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WebFetchPerformanceTests(unittest.TestCase):
+    """The answer path used to re-fetch the same pages, one after another.
+
+    Retrieval itself takes about 4 ms; the forced web layer made a question
+    take about 4 seconds. These pin the two things that fixed it.
+    """
+
+    def setUp(self) -> None:
+        import shutil
+
+        shutil.rmtree(web_sources.RAW_CACHE_DIR, ignore_errors=True)
+        self.addCleanup(shutil.rmtree, web_sources.RAW_CACHE_DIR, True)
+
+    def test_a_fetched_page_is_reused_from_disk(self) -> None:
+        calls = []
+
+        def fake_fetch(candidate, provider=None):
+            calls.append(candidate["url"])
+            return {"url": candidate["url"], "text": "inhoud", "title": "T", "status_code": 200}
+
+        with mock.patch.object(web_sources, "fetch_web_candidate", fake_fetch):
+            first = web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/a"})
+            second = web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/a"})
+
+        self.assertEqual(["https://duo.nl/a"], calls, "de tweede keer hoort van schijf te komen")
+        self.assertEqual(first["text"], second["text"])
+
+    def test_the_cache_keeps_only_the_page_not_the_question(self) -> None:
+        """Candidate fields differ per question and must not be cached per URL."""
+        def fake_fetch(candidate, provider=None):
+            return {"url": candidate["url"], "text": "inhoud", "discovery_strategy": "seed_urls"}
+
+        with mock.patch.object(web_sources, "fetch_web_candidate", fake_fetch):
+            web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/b", "discovery_strategy": "seed_urls"})
+        stored = json.loads(web_sources._raw_cache_path("https://duo.nl/b").read_text(encoding="utf-8"))
+        self.assertIn("text", stored)
+        self.assertNotIn("discovery_strategy", stored)
+
+    def test_an_explicit_provider_is_never_served_from_cache(self) -> None:
+        """Passing a provider says where it must come from; disk is not that."""
+        class Provider:
+            name = "fixture"
+            requires_api_key = False
+            is_paid_or_usage_based = False
+            calls = 0
+
+            def search(self, query, *, allowed_domains=None, max_results=5):
+                return []
+
+            def fetch(self, url):
+                Provider.calls += 1
+                return {"url": url, "text": "van de provider", "status_code": 200}
+
+        provider = Provider()
+        web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/c"}, provider=provider)
+        web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/c"}, provider=provider)
+        self.assertEqual(2, Provider.calls)
+
+    def test_a_stale_copy_is_refetched(self) -> None:
+        import os
+
+        def fake_fetch(candidate, provider=None):
+            return {"url": candidate["url"], "text": "nieuw", "status_code": 200}
+
+        path = web_sources._raw_cache_path("https://duo.nl/d")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"text": "oud"}), encoding="utf-8")
+        old = time.time() - web_sources.RAW_CACHE_TTL_SECONDS - 60
+        os.utime(path, (old, old))
+
+        with mock.patch.object(web_sources, "fetch_web_candidate", fake_fetch):
+            result = web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/d"})
+        self.assertEqual("nieuw", result["text"])
+
+    def test_a_corrupt_cache_entry_does_not_break_the_answer(self) -> None:
+        path = web_sources._raw_cache_path("https://duo.nl/e")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("{niet eens json", encoding="utf-8")
+
+        with mock.patch.object(web_sources, "fetch_web_candidate",
+                               lambda candidate, provider=None: {"url": candidate["url"], "text": "vers"}):
+            self.assertEqual("vers", web_sources.fetch_web_candidate_cached({"url": "https://duo.nl/e"})["text"])
+
+    def test_candidates_are_fetched_in_parallel(self) -> None:
+        """Fifteen pages one after another is where the seconds went."""
+        import threading
+
+        active = []
+        peak = [0]
+        lock = threading.Lock()
+
+        class Provider:
+            name = "fixture"
+            requires_api_key = False
+            is_paid_or_usage_based = False
+
+            def search(self, query, *, allowed_domains=None, max_results=5):
+                return []
+
+            def fetch(self, url):
+                with lock:
+                    active.append(url)
+                    peak[0] = max(peak[0], len(active))
+                time.sleep(0.05)
+                with lock:
+                    active.remove(url)
+                return {"url": url, "text": "inhoud", "status_code": 200, "title": url}
+
+        web_sources.build_web_context_with_candidates("Wat is een onechte neveninschrijving?", provider=Provider())
+        self.assertGreater(peak[0], 1, "de fetches liepen nog steeds op een rij")
+
+    def test_one_failing_source_does_not_take_the_others_down(self) -> None:
+        class Provider:
+            name = "fixture"
+            requires_api_key = False
+            is_paid_or_usage_based = False
+
+            def search(self, query, *, allowed_domains=None, max_results=5):
+                return []
+
+            def fetch(self, url):
+                raise RuntimeError("offline")
+
+        result = web_sources.build_web_context_with_candidates("Wat is een onechte neveninschrijving?", provider=Provider())
+        self.assertEqual([], result["web_context"])
+        self.assertTrue(result["rejected_web_candidates"])
