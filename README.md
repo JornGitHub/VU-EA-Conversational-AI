@@ -145,10 +145,21 @@ komt geen enkele website, hoe hij er ook uitziet.
 
 ### Kan het op een telefoon?
 
-**Zoeken kan wel, meteen, zonder installatie.** De zoeklaag is een opzoekactie over een paar honderd
-definities — klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
+**Zoeken kan wel, meteen, zonder installatie — en zonder netwerk.** De zoeklaag is een opzoekactie over een
+paar honderd definities, klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
 
 **<https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html>**
+
+Zet hem op je beginscherm (op een iPhone: **Deel → Zet op beginscherm**) en hij werkt daarna **offline**. Een
+service worker bewaart de pagina en de definities op het toestel; er is daarna geen verbinding meer nodig,
+ook niet met deze repository.
+
+Dat is meteen het antwoord op kantoornetwerken die verkeer tussen apparaten blokkeren. Op eduroam krijgt een
+laptop een publiek adres (`130.37.x.x`) en staat clientisolatie aan: je telefoon kan de laptop niet bereiken,
+hoe goed de firewall ook staat. Deze route heeft de laptop niet nodig, dus er valt niets te blokkeren.
+
+Verwante velden zijn aantikbaar: een verwijzing in de documentatie brengt je naar dat veld, wat op een
+telefoon een stuk prettiger is dan een naam overtypen.
 
 Dezelfde definities, veldbeschrijvingen en codelijsten als in de app, rechtstreeks uit de officiële
 documentatie. Wat daar niet zit is de taalmodel-laag (antwoorden formuleren, vervolgvragen begrijpen);
@@ -544,7 +555,10 @@ VU-EA-Conversational-AI/
 │   ├── network_diagnosis.py         # Waarom een ander apparaat er niet bij kan, plus de firewall-fix
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
 ├── docs/                            # GitHub Pages: startpagina, zoekpagina, startscripts, evaluation.md
-│   ├── zoek.html                    # Browser-only zoeklaag (werkt op een telefoon, zonder installatie)
+│   ├── zoek.html                    # Browser-only zoeklaag (telefoon, offline, installeerbaar)
+│   ├── manifest.webmanifest         # Maakt de zoekpagina installeerbaar op een beginscherm
+│   ├── sw.js                        # Service worker: bewaart pagina + definities voor offline gebruik
+│   ├── icons/                       # App-iconen voor het beginscherm
 │   └── data/definities.json         # Export voor die pagina (alleen documentatie)
 ├── scripts/                         # Build, embeddings, benchmark, evaluatie, audits, feedback,
 │                                    #   synthetische data, data-vs-documentatie-check, Pages-export

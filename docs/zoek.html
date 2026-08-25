@@ -4,7 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Definities opzoeken - VU EA Conversational AI</title>
-<meta name="description" content="Zoek in de 1cijferHO-documentatie van VU Education Analytics. Werkt in elke browser, ook op je telefoon, zonder installatie.">
+<meta name="description" content="Zoek in de 1cijferHO-documentatie van VU Education Analytics. Werkt in elke browser, ook op je telefoon, en offline.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1668b3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="VU EA definities">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
 <style>
   :root {
     color-scheme: light dark;
@@ -207,6 +213,25 @@
     border-radius: 999px; padding: 7px 13px; font-size: 0.88rem; cursor: pointer;
   }
   footer { margin-top: 40px; }
+  .install {
+    display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--accent-soft); border: 1px solid var(--border);
+    border-left: 3px solid var(--accent); border-radius: 8px;
+    padding: 12px 14px; margin: 0 0 14px; font-size: 0.93rem;
+  }
+  .install.show { display: flex; }
+  .install button {
+    font: inherit; font-weight: 600; background: var(--accent); color: #fff;
+    border: 1px solid var(--accent); border-radius: 8px; padding: 8px 14px; cursor: pointer;
+  }
+  .install .dismiss { background: transparent; color: var(--text-soft); border-color: var(--border); }
+  .related { margin: 8px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; }
+  .related button {
+    font: inherit; font-size: 0.85rem; cursor: pointer;
+    background: var(--surface-2); color: var(--accent);
+    border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
+  }
+  .offline { font-size: 0.85rem; color: var(--text-soft); margin-top: 4px; }
 </style>
 </head>
 
@@ -220,6 +245,12 @@
       telefoon, zonder iets te installeren.
     </p>
   </header>
+
+  <div class="install" id="install">
+    <span id="install-text">Zet deze zoekpagina op je beginscherm — daarna werkt hij ook zonder netwerk.</span>
+    <button type="button" id="install-go">Toevoegen</button>
+    <button type="button" class="dismiss" id="install-no">Nee, dank je</button>
+  </div>
 
   <div class="searchbar">
     <input id="q" type="search" placeholder="Zoek een veld of begrip, bijvoorbeeld: internationale student"
@@ -362,6 +393,14 @@
         });
         parts.push('</ul>');
       }
+      var links = (entry.related || []).concat(entry.aliases && entry.kind === 'definition' ? [] : []);
+      if (links.length) {
+        parts.push('<ul class="related">');
+        links.slice(0, 8).forEach(function (name) {
+          parts.push('<li><button type="button" data-goto="' + escapeHtml(name) + '">' + escapeHtml(name) + '</button></li>');
+        });
+        parts.push('</ul>');
+      }
       if (entry.notes && entry.notes.length) {
         entry.notes.forEach(function (note) {
           parts.push('<p class="src">NB: ' + highlight(note, queryTokens) + '</p>');
@@ -440,6 +479,74 @@
   });
 
   input.addEventListener('input', search);
+
+  // Doorklikken naar een verwant veld: sneller dan de naam overtypen op een
+  // telefoon, en het maakt de verwijzingen in de documentatie navigeerbaar.
+  document.getElementById('results').addEventListener('click', function (event) {
+    var target = event.target.closest('[data-goto]');
+    if (!target) { return; }
+    input.value = target.getAttribute('data-goto');
+    search();
+    window.scrollTo({top: 0, behavior: 'smooth'});
+  });
+
+  // --------------------------------------------------------- offline ----
+  // Op een netwerk met clientisolatie is dit de enige route die het altijd
+  // doet: na één bezoek staat alles op het toestel en is er niets meer om
+  // te blokkeren.
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {
+        // Geen service worker (privémodus, oude browser): de pagina werkt
+        // gewoon, alleen niet offline.
+      });
+    });
+  }
+
+  var installBar = document.getElementById('install');
+  var installPrompt = null;
+
+  function hideInstall() {
+    installBar.classList.remove('show');
+    try { localStorage.setItem('vuea-install-dismissed', '1'); } catch (error) { /* privémodus */ }
+  }
+
+  function dismissed() {
+    try { return localStorage.getItem('vuea-install-dismissed') === '1'; } catch (error) { return false; }
+  }
+
+  function standalone() {
+    return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  }
+
+  window.addEventListener('beforeinstallprompt', function (event) {
+    event.preventDefault();
+    installPrompt = event;
+    if (!dismissed() && !standalone()) { installBar.classList.add('show'); }
+  });
+
+  document.getElementById('install-go').addEventListener('click', function () {
+    if (installPrompt) {
+      installPrompt.prompt();
+      installPrompt = null;
+      hideInstall();
+    }
+  });
+  document.getElementById('install-no').addEventListener('click', hideInstall);
+
+  // Safari op iOS kent beforeinstallprompt niet; daar is het een handmatige
+  // handeling, dus die leggen we gewoon uit in plaats van een knop te tonen
+  // die niets doet.
+  (function () {
+    var ua = navigator.userAgent || '';
+    var isIos = /iPad|iPhone|iPod/.test(ua) && !window.MSStream;
+    if (isIos && !standalone() && !dismissed()) {
+      document.getElementById('install-text').textContent =
+        'Zet deze pagina op je beginscherm: tik op Deel en dan op "Zet op beginscherm". Daarna werkt hij ook zonder netwerk.';
+      document.getElementById('install-go').hidden = true;
+      installBar.classList.add('show');
+    }
+  })();
 
   fetch('data/definities.json')
     .then(function (response) {
