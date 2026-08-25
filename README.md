@@ -145,8 +145,10 @@ komt geen enkele website, hoe hij er ook uitziet.
 
 ### Kan het op een telefoon?
 
-**Zoeken kan wel, meteen, zonder installatie — en zonder netwerk.** De zoeklaag is een opzoekactie over een
-paar honderd definities, klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
+**Vragen stellen kan wel, meteen, zonder installatie — en zonder netwerk.** De zoeklaag is een opzoekactie
+over een paar honderd definities, klein genoeg om in de browser te draaien. Daar staat een antwoordlaag
+bovenop die de vraag leest en er een antwoord met bron van maakt. Samen staan ze als losse pagina op
+GitHub Pages:
 
 **<https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html>**
 
@@ -161,9 +163,32 @@ hoe goed de firewall ook staat. Deze route heeft de laptop niet nodig, dus er va
 Verwante velden zijn aantikbaar: een verwijzing in de documentatie brengt je naar dat veld, wat op een
 telefoon een stuk prettiger is dan een naam overtypen.
 
-Dezelfde definities, veldbeschrijvingen en codelijsten als in de app, rechtstreeks uit de officiële
-documentatie. Wat daar niet zit is de taalmodel-laag (antwoorden formuleren, vervolgvragen begrijpen);
-die draait lokaal en heeft een computer nodig. Bouwen doe je met `python scripts/build_pages_data.py`,
+#### De antwoordlaag op de telefoon
+
+De pagina laat niet alleen treffers zien, ze beantwoordt de vraag. Ze herkent waar de vraag om gaat en
+welk soort antwoord erbij hoort:
+
+| Vraag | Wat de pagina doet |
+| --- | --- |
+| *Wat is een internationale student?* | De definitie, met de bestanden waarin het begrip voorkomt |
+| *Welke waarden heeft Opleidingsvorm?* | De codelijst: `1 = voltijd`, `2 = deeltijd`, `3 = duaal onderwijs` |
+| *Wat betekent code 6 bij CROHO-onderdeel?* | `6` betekent *economie* — en bij een code die er niet staat, dát er niets over staat |
+| *In welk bestand vind ik Opleidingsvorm?* | De bestanden, met het veldnummer erbij |
+| *Verschil tussen X en Y?* | Beide definities naast elkaar, met de mededeling dat de bron ze zelf niet vergelijkt |
+| *En de waarden daarvan?* | Hetzelfde onderwerp als de vorige vraag; het onderwerp blijft staan |
+
+**Dit is geen taalmodel, en het doet ook niet alsof.** Elk feit in een antwoord staat letterlijk in de
+documentatie; de pagina kiest en ordent, ze formuleert niet. Dat is precies waarom ze op een telefoon kan
+draaien: er is geen model te laden, geen server te bereiken, geen wachttijd. Een test controleert de claim
+door voor vijftien vragen elk feit uit elk antwoord terug te zoeken in de gepubliceerde data.
+
+Waar de bron onbruikbaar is, zegt de pagina dat. Een deel van de documentatie is bij het extraheren midden
+in een tabel afgeknipt; zulke items blijven vindbaar, maar `scripts/build_pages_data.py` markeert ze
+(`"answerable": false`) en de antwoordlaag weigert er een definitie van te maken. Onzin levert geen
+antwoord op, en een vervolgvraag erft geen oud onderwerp.
+
+Wat hier niet zit is de taalmodel-laag: vrij formuleren, doorvragen over meerdere beurten, nuances
+combineren. Die draait lokaal en heeft een computer nodig. Bouwen doe je met `python scripts/build_pages_data.py`,
 dat schrijft `docs/data/definities.json` (± 80 kB) uit dezelfde kennisbank die de app gebruikt. Er gaat
 geen studentdata en geen synthetische data in die export — alleen documentatie die al publiek in deze
 repository staat.
@@ -295,9 +320,9 @@ app en scan de nieuwe QR-code. De telefoon is dan zelf het netwerk, dus er zit g
 **Als het beleid inkomende regels negeert.** Organisaties zetten op het profiel *Openbaar* vaak
 `AllowInboundRules` uit. Dan negeert Windows álle inkomende toestaan-regels, hoe correct ze ook zijn. De
 diagnose leest dat uit en zegt het: de firewallroute is dan dicht en blijft dicht. Wat overblijft is de
-hotspot van je telefoon, of — als je alleen iets wilt opzoeken — de
-[zoekpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die helemaal geen verbinding
-met je laptop nodig heeft.
+hotspot van je telefoon, of de
+[vraagpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die je vraag op het toestel
+zelf beantwoordt en daarvoor helemaal geen verbinding met je laptop nodig heeft.
 
 **Eén ding kan geen enkele test vanaf deze machine vaststellen:** of het wifi-netwerk verkeer tussen apparaten
 toestaat. Faalt de diagnose op niets, dan is dat wat overblijft — zie de tabel hieronder.
@@ -606,7 +631,7 @@ VU-EA-Conversational-AI/
 │   ├── network_diagnosis.py         # Waarom een ander apparaat er niet bij kan, plus de firewall-fix
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
 ├── docs/                            # GitHub Pages: startpagina, zoekpagina, startscripts, evaluation.md
-│   ├── zoek.html                    # Browser-only zoeklaag (telefoon, offline, installeerbaar)
+│   ├── zoek.html                    # Zoek- én antwoordlaag in de browser (telefoon, offline, installeerbaar)
 │   ├── manifest.webmanifest         # Maakt de zoekpagina installeerbaar op een beginscherm
 │   ├── sw.js                        # Service worker: bewaart pagina + definities voor offline gebruik
 │   ├── icons/                       # App-iconen voor het beginscherm
