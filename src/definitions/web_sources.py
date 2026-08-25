@@ -7,10 +7,12 @@ but failures simply return no web context so local documentation remains usable.
 from __future__ import annotations
 
 import hashlib
+import time
 import io
 import json
 import re
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
@@ -193,6 +195,56 @@ def fetch_web_candidate(candidate: dict[str, Any], provider: WebProvider | None 
     except Exception:
         return None
     return {**candidate, **raw}
+
+
+RAW_CACHE_DIR = CACHE_DIR / "raw"
+RAW_CACHE_TTL_SECONDS = 7 * 24 * 3600
+
+
+def _raw_cache_path(url: str) -> Path:
+    return RAW_CACHE_DIR / f"{hashlib.sha256(url.encode()).hexdigest()}.json"
+
+
+def fetch_web_candidate_cached(candidate: dict[str, Any], provider: WebProvider | None = None) -> dict[str, Any] | None:
+    """Fetch a candidate, reusing a recent copy from disk.
+
+    The answer path re-requests the same official pages on every question,
+    which is where nearly all of its time went. Only ``fetch_web_source`` was
+    cached, and that is not the function this path calls.
+
+    A short-lived cache is safe here: these are published documentation pages,
+    and a stale copy is visibly dated in the answer through ``retrieved_at``.
+    """
+    url = str(candidate.get("url") or "")
+    if not url:
+        return None
+    # Een meegegeven provider is een instructie over wáár het vandaan moet
+    # komen; die mag de cache niet stilletjes overrulen. Dat maakt de cache
+    # bovendien onzichtbaar voor tests met een eigen bron.
+    if provider is not None or not load_web_config().get("cache_enabled", True):
+        return fetch_web_candidate(candidate, provider=provider)
+
+    path = _raw_cache_path(url)
+    try:
+        age = time.time() - path.stat().st_mtime
+        if age < RAW_CACHE_TTL_SECONDS:
+            cached = json.loads(path.read_text(encoding="utf-8"))
+            return {**candidate, **cached}
+    except (OSError, ValueError):
+        pass
+
+    raw = fetch_web_candidate(candidate, provider=provider)
+    if raw is None:
+        return None
+    try:
+        RAW_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        # Alleen de opgehaalde inhoud bewaren, niet de kandidaatvelden: die
+        # verschillen per vraag en horen niet in een cache per URL.
+        storable = {key: raw[key] for key in ("text", "snippet", "title", "status_code", "content_type") if key in raw}
+        path.write_text(json.dumps(storable, ensure_ascii=False), encoding="utf-8")
+    except (OSError, TypeError, ValueError):
+        pass
+    return raw
 
 
 def fetch_web_source(url: str, provider: WebProvider | None = None) -> dict[str, Any] | None:
@@ -537,13 +589,38 @@ def build_web_context_with_candidates(query: str, matched_fields: list[dict[str,
     results = discovery["candidates"]
     candidates = []
     accepted = []
-    for result in results[: max_results * 3]:
+    shortlist = results[: max_results * 3]
+
+    # Vooraf classificeren, zodat alleen wat overblijft wordt opgehaald.
+    prepared: list[tuple[dict[str, Any], dict[str, Any] | None]] = []
+    to_fetch: list[dict[str, Any]] = []
+    for result in shortlist:
         url = result.get("url", "")
         pre = classify_web_candidate({**result, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed)}, query, matched_terms=matched_terms, matched_fields=matched_fields)
         if not pre["accepted"] and pre.get("reject_reason") == "search_page":
-            candidates.append(pre)
+            prepared.append((result, None))
             continue
-        raw = fetch_web_candidate(result, provider=provider)
+        prepared.append((result, pre))
+        to_fetch.append(result)
+
+    # Netwerk-gebonden werk hoort niet op een rij te wachten: vijftien pagina's
+    # achter elkaar ophalen was de reden dat een vraag seconden kostte.
+    fetched: dict[str, dict[str, Any] | None] = {}
+    if to_fetch:
+        with ThreadPoolExecutor(max_workers=min(8, len(to_fetch))) as pool:
+            futures = {pool.submit(fetch_web_candidate_cached, item, provider): item.get("url", "") for item in to_fetch}
+            for future in as_completed(futures):
+                try:
+                    fetched[futures[future]] = future.result()
+                except Exception:  # noqa: BLE001 - één trage bron mag de rest niet meenemen
+                    fetched[futures[future]] = None
+
+    for result, pre in prepared:
+        url = result.get("url", "")
+        if pre is None:
+            candidates.append(classify_web_candidate({**result, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed)}, query, matched_terms=matched_terms, matched_fields=matched_fields))
+            continue
+        raw = fetched.get(url)
         if not raw:
             failed = {**result, "url": url, "domain": domain_from_url(url), "source_tier": source_tier_for_url(url, allowed), "accepted": False, "reject_reason": "fetch_failed", "used_for_answer": False}
             candidates.append(failed)
