@@ -8,7 +8,7 @@
  * de achtergrond. De documentatie verandert zelden; wachten op het netwerk
  * voor iets dat al op het toestel staat is verspilde tijd.
  */
-var CACHE = 'vu-ea-definities-v1';
+var CACHE = 'vu-ea-definities-v2';
 var ASSETS = [
   './zoek.html',
   './data/definities.json',
