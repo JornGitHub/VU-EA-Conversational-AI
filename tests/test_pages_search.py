@@ -11,6 +11,8 @@ import re
 import unittest
 from pathlib import Path
 
+from scripts.build_pages_data import _answerable
+
 DOCS = Path("docs")
 PAGE = DOCS / "zoek.html"
 DATA = DOCS / "data" / "definities.json"
@@ -47,6 +49,24 @@ class ExportTests(unittest.TestCase):
         for placeholder in ("ZZ01", "ZZ13", "90001"):
             self.assertNotIn(placeholder, raw, f"synthetische placeholder {placeholder} in de export")
 
+    def test_table_fragments_are_marked_as_unusable_for_answers(self) -> None:
+        """The page answers from this export, so a cut-off table must be flagged.
+
+        The source documents contain tables and paragraphs that the text
+        extraction split in the wrong place. They stay searchable - the text
+        itself is real - but presenting one as a definition would mean building
+        an answer out of a fragment.
+        """
+        flagged = [e for e in self.payload["entries"] if e.get("answerable") is False]
+        self.assertTrue(flagged, "geen enkel fragment gemarkeerd; de regel doet niets")
+        for entry in flagged:
+            self.assertFalse(_answerable(entry["name"], entry["text"]), entry["name"])
+
+    def test_ordinary_definitions_stay_usable(self) -> None:
+        by_name = {entry["name"]: entry for entry in self.payload["entries"]}
+        for name in ("Internationale student", "Opleidingsvorm", "Verblijfsjaar"):
+            self.assertIsNot(by_name[name].get("answerable"), False, name)
+
     def test_export_stays_small_enough_for_a_phone(self) -> None:
         self.assertLess(DATA.stat().st_size, 600_000, "export te groot voor een mobiele verbinding")
 
@@ -63,6 +83,28 @@ class PageTests(unittest.TestCase):
         """Someone must not think this is the whole app."""
         self.assertIn("taalmodel", PAGE_TEXT)
         self.assertIn("geen studentdata", PAGE_TEXT)
+
+    def test_the_page_answers_questions_and_not_only_lists_hits(self) -> None:
+        self.assertIn("function compose(raw)", PAGE_TEXT)
+        self.assertIn("function renderAnswer", PAGE_TEXT)
+        self.assertIn('id="answer"', PAGE_TEXT)
+
+    def test_the_page_says_where_its_answers_come_from(self) -> None:
+        """Composing from the documentation and generating text are not the same."""
+        self.assertIn("Samengesteld op dit toestel", PAGE_TEXT)
+        self.assertIn("er is geen taalmodel aan te pas gekomen", PAGE_TEXT)
+
+    def test_the_answer_layer_skips_entries_the_export_marked_unusable(self) -> None:
+        self.assertIn("entry.answerable === false", PAGE_TEXT)
+
+    def test_a_question_is_reduced_to_its_subject_before_searching(self) -> None:
+        """Otherwise "wat is een X" never matches the name X exactly."""
+        self.assertIn("function subjectOf(raw)", PAGE_TEXT)
+        self.assertIn("var subject = subjectOf(raw);", PAGE_TEXT)
+        self.assertIn("var query = norm(subject) || norm(raw);", PAGE_TEXT)
+        # De losse woorden ook uit het onderwerp, anders trekt "welke waarden
+        # heeft X" elk kopje boven een codelijst naar boven.
+        self.assertIn("var queryTokens = subjectTokens.length ? subjectTokens : tokens(raw);", PAGE_TEXT)
 
     def test_page_links_back_to_the_full_app(self) -> None:
         self.assertIn('href="./"', PAGE_TEXT)
@@ -154,6 +196,28 @@ class OfflineTests(unittest.TestCase):
         index = (DOCS / "index.html").read_text(encoding="utf-8")
         self.assertIn("offline", index.lower())
         self.assertIn("beginscherm", index)
+
+
+class AnswerableRuleTests(unittest.TestCase):
+    """The rule that decides whether an item may be used as an answer."""
+
+    def test_a_normal_definition_may_be_used(self) -> None:
+        self.assertTrue(_answerable("Opleidingsvorm", "Code voor de studievorm waarin de student staat."))
+
+    def test_a_heading_above_a_code_list_is_not_a_term(self) -> None:
+        self.assertFalse(_answerable("Mogelijke waarden Her1-Her8", "Inschrijving voor dezelfde opleiding"))
+        self.assertFalse(_answerable("Bronnen", "Register Onderwijsresultaten en verder."))
+
+    def test_text_cut_off_mid_sentence_is_not_a_definition(self) -> None:
+        self.assertFalse(_answerable("EOI-cohort", "o Als Ex1 = k en Exgf = k -> Exgf = [leeg]"))
+        self.assertFalse(_answerable("Masterex5", "masterdiploma behaald heeft in het jaar."))
+
+    def test_a_definition_starting_with_a_number_or_a_placeholder_still_counts(self) -> None:
+        self.assertTrue(_answerable("Iets", "1 oktober is de peildatum."))
+        self.assertTrue(_answerable("Iets", "[leeg] betekent dat er geen informatie is."))
+
+    def test_an_empty_body_is_never_an_answer(self) -> None:
+        self.assertFalse(_answerable("Iets", "   "))
 
 
 if __name__ == "__main__":
