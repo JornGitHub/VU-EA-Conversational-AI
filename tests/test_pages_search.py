@@ -87,5 +87,74 @@ class PageTests(unittest.TestCase):
         self.assertIn('href="zoek.html"', index)
 
 
+class OfflineTests(unittest.TestCase):
+    """A network that blocks device-to-device traffic cannot block this.
+
+    On eduroam the phone never reaches the laptop, so the route that works is
+    the one that needs nothing from it. That only holds if the page really is
+    installable and really does work without a network.
+    """
+
+    def test_the_files_an_offline_app_needs_are_published(self) -> None:
+        for name in ("manifest.webmanifest", "sw.js", "icons/icon-192.png", "icons/icon-512.png"):
+            self.assertTrue((DOCS / name).exists(), f"docs/{name} ontbreekt")
+
+    def test_the_manifest_is_valid_and_points_at_real_files(self) -> None:
+        manifest = json.loads((DOCS / "manifest.webmanifest").read_text(encoding="utf-8"))
+        self.assertEqual("standalone", manifest["display"])
+        self.assertIn("zoek.html", manifest["start_url"])
+        self.assertTrue(manifest["icons"])
+        for icon in manifest["icons"]:
+            self.assertTrue((DOCS / icon["src"]).exists(), icon["src"])
+        purposes = [icon.get("purpose") for icon in manifest["icons"]]
+        self.assertIn("maskable", purposes, "zonder maskable icoon wordt het beginscherm-icoon bijgesneden")
+
+    def test_the_service_worker_caches_everything_the_page_needs(self) -> None:
+        worker = (DOCS / "sw.js").read_text(encoding="utf-8")
+        for asset in ("./zoek.html", "./data/definities.json"):
+            self.assertIn(asset, worker, f"{asset} wordt niet gecachet, dus offline is het weg")
+
+    def test_the_service_worker_answers_from_cache_when_the_network_fails(self) -> None:
+        worker = (DOCS / "sw.js").read_text(encoding="utf-8")
+        self.assertIn("caches.match(request)", worker)
+        self.assertIn("return cached", worker, "zonder terugval is offline alsnog stuk")
+
+    def test_old_caches_are_cleaned_up_on_activation(self) -> None:
+        """Otherwise a new version leaves the old one to be served forever."""
+        worker = (DOCS / "sw.js").read_text(encoding="utf-8")
+        self.assertIn("caches.delete", worker)
+        self.assertIn("CACHE", worker)
+
+    def test_the_page_registers_the_service_worker(self) -> None:
+        self.assertIn("serviceWorker", PAGE_TEXT)
+        self.assertIn("register('sw.js')", PAGE_TEXT)
+
+    def test_ios_gets_an_instruction_instead_of_a_button_that_does_nothing(self) -> None:
+        """Safari has no beforeinstallprompt; a button there would be a lie."""
+        self.assertIn("iPad|iPhone|iPod", PAGE_TEXT)
+        self.assertIn("Zet op beginscherm", PAGE_TEXT)
+        self.assertIn("install-go').hidden = true", PAGE_TEXT)
+
+    def test_a_dismissed_install_hint_stays_dismissed(self) -> None:
+        self.assertIn("vuea-install-dismissed", PAGE_TEXT)
+
+    def test_storage_failures_never_break_the_page(self) -> None:
+        """localStorage throws in private mode; the page must not care."""
+        uses = [line for line in PAGE_TEXT.splitlines() if "localStorage" in line]
+        self.assertTrue(uses, "geen localStorage-gebruik gevonden")
+        for line in uses:
+            self.assertIn("try {", line, f"onbeschermd gebruik van localStorage: {line.strip()}")
+            self.assertIn("catch", line, f"onbeschermd gebruik van localStorage: {line.strip()}")
+
+    def test_related_entries_are_tappable(self) -> None:
+        self.assertIn("data-goto", PAGE_TEXT)
+        self.assertIn("scrollTo", PAGE_TEXT)
+
+    def test_the_start_page_says_it_works_offline(self) -> None:
+        index = (DOCS / "index.html").read_text(encoding="utf-8")
+        self.assertIn("offline", index.lower())
+        self.assertIn("beginscherm", index)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -145,10 +145,21 @@ komt geen enkele website, hoe hij er ook uitziet.
 
 ### Kan het op een telefoon?
 
-**Zoeken kan wel, meteen, zonder installatie.** De zoeklaag is een opzoekactie over een paar honderd
-definities — klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
+**Zoeken kan wel, meteen, zonder installatie — en zonder netwerk.** De zoeklaag is een opzoekactie over een
+paar honderd definities, klein genoeg om in de browser te draaien. Die staat als losse pagina op GitHub Pages:
 
 **<https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html>**
+
+Zet hem op je beginscherm (op een iPhone: **Deel → Zet op beginscherm**) en hij werkt daarna **offline**. Een
+service worker bewaart de pagina en de definities op het toestel; er is daarna geen verbinding meer nodig,
+ook niet met deze repository.
+
+Dat is meteen het antwoord op kantoornetwerken die verkeer tussen apparaten blokkeren. Op eduroam krijgt een
+laptop een publiek adres (`130.37.x.x`) en staat clientisolatie aan: je telefoon kan de laptop niet bereiken,
+hoe goed de firewall ook staat. Deze route heeft de laptop niet nodig, dus er valt niets te blokkeren.
+
+Verwante velden zijn aantikbaar: een verwijzing in de documentatie brengt je naar dat veld, wat op een
+telefoon een stuk prettiger is dan een naam overtypen.
 
 Dezelfde definities, veldbeschrijvingen en codelijsten als in de app, rechtstreeks uit de officiële
 documentatie. Wat daar niet zit is de taalmodel-laag (antwoorden formuleren, vervolgvragen begrijpen);
@@ -475,6 +486,26 @@ Dat laatste raakt de ranking, dus die is vastgelegd vóór de wijziging en erna 
 20 vragen, 0 verschillen.** Een test controleert bovendien dat de voorbereide scoring exact gelijk is aan de
 losse berekening, voor elke vraag tegen elk veld.
 
+**De weblaag was daarna de flessenhals.** Retrieval kost ± 4 ms; met de standaard *Forceer webcontext* kostte een
+vraag ± 4 seconden. Twee oorzaken, allebei verholpen:
+
+* **De hete route cachete niets.** Alleen `fetch_web_source` gebruikte de cache, en dat is niet de functie die
+  het antwoordpad aanroept. Elke vraag haalde dezelfde officiële pagina's opnieuw op. Er is nu een cache per
+  URL met een houdbaarheid van 7 dagen; het gaat om gepubliceerde documentatie, en `retrieved_at` laat zien
+  hoe oud een bron is.
+* **Vijftien pagina's achter elkaar.** Netwerkwerk stond op een rij, elk met een timeout van 15 seconden. Dat
+  gaat nu door een threadpool van maximaal 8; één trage bron houdt de rest niet meer op.
+
+| Meting (`web_mode="force"`, 5 vragen) | Voor | Na |
+|---------------------------------------|------|-----|
+| p50 per vraag | ± 3951 ms | **± 11 ms** |
+| Slechtste geval | ± 4187 ms | **± 75 ms** |
+| Koude cache (niets lokaal) | ± 3951 ms | **± 1386 ms** |
+
+Een expliciet meegegeven provider gaat nooit via de cache: dat is een instructie over wáár de inhoud vandaan
+moet komen, en de cache hoort die niet stil te overrulen. De ruwe cache staat in `.gitignore` — pure snelheid,
+per machine, altijd opnieuw op te halen.
+
 ### 5.5 Stap 4 — Bronbeleid en bronlagen
 
 Voor vragen over `Inschrijvingen_aggr_UNL_2025.csv` is het primaire document standaard `Aggregaatbestand inschrijvingen_1cHO2025.docx`. De build detecteert dit document zowel via `sources/1cHO Documentatie/...` als via de legacy-map `1cHO Documentatie/...`.
@@ -568,7 +599,10 @@ VU-EA-Conversational-AI/
 │   ├── network_diagnosis.py         # Waarom een ander apparaat er niet bij kan, plus de firewall-fix
 │   └── chatbot.py                   # Retrieval + optionele LLM-formulering
 ├── docs/                            # GitHub Pages: startpagina, zoekpagina, startscripts, evaluation.md
-│   ├── zoek.html                    # Browser-only zoeklaag (werkt op een telefoon, zonder installatie)
+│   ├── zoek.html                    # Browser-only zoeklaag (telefoon, offline, installeerbaar)
+│   ├── manifest.webmanifest         # Maakt de zoekpagina installeerbaar op een beginscherm
+│   ├── sw.js                        # Service worker: bewaart pagina + definities voor offline gebruik
+│   ├── icons/                       # App-iconen voor het beginscherm
 │   └── data/definities.json         # Export voor die pagina (alleen documentatie)
 ├── scripts/                         # Build, embeddings, benchmark, evaluatie, audits, feedback,
 │                                    #   synthetische data, data-vs-documentatie-check, Pages-export

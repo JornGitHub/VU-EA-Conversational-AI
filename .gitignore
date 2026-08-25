@@ -20,3 +20,6 @@ data/semantic_index/
 # `python scripts/generate_mock_data.py`. Het profiel (klein) staat wel in git,
 # want de app leest dat.
 data/mock/*.csv
+
+# Ruwe webcache: puur snelheid, per machine, opnieuw op te halen.
+data/web_cache/raw/
