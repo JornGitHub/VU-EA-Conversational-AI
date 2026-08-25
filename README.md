@@ -206,6 +206,7 @@ Die controleert wat controleerbaar is en trekt een conclusie:
 | Controle | Wat het uitsluit |
 |----------|------------------|
 | Luistert de app op je netwerkadres? | Onderscheidt "staat dicht" van "staat open maar wordt geblokkeerd" — verkeer naar je eigen adres passeert de firewall niet, dus dit meet echt het luisteren. |
+| Wat voor adres heeft deze laptop? | `192.168.x.x` of `10.x.x.x` is een adres binnen je eigen wifi, dat je telefoon kan bereiken. Krijgt de laptop een **publiek** adres (op de VU `130.37.x.x`), dan zit je op een netwerk dat zijn apparaten uit elkaar houdt — en dat is de enige oorzaak waar élke controle op de laptop groen staat en je telefoon tóch niets krijgt. |
 | Welk netwerkprofiel geeft Windows dit netwerk? | Een firewallregel voor *Privé* doet niets op een netwerk dat Windows *Openbaar* noemt. Dit is een klassieke reden dat "de fix niet werkt". |
 | Staat de firewall aan, en is er een inkomende regel voor deze app? | Dit is de enige oorzaak die de app zelf kan verhelpen. |
 
@@ -227,6 +228,12 @@ zegt wat er aan de hand is:
 
 In beide gevallen toont de app twee uitwegen: het commando om zelf in een PowerShell-als-beheerder te
 draaien, en een kant-en-klare tekst voor je IT-beheerder met poort, pad en de exacte regel erin.
+
+**Als het adres het netwerk verraadt.** Staat alles op de laptop goed en heeft de laptop een publiek
+adres, dan noemt de diagnose dat als de conclusie in plaats van een vage "het zal het netwerk wel zijn". Er
+is dan geen firewallregel die helpt: de blokkade zit in het netwerk, voordat het verkeer hier is. Het
+koppelpaneel waarschuwt daar ook zelf, naast de QR-code — die blijft staan, want op een netwerk zónder
+clientisolatie werkt hij gewoon.
 
 **Een blokkeerregel wint van een toestaan-regel.** Wie ooit op *Annuleren* klikte bij de firewallvraag van
 Windows, heeft daarmee blokkeerregels voor Python laten aanmaken. Zolang die er staan, verandert het
@@ -292,7 +299,7 @@ Werkt het op de laptop wel en op de telefoon niet, dan zit het tussen de twee ap
 
 | Oorzaak | Hoe je het herkent | Wat je doet |
 |---------|--------------------|-------------|
-| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten | Zet je laptop op de hotspot van je telefoon. Werkt het dan wel, dan was dit de oorzaak. |
+| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten. Herkenbaar aan een publiek adres (`130.37.x.x`) in plaats van `192.168.x.x` — het paneel zegt het er zelf bij | Zet je laptop op de hotspot van je telefoon. Werkt het dan wel, dan was dit de oorzaak. |
 | **Firewall** | Windows vroeg bij de eerste start of Python door de firewall mocht, en dat is gemist of geweigerd. Geblokkeerd verkeer wordt weggegooid, niet geweigerd — vandaar het lange wachten | **Windows-beveiliging → Firewall- en netwerkbeveiliging → Een app door de firewall toestaan** → zoek Python, vink *Privé* aan |
 | **Verkeerd adres** | Je hebt een VPN, Docker of een tweede netwerkadapter, dus het eerste adres is niet je wifi | Probeer de andere adressen; het paneel toont ze met een eigen QR-code |
 

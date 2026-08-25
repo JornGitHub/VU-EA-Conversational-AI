@@ -39,8 +39,17 @@ def local_network_address() -> str | None:
     return address if address and not address.startswith("127.") else None
 
 
-def _is_usable(address: str) -> bool:
-    """Keep private IPv4 addresses a phone on the same network could reach."""
+def is_local_network_address(address: str | None) -> bool:
+    """True for an address that only exists inside your own network.
+
+    Home wifi hands out 192.168.x.x or 10.x.x.x: addresses a phone on that same
+    wifi can reach. A university network like eduroam usually hands out a public
+    address instead (130.37.x.x at the VU). That difference matters, because a
+    network that gives its clients public addresses is nearly always a network
+    that keeps those clients apart - and then nothing on this laptop helps.
+    """
+    if not address:
+        return False
     try:
         parsed = ipaddress.ip_address(address)
     except ValueError:
@@ -52,6 +61,11 @@ def _is_usable(address: str) -> bool:
     if parsed.is_reserved or parsed.is_multicast or parsed.is_unspecified:
         return False
     return parsed.is_private
+
+
+def _is_usable(address: str) -> bool:
+    """Keep addresses a phone on the same network could reach."""
+    return is_local_network_address(address)
 
 
 def _addresses_from_hostname() -> list[str]:
@@ -178,17 +192,34 @@ def reachable_urls_wanted(server_address: str | None) -> bool:
     return is_reachable_from_network(server_address)
 
 
+PUBLIC_ADDRESS_WARNING = (
+    "Dit is geen adres binnen je eigen wifi maar een publiek adres dat het netwerk zelf heeft "
+    "uitgedeeld — typisch voor een universiteits- of kantoornetwerk zoals eduroam. Zulke netwerken "
+    "houden apparaten vrijwel altijd uit elkaar, en dan komt je telefoon hier niet bij, hoe goed de "
+    "firewall ook staat. De route die dan wél werkt: zet de hotspot van je telefoon aan, verbind deze "
+    "laptop daarmee en herstart de app — de telefoon is dan zelf het netwerk."
+)
+
+
 def pairing_status(server_address: str | None, port: int = 8501) -> dict[str, Any]:
     """Describe how (or whether) a phone can reach this app right now."""
     url = pairing_url(port)
     urls = pairing_urls(port) if reachable_urls_wanted(server_address) else []
     reachable = is_reachable_from_network(server_address)
+    address = local_network_address()
+    # Het primaire adres komt van de routeringstest, niet uit de gefilterde
+    # lijst: op eduroam is dat een publiek adres, en juist dan moet het paneel
+    # zeggen wat er aan de hand is in plaats van een QR-code te tonen die het
+    # nooit gaat doen.
+    public_address = bool(reachable and address and not is_local_network_address(address))
     return {
         "reachable": bool(reachable and url),
         "url": url if reachable else None,
         "alternatives": [other for other in urls if other != url] if reachable else [],
         "port": port,
         "server_address": server_address,
+        "public_address": public_address,
+        "warning": PUBLIC_ADDRESS_WARNING if public_address else "",
         "hint": (
             ""
             if reachable and url

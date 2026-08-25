@@ -531,6 +531,12 @@ def render_pairing_panel() -> None:
             return
 
         url = status["url"]
+        if status.get("public_address"):
+            # De QR-code blijft staan: op een netwerk zonder clientisolatie doet
+            # hij het gewoon. Maar hem tonen zonder te zeggen wat dit adres
+            # betekent, is precies hoe iemand een half uur naar een zwart scherm
+            # zit te kijken.
+            st.warning(status["warning"])
         st.markdown(f"Scan deze code, of typ **{url}** in je browser:")
         svg = qr_svg(url)
         if svg:
