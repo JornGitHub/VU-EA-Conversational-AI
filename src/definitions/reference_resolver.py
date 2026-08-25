@@ -29,8 +29,15 @@ REFERENCE_ALIASES = {
 }
 
 
+@lru_cache(maxsize=50_000)
+def _normalize_cached(text: str) -> str:
+    return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", text.lower())).strip()
+
+
 def normalize_text(text: Any) -> str:
-    return re.sub(r"\s+", " ", re.sub(r"[^\w]+", " ", str(text).lower())).strip()
+    """Cached: resolving references normalizes the same document titles
+    thousands of times per question."""
+    return _normalize_cached(text if isinstance(text, str) else str(text))
 
 
 def reference_aliases(reference: str) -> list[str]:

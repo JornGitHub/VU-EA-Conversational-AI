@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Any, Protocol
 from urllib.parse import quote_plus, urljoin, urlparse
 
-import requests
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 CONFIG_PATH = PROJECT_ROOT / "config" / "web_sources.yaml"
@@ -131,6 +130,8 @@ class FreeOnlyProvider:
         return [{"title": f"Zoekresultaten {domain}", "url": f"https://{domain}/search?q={quote_plus(query)}", "snippet": "Gratis/no-key officiële zoekpagina; inhoud wordt alleen gebruikt als ophalen lukt."} for domain in domains[:max_results]]
 
     def fetch(self, url: str) -> dict[str, Any]:
+        import requests  # ± 290 ms importtijd; alleen nodig als er echt gefetcht wordt
+
         response = requests.get(url, timeout=10, headers={"User-Agent": "VU-EA-Conversational-AI/free-only"})
         # Keep status code in metadata; HTTP errors are classified later and not used as evidence.
         response.raise_for_status()
@@ -183,6 +184,8 @@ def fetch_web_candidate(candidate: dict[str, Any], provider: WebProvider | None 
             except Exception:
                 return None
         try:
+            import requests
+
             response = requests.get(url, timeout=15, headers={"User-Agent": "VU-EA-Conversational-AI/free-only"})
         except Exception:
             return None
