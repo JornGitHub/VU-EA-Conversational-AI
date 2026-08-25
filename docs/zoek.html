@@ -321,12 +321,16 @@
   var results = document.getElementById('results');
   var suggest = document.getElementById('suggest');
 
+  // Voorbeelden als vraag, niet als zoekterm: de pagina geeft nu antwoord, en
+  // dat blijft onzichtbaar als het eerste wat je aantikt een los woord is.
+  // Elke vraag hieronder moet ook echt een antwoord opleveren - een voorbeeld
+  // dat "hier staat niets over" oplevert is erger dan geen voorbeeld.
   var EXAMPLES = [
-    'internationale student',
-    'Opleidingsvorm',
-    'peildatum',
-    'verblijfsjaar',
-    'eerstejaars'
+    'Wat is een internationale student?',
+    'Welke waarden heeft Opleidingsvorm?',
+    'In welk bestand staat Verblijfsjaar?',
+    'Wat betekent code 6 bij CROHO-onderdeel actuele opleiding?',
+    'Verschil tussen Echte neveninschrijving en Onechte neveninschrijving'
   ];
 
   var STOP = {'de':1,'het':1,'een':1,'van':1,'is':1,'wat':1,'welke':1,'in':1,'op':1,'en':1,'of':1,

@@ -198,6 +198,31 @@ class AnswerTests(unittest.TestCase):
         self.assertIn("tabelfragment", answer)
         self.assertNotIn(self.entries["EOI-cohort"]["text"][:60], answer)
 
+    def test_every_example_question_actually_gets_an_answer(self) -> None:
+        """An example that returns "hier staat niets over" is worse than none."""
+        examples = self.page.evaluate(
+            "() => [...document.querySelectorAll('#suggest button')].map(b => b.textContent)"
+        )
+        self.assertGreaterEqual(len(examples), 4, examples)
+        for example in examples:
+            self.assertIn("?", example + "?", example)  # het zijn vragen, geen losse termen
+            model = self.compose(example)
+            self.assertTrue(model and model.get("ok"), f"geen antwoord op voorbeeld: {example}")
+
+    def test_the_examples_are_phrased_as_questions(self) -> None:
+        """A bare term hides the fact that the page answers questions now."""
+        examples = self.page.evaluate(
+            "() => [...document.querySelectorAll('#suggest button')].map(b => b.textContent)"
+        )
+        asking = [e for e in examples if e.strip().endswith("?") or " " in e.strip()]
+        self.assertEqual(len(examples), len(asking), examples)
+
+    def test_tapping_an_example_shows_its_answer(self) -> None:
+        self.page.click("#suggest button")
+        answer = self.page.eval_on_selector("#answer", "el => el.innerText")
+        self.assertIn("ANTWOORD", answer.upper())
+        self.assertNotIn("Hier staat niets over", answer)
+
     def test_the_question_words_do_not_end_up_in_the_search(self) -> None:
         """'wat is een X' must find X, not whatever matches 'wat'."""
         self.assertEqual("internationale student", self.page.evaluate(
