@@ -45,6 +45,47 @@ class ReachabilityTests(unittest.TestCase):
             self.assertIsNone(pairing.local_network_address())
 
 
+class PublicAddressTests(unittest.TestCase):
+    """The one cause where everything on the laptop is fine and it still fails.
+
+    On eduroam a laptop gets a public address (130.37.x.x at the VU), and those
+    networks keep their clients apart. Showing that address as a QR code without
+    a word about it is how someone ends up staring at a black screen.
+    """
+
+    def test_a_home_wifi_address_is_recognised_as_local(self) -> None:
+        for address in ("192.168.1.24", "10.0.0.5", "172.16.3.9", "172.31.255.254"):
+            self.assertTrue(pairing.is_local_network_address(address), address)
+
+    def test_a_public_or_unusable_address_is_not(self) -> None:
+        for address in (
+            "130.37.65.186", "8.8.8.8", "172.32.0.1", "127.0.0.1",
+            "169.254.10.2", "255.255.255.0", "224.0.0.1", "", None, "geen adres",
+        ):
+            self.assertFalse(pairing.is_local_network_address(address), address)
+
+    def test_a_public_address_is_flagged_with_an_explanation(self) -> None:
+        with mock.patch.object(pairing, "local_network_address", return_value="130.37.65.186"):
+            status = pairing.pairing_status("0.0.0.0")
+        self.assertTrue(status["public_address"])
+        self.assertIn("hotspot", status["warning"])
+        # De QR-code blijft staan: op een netwerk zonder clientisolatie werkt hij.
+        self.assertEqual("http://130.37.65.186:8501", status["url"])
+
+    def test_an_address_in_your_own_network_gets_no_warning(self) -> None:
+        with mock.patch.object(pairing, "local_network_address", return_value="192.168.1.24"):
+            status = pairing.pairing_status("0.0.0.0")
+        self.assertFalse(status["public_address"])
+        self.assertEqual("", status["warning"])
+
+    def test_an_app_on_localhost_warns_about_the_restart_not_the_address(self) -> None:
+        """Nothing is reachable yet, so the address shape is not the point."""
+        with mock.patch.object(pairing, "local_network_address", return_value="130.37.65.186"):
+            status = pairing.pairing_status("localhost")
+        self.assertFalse(status["public_address"])
+        self.assertIn("--network", status["hint"])
+
+
 class AddressEnumerationTests(unittest.TestCase):
     """One guessed address is not enough on a laptop with a VPN or Docker.
 

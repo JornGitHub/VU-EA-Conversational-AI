@@ -124,6 +124,64 @@ class ConclusionTests(unittest.TestCase):
         self.assertEqual(result.conclusion, json.loads(json.dumps(result.as_dict()))["conclusion"])
 
 
+class AddressShapeTests(unittest.TestCase):
+    """Every check on the laptop green, and the phone still gets nothing.
+
+    That was the real situation on eduroam: a correct firewall rule, an app
+    that listens, and a network that never lets the traffic through. The
+    address is the only evidence of it available from this machine.
+    """
+
+    def test_an_address_in_your_own_network_is_fine(self) -> None:
+        check = nd.check_address_shape("192.168.1.24")
+        self.assertEqual(nd.OK, check.status)
+        self.assertIn("192.168.1.24", check.detail)
+
+    def test_a_public_address_is_reported_with_the_route_that_does_work(self) -> None:
+        check = nd.check_address_shape("130.37.65.186")
+        self.assertEqual(nd.PROBLEM, check.status)
+        self.assertIn("publiek adres", check.detail)
+        self.assertIn("hotspot", check.fix)
+
+    def test_no_address_is_unknown_rather_than_a_verdict(self) -> None:
+        self.assertEqual(nd.UNKNOWN, nd.check_address_shape(None).status)
+
+    def _diagnose(self, address: str, firewall: list[nd.Check]) -> nd.Diagnosis:
+        with mock.patch.object(nd, "check_listening", return_value=nd.Check("Luistert op het netwerk", nd.OK, "open")), \
+             mock.patch.object(nd, "check_windows_firewall", return_value=firewall), \
+             mock.patch.object(nd, "windows_firewall_command", return_value="New-NetFirewallRule ..."):
+            return nd.diagnose(8501, address=address)
+
+    def test_a_public_address_becomes_the_conclusion_when_the_laptop_is_fine(self) -> None:
+        result = self._diagnose("130.37.65.186", [
+            nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+            nd.Check("Firewallregel voor deze app", nd.OK, "aanwezig"),
+        ])
+        self.assertFalse(result.fixable_here)
+        self.assertIn("publiek adres", result.conclusion)
+        self.assertIn("hotspot", result.conclusion)
+
+    def test_a_real_firewall_problem_still_outranks_the_address(self) -> None:
+        """A missing rule is fixable here; the network is not. Fix first."""
+        result = self._diagnose("130.37.65.186", [
+            nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+            nd.Check("Firewallregel voor deze app", nd.PROBLEM, "ontbreekt"),
+        ])
+        self.assertTrue(result.fixable_here)
+        self.assertIn("firewall", result.conclusion.lower())
+
+    def test_the_finding_sits_next_to_the_listening_check(self) -> None:
+        result = self._diagnose("192.168.1.24", [])
+        self.assertEqual("Soort netwerkadres", result.checks[1].name)
+
+    def test_adding_the_check_did_not_swallow_the_firewall_findings(self) -> None:
+        result = self._diagnose("192.168.1.24", [
+            nd.Check("Windows Firewall", nd.PROBLEM, "aan"),
+            nd.Check("Firewallregel voor deze app", nd.PROBLEM, "ontbreekt"),
+        ])
+        self.assertTrue(result.fixable_here)
+
+
 class WindowsCommandTests(unittest.TestCase):
     def test_the_rule_is_as_narrow_as_it_claims(self) -> None:
         command = nd.windows_firewall_command(8501, r"C:\\Python312\\python.exe", "Private")

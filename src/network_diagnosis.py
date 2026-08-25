@@ -28,7 +28,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any
 
-from .pairing import local_network_address
+from .pairing import is_local_network_address, local_network_address
 
 RULE_NAME = "VU EA Conversational AI"
 
@@ -76,6 +76,41 @@ def _run(command: list[str], timeout: int = 6) -> str:
 
 
 # ------------------------------------------------------------------ checks --
+def check_address_shape(address: str | None) -> Check:
+    """Does this laptop have an address a phone on the same wifi can reach?
+
+    Home wifi hands out 192.168.x.x or 10.x.x.x. A university network usually
+    hands out a public address instead (130.37.x.x at the VU), and a network
+    that does that is nearly always a network that keeps its clients apart.
+
+    That distinction is worth a finding of its own, because it is the one cause
+    where every check on this laptop can be green and the phone still gets
+    nothing: the traffic is stopped in the network, before it ever arrives here.
+    No rule added here can change that.
+    """
+    if not address:
+        return Check(
+            "Soort netwerkadres",
+            UNKNOWN,
+            "Kon geen netwerkadres van deze computer bepalen.",
+            "Controleer of deze computer met wifi of ethernet verbonden is.",
+        )
+    if is_local_network_address(address):
+        return Check(
+            "Soort netwerkadres",
+            OK,
+            f"{address} is een adres binnen je eigen netwerk; een telefoon op dezelfde wifi kan daarbij.",
+        )
+    return Check(
+        "Soort netwerkadres",
+        PROBLEM,
+        f"{address} is een publiek adres dat het netwerk zelf heeft uitgedeeld, geen adres binnen je "
+        "eigen wifi. Dat is typisch voor eduroam en andere kantoornetwerken, en die houden apparaten "
+        "vrijwel altijd uit elkaar.",
+        "Zet de hotspot van je telefoon aan, verbind deze laptop daarmee en herstart de app.",
+    )
+
+
 def check_listening(address: str | None, port: int) -> Check:
     """Can this machine reach its own network address on that port?
 
@@ -641,8 +676,17 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
     if not windows_explains:
         result.checks.extend(check_other_blockers(port))
 
-    listening = result.checks[0].status
-    firewall_checks = result.checks[1:]
+    listening_check = result.checks[0]
+    # Na de firewallchecks bepaald, zodat de diepere probes hierboven op hun
+    # eigen bevindingen blijven kijken en niet op deze.
+    address_check = check_address_shape(address)
+    result.checks.insert(1, address_check)
+    listening = listening_check.status
+    public_address = address_check.status == PROBLEM
+    firewall_checks = [
+        check for check in result.checks
+        if check is not listening_check and check is not address_check
+    ]
     missing_rule = any(check.name == "Firewallregel voor deze app" and check.status == PROBLEM for check in firewall_checks)
     firewall_on = any(check.name == "Windows Firewall" and check.status == PROBLEM for check in firewall_checks)
     has_block_rule = any(check.name == "Blokkeerregel voor Python" for check in firewall_checks)
@@ -722,6 +766,16 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "Er staan brede inkomende blokkeerregels op dit netwerkprofiel die niet aan een programma "
             "hangen. Die winnen van onze toestaan-regel, dus de app blijft onbereikbaar zolang ze er "
             "staan. Dat is beleid van je organisatie en niet vanuit de app te wijzigen."
+        )
+    elif public_address:
+        result.conclusion = (
+            "Op deze laptop is alles in orde, maar het adres verraadt het netwerk: dit is een publiek "
+            "adres dat eduroam of een kantoornetwerk heeft uitgedeeld, geen adres binnen je eigen wifi. "
+            "Zulke netwerken laten apparaten onderling geen verkeer toe, en daar helpt geen enkele "
+            "firewallregel tegen — de blokkade zit in het netwerk, voordat het verkeer hier is. Twee "
+            "routes blijven over: zet deze laptop op de hotspot van je telefoon, of gebruik de "
+            "zoekpagina, die je vraag op de telefoon zelf beantwoordt en deze laptop niet nodig heeft "
+            "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
         )
     elif firewall_checks and not missing_rule:
         result.conclusion = (
