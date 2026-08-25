@@ -86,6 +86,82 @@ class PublicAddressTests(unittest.TestCase):
         self.assertIn("--network", status["hint"])
 
 
+class HotspotTests(unittest.TestCase):
+    """The route with nothing in between, and how the panel recognises it.
+
+    A phone sharing its connection is the router itself, so there is no company
+    network, no policy and no client isolation between the two devices. Saying
+    "you are on that route now" is worth as much as saying when you are not.
+    """
+
+    def test_each_platform_hands_out_a_recognisable_range(self) -> None:
+        self.assertIn("iPhone", pairing.hotspot_kind("172.20.10.2"))
+        self.assertIn("iPhone", pairing.hotspot_kind("172.20.10.15"))
+        self.assertIn("Android", pairing.hotspot_kind("192.168.43.5"))
+        self.assertIn("Windows", pairing.hotspot_kind("192.168.137.10"))
+
+    def test_ordinary_wifi_is_not_mistaken_for_a_hotspot(self) -> None:
+        for address in ("192.168.1.5", "10.0.0.5", "172.20.10.16", "172.20.11.2",
+                        "130.37.65.186", "", None, "geen adres"):
+            self.assertEqual("", pairing.hotspot_kind(address), address)
+
+    def test_the_panel_confirms_the_hotspot(self) -> None:
+        with mock.patch.object(pairing, "local_network_address", return_value="172.20.10.3"):
+            status = pairing.pairing_status("0.0.0.0")
+        self.assertIn("iPhone", status["hotspot"])
+        self.assertFalse(status["public_address"])
+
+    def test_no_hotspot_claim_when_nothing_is_reachable_yet(self) -> None:
+        with mock.patch.object(pairing, "local_network_address", return_value="172.20.10.3"):
+            status = pairing.pairing_status("localhost")
+        self.assertEqual("", status["hotspot"])
+
+
+class WildcardBindTests(unittest.TestCase):
+    """Why switching wifi does not need a restart.
+
+    The app binds the wildcard address, and a wildcard socket is not tied to the
+    addresses that existed when it was bound: it accepts on every local address,
+    including one that only appears when you join a hotspot. That is the whole
+    reason the panel says "no restart needed" instead of "Ctrl+C and start over".
+    """
+
+    def test_one_wildcard_socket_serves_every_local_address(self) -> None:
+        import socket
+        import threading
+
+        server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        server.bind(("0.0.0.0", 0))
+        server.listen(4)
+        port = server.getsockname()[1]
+
+        def serve() -> None:
+            for _ in range(2):
+                connection, _peer = server.accept()
+                connection.sendall(b"ok")
+                connection.close()
+
+        thread = threading.Thread(target=serve, daemon=True)
+        thread.start()
+        try:
+            targets = ["127.0.0.1"]
+            own = pairing.local_network_address()
+            if own:
+                targets.append(own)
+            for target in targets:
+                with socket.create_connection((target, port), timeout=3) as client:
+                    self.assertEqual(b"ok", client.recv(2), target)
+        finally:
+            server.close()
+            thread.join(timeout=2)
+
+    def test_the_app_only_promises_this_when_it_binds_the_wildcard(self) -> None:
+        """Bound to loopback there is nothing to reach, hotspot or not."""
+        self.assertTrue(pairing.is_reachable_from_network("0.0.0.0"))
+        self.assertFalse(pairing.is_reachable_from_network("127.0.0.1"))
+
+
 class AddressEnumerationTests(unittest.TestCase):
     """One guessed address is not enough on a laptop with a VPN or Docker.
 

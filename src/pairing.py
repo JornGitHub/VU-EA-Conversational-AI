@@ -63,6 +63,36 @@ def is_local_network_address(address: str | None) -> bool:
     return parsed.is_private
 
 
+# Adresbereiken die een gedeelde telefoonverbinding uitdeelt. Op zo'n netwerk is
+# de telefoon zelf de router: er zit geen bedrijfsnetwerk, geen beleid en geen
+# clientisolatie tussen de twee apparaten. Daarom is dit de route die het altijd
+# doet, en is het het waard om te herkennen.
+HOTSPOT_RANGES = (
+    ("172.20.10.0/28", "de persoonlijke hotspot van een iPhone"),
+    ("192.168.43.0/24", "een Android-hotspot"),
+    ("192.168.137.0/24", "de mobiele hotspot van Windows"),
+)
+
+
+def hotspot_kind(address: str | None) -> str:
+    """Name the shared-phone-connection this address comes from, or "".
+
+    iOS, Android and Windows each hand out a fixed, recognisable range, so the
+    panel can confirm "you are on the route that always works" instead of
+    leaving someone to wonder whether the switch took effect.
+    """
+    if not address:
+        return ""
+    try:
+        parsed = ipaddress.ip_address(address)
+    except ValueError:
+        return ""
+    for network, description in HOTSPOT_RANGES:
+        if parsed in ipaddress.ip_network(network):
+            return description
+    return ""
+
+
 def _is_usable(address: str) -> bool:
     """Keep addresses a phone on the same network could reach."""
     return is_local_network_address(address)
@@ -220,6 +250,7 @@ def pairing_status(server_address: str | None, port: int = 8501) -> dict[str, An
         "server_address": server_address,
         "public_address": public_address,
         "warning": PUBLIC_ADDRESS_WARNING if public_address else "",
+        "hotspot": hotspot_kind(address) if reachable else "",
         "hint": (
             ""
             if reachable and url
