@@ -229,6 +229,29 @@ zegt wat er aan de hand is:
 In beide gevallen toont de app twee uitwegen: het commando om zelf in een PowerShell-als-beheerder te
 draaien, en een kant-en-klare tekst voor je IT-beheerder met poort, pad en de exacte regel erin.
 
+#### De hotspot-route: de enige waar niets tussen kan zitten
+
+Deelt je telefoon zijn verbinding, dan is de telefoon zelf de router. Er is dan geen bedrijfsnetwerk, geen
+beleid en geen clientisolatie tussen de twee apparaten. Dat maakt het de route die het altijd doet.
+
+1. Zet op je telefoon de **persoonlijke hotspot** aan.
+2. Verbind **deze laptop** met die hotspot.
+3. Klik in het paneel op **🔄 Nieuw adres ophalen** en scan de nieuwe QR-code.
+
+**Herstarten hoeft niet.** De app luistert op `0.0.0.0`, en zo'n socket hoort niet bij de netwerkkaarten
+die er tijdens het starten waren: hij accepteert ook op een adres dat pas later verschijnt. Nagemeten door
+een socket op `0.0.0.0` te binden, dáárna een nieuw adres op de machine te zetten en er verbinding mee te
+maken — dat lukt. Ctrl+C is dus niet nodig, en dat was precies de stap die deze route onbereikbaar liet
+voelen.
+
+Het paneel herkent de bekende hotspot-bereiken (`172.20.10.x` voor iPhone, `192.168.43.x` voor Android,
+`192.168.137.x` voor de mobiele hotspot van Windows) en bevestigt dat je erop zit. De diagnose weet het
+ook: op een hotspot noemt hij clientisolatie niet meer als verklaring, want die kán het daar niet zijn.
+
+Eén ding blijft over: Windows kan de hotspot als een **nieuw netwerkprofiel** zien, en een firewallregel
+geldt per profiel. Blijft het scherm zwart, druk dan nog eens op **🔎 Waarom kan mijn telefoon er niet
+bij?** — die ziet het profielverschil en biedt de juiste regel aan.
+
 **Als het adres het netwerk verraadt.** Staat alles op de laptop goed en heeft de laptop een publiek
 adres, dan noemt de diagnose dat als de conclusie in plaats van een vage "het zal het netwerk wel zijn". Er
 is dan geen firewallregel die helpt: de blokkade zit in het netwerk, voordat het verkeer hier is. Het
@@ -299,7 +322,7 @@ Werkt het op de laptop wel en op de telefoon niet, dan zit het tussen de twee ap
 
 | Oorzaak | Hoe je het herkent | Wat je doet |
 |---------|--------------------|-------------|
-| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten. Herkenbaar aan een publiek adres (`130.37.x.x`) in plaats van `192.168.x.x` — het paneel zegt het er zelf bij | Zet je laptop op de hotspot van je telefoon. Werkt het dan wel, dan was dit de oorzaak. |
+| **Clientisolatie op het wifi-netwerk** | Geen enkel adres werkt; veel gast- en universiteitsnetwerken (ook eduroam) verbieden verkeer tussen apparaten. Herkenbaar aan een publiek adres (`130.37.x.x`) in plaats van `192.168.x.x` — het paneel zegt het er zelf bij | Zet je laptop op de hotspot van je telefoon en klik op **🔄 Nieuw adres ophalen**; herstarten hoeft niet. Werkt het dan wel, dan was dit de oorzaak. |
 | **Firewall** | Windows vroeg bij de eerste start of Python door de firewall mocht, en dat is gemist of geweigerd. Geblokkeerd verkeer wordt weggegooid, niet geweigerd — vandaar het lange wachten | **Windows-beveiliging → Firewall- en netwerkbeveiliging → Een app door de firewall toestaan** → zoek Python, vink *Privé* aan |
 | **Verkeerd adres** | Je hebt een VPN, Docker of een tweede netwerkadapter, dus het eerste adres is niet je wifi | Probeer de andere adressen; het paneel toont ze met een eigen QR-code |
 
