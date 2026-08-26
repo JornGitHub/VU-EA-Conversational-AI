@@ -30,10 +30,16 @@ class ExportTests(unittest.TestCase):
         self.assertEqual(len(catalog), self.payload["counts"]["fields"])
         self.assertGreater(self.payload["counts"]["definitions"], 20)
 
-    def test_every_entry_has_a_name_and_a_body(self) -> None:
+    def test_every_entry_has_a_name_and_something_to_show(self) -> None:
+        """A few begrippen are nothing but their code list in the source.
+
+        "EER-student" is J = EER-student, N = niet-EER-student and no prose at
+        all. That list is the documentation, so the entry is not empty - it just
+        has no running text.
+        """
         for entry in self.payload["entries"]:
             self.assertTrue(entry["name"].strip(), entry)
-            self.assertTrue(entry["text"].strip(), entry)
+            self.assertTrue(entry["text"].strip() or entry.get("codes"), entry)
             self.assertIn(entry["kind"], {"field", "definition"})
 
     def test_code_lists_survive_the_export(self) -> None:
@@ -67,6 +73,40 @@ class ExportTests(unittest.TestCase):
         for name in ("Internationale student", "Opleidingsvorm", "Verblijfsjaar"):
             self.assertIsNot(by_name[name].get("answerable"), False, name)
 
+    def test_definitions_name_the_document_they_came_from(self) -> None:
+        """"1cHO-documentatie" was on every single one, so it said nothing.
+
+        The curated file carries `source_documents`, and the exporter ignored it.
+        Where a real filename is known it is now shown; where the source is only
+        the term itself, the generic label is the honest answer.
+        """
+        definitions = [e for e in self.payload["entries"] if e["kind"] == "definition"]
+        named = [e for e in definitions if e["source"] != "1cHO-documentatie"]
+        self.assertGreaterEqual(len(named), 15, "geen enkele definitie noemt een echt document")
+        for entry in named:
+            self.assertRegex(entry["source"], r"\.[A-Za-z]{2,5}$", entry["name"])
+
+    def test_no_definition_is_a_wall_of_text_any_more(self) -> None:
+        """2400 characters of flattened table is not something anyone reads."""
+        for entry in self.payload["entries"]:
+            if entry.get("answerable") is False:
+                continue  # die zijn dichtgeklapt en als ruwe brontekst gelabeld
+            self.assertLess(len(entry["text"]), 900, entry["name"])
+
+    def test_the_code_lists_came_out_of_the_prose(self) -> None:
+        by_name = {entry["name"]: entry for entry in self.payload["entries"]}
+        sleutel = by_name["Sleutel domein actuele opleiding"]
+        self.assertEqual(14, len(sleutel["codes"]))
+        self.assertNotIn("Mogelijke waarden:", sleutel["text"])
+
+    def test_a_definition_does_not_run_on_into_the_next_one(self) -> None:
+        """It used to end with the whole of the next section."""
+        by_name = {entry["name"]: entry for entry in self.payload["entries"]}
+        self.assertNotIn("Soort inschrijving actuele instelling",
+                         by_name["Sleutel domein actuele opleiding"]["text"])
+        self.assertNotIn("Verblijfsjaar hoger onderwijs",
+                         by_name["Sleutel domein actuele opleiding-instelling"]["text"])
+
     def test_export_stays_small_enough_for_a_phone(self) -> None:
         self.assertLess(DATA.stat().st_size, 600_000, "export te groot voor een mobiele verbinding")
 
@@ -96,6 +136,15 @@ class PageTests(unittest.TestCase):
 
     def test_the_answer_layer_skips_entries_the_export_marked_unusable(self) -> None:
         self.assertIn("entry.answerable === false", PAGE_TEXT)
+
+    def test_raw_source_text_is_collapsed_and_labelled(self) -> None:
+        """Hiding it would be papering over; showing it open would be a lie."""
+        self.assertIn("Ruwe brontekst uit het document, geen definitie", PAGE_TEXT)
+        self.assertIn("Toon de brontekst (", PAGE_TEXT)
+
+    def test_a_long_code_list_is_collapsed_in_the_result_list(self) -> None:
+        self.assertIn("var long = entry.codes.length > 5;", PAGE_TEXT)
+        self.assertIn("' mogelijke waarden</summary>'", PAGE_TEXT)
 
     def test_a_question_is_reduced_to_its_subject_before_searching(self) -> None:
         """Otherwise "wat is een X" never matches the name X exactly."""

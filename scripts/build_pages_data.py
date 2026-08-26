@@ -17,11 +17,15 @@ from the synthetic dataset either.
 from __future__ import annotations
 
 import json
+import re
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
+
+from src.definitions.curated_cleanup import clean_definition
+from src.definitions.text_utils import looks_like_layout_dump
 
 CURATED = PROJECT_ROOT / "data" / "ho_definities_curated.json"
 CATALOG = PROJECT_ROOT / "data" / "inschrijvingen_aggr_2025_field_catalog.json"
@@ -37,7 +41,21 @@ def _clean(value: object) -> str:
     return " ".join(str(value or "").split())
 
 
-def _answerable(name: str, text: str) -> bool:
+# Een bronvermelding moet een document aanwijzen. Voor de handmatig ingevoerde
+# begrippen staat in source_documents de term zelf; dat zegt niets, en dan is
+# "1cHO-documentatie" eerlijker dan een naam die geen bestand is.
+FILENAME = re.compile(r"\.[A-Za-z]{2,5}$")
+
+
+def _source_label(item: dict) -> str:
+    for name in item.get("source_documents") or []:
+        cleaned = _clean(name)
+        if FILENAME.search(cleaned):
+            return cleaned
+    return "1cHO-documentatie"
+
+
+def _answerable(name: str, text: str, codes: list | tuple = ()) -> bool:
     """Mag dit item het antwoord op een vraag zijn?
 
     Een deel van de documentatie is tabel of doorlopende tekst die bij het
@@ -46,14 +64,22 @@ def _answerable(name: str, text: str) -> bool:
     presenteren is misleidend. Twee signalen wijzen ze aan:
 
     * de naam is een kopje uit het document in plaats van een begrip;
+    * de tekst is een uitgeschreven layouttabel - `looks_like_layout_dump`
+      herkent die al voor de app, en dit is dezelfde vraag;
     * de tekst begint niet als een zin, dus hij is midden in een alinea of
       tabel afgeknipt ("= Inschrijving voor dezelfde opleiding").
     """
     lowered = name.strip().lower()
     if lowered in HEADING_TERMS or lowered.startswith("mogelijke waarden"):
         return False
+    if looks_like_layout_dump(text):
+        return False
     body = text.strip()
-    return bool(body) and (body[0].isupper() or body[0].isdigit() or body[0] == "[")
+    if not body:
+        # Sommige begrippen zijn in de documentatie niets anders dan hun
+        # codelijst. Die lijst is de documentatie, dus daar valt op te antwoorden.
+        return bool(codes)
+    return body[0].isupper() or body[0].isdigit() or body[0] == "["
 
 
 def _codes(entry: dict) -> list[dict[str, str]]:
@@ -88,13 +114,27 @@ def build() -> dict:
             }
         )
 
+    # De namen die de documentatie zelf als kopje gebruikt. Daarmee is te zien
+    # waar een definitie ophoudt en de volgende begint.
+    known_terms = frozenset(
+        {_clean(field.get("field_name")) for field in catalog}
+        | {_clean(item.get("term")) for item in curated}
+        | {
+            _clean(name)
+            for item in curated
+            for name in (item.get("related_fields") or [])
+        }
+    )
+
     for item in curated:
+        text, codes = clean_definition(_clean(item.get("definition")), known_terms)
         entries.append(
             {
                 "kind": "definition",
                 "name": _clean(item.get("term")),
-                "text": _clean(item.get("definition")),
-                "source": _clean(item.get("note")) or "1cHO-documentatie",
+                "text": text,
+                "codes": codes,
+                "source": _source_label(item),
                 "datasets": [_clean(name) for name in (item.get("available_in_datasets") or []) if _clean(name)],
                 "aliases": [_clean(alias) for alias in (item.get("aliases") or []) if _clean(alias)],
                 "related": [_clean(name) for name in (item.get("related_fields") or []) if _clean(name)],
@@ -102,11 +142,13 @@ def build() -> dict:
             }
         )
 
-    entries = [entry for entry in entries if entry["name"] and entry["text"]]
+    # Een begrip dat in de documentatie alleen uit een codelijst bestaat heeft
+    # geen lopende tekst, en is daarmee niet leeg.
+    entries = [entry for entry in entries if entry["name"] and (entry["text"] or entry["codes"])]
     for entry in entries:
         # Alleen de uitzondering opschrijven; 96 keer "answerable": true is ballast
         # op een verbinding die de telefoon uit moet halen.
-        if not _answerable(entry["name"], entry["text"]):
+        if not _answerable(entry["name"], entry["text"], entry["codes"]):
             entry["answerable"] = False
     entries.sort(key=lambda entry: (entry["kind"], entry["name"].lower()))
     return {
