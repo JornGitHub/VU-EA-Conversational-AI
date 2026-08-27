@@ -194,9 +194,11 @@ class AnswerTests(unittest.TestCase):
         """Some source text was cut mid-table; answering from it would be a lie."""
         blocked = [e["name"] for e in self.payload["entries"] if e.get("answerable") is False]
         self.assertTrue(blocked, "geen enkel item is als onbruikbaar gemarkeerd")
-        answer = self.ask("wat is EOI-cohort")
+        # "Instroom" is in de bron een uitgeschreven layouttabel. EOI-cohort
+        # stond hier eerder; die is nu opgeschoond en wél te beantwoorden.
+        answer = self.ask("wat is Instroom")
         self.assertIn("tabelfragment", answer)
-        self.assertNotIn(self.entries["EOI-cohort"]["text"][:60], answer)
+        self.assertNotIn(self.entries["Instroom"]["text"][:60], answer)
 
     def test_every_example_question_actually_gets_an_answer(self) -> None:
         """An example that returns "hier staat niets over" is worse than none."""
@@ -222,6 +224,31 @@ class AnswerTests(unittest.TestCase):
         answer = self.page.eval_on_selector("#answer", "el => el.innerText")
         self.assertIn("ANTWOORD", answer.upper())
         self.assertNotIn("Hier staat niets over", answer)
+
+    def test_an_answer_shows_the_code_list_that_was_buried_in_the_prose(self) -> None:
+        """This entry was 2407 characters of flattened table."""
+        answer = self.ask("Sleutel domein actuele opleiding")
+        self.assertIn("Persoonsgebonden nummer + inschrijvingsjaar", answer)
+        self.assertIn("hoofdinschrijving binnen het domein opleiding actueel equivalent", answer)
+        self.assertNotIn("Mogelijke waarden:", answer)
+        self.assertNotIn("Soort inschrijving actuele instelling", answer)
+
+    def test_a_result_list_does_not_unroll_every_code_list(self) -> None:
+        """Seven hits with fourteen codes each is 18.000 pixels of scrolling."""
+        self.page.fill("#q", "Sleutel domein actuele opleiding")
+        self.page.wait_for_timeout(150)
+        height = self.page.evaluate("() => document.documentElement.scrollHeight")
+        self.assertLess(height, 12000, f"resultatenlijst is {height}px lang")
+        collapsed = self.page.eval_on_selector_all(
+            "#results .hit details summary", "els => els.map(e => e.textContent)")
+        self.assertTrue(any("mogelijke waarden" in text for text in collapsed), collapsed)
+
+    def test_raw_source_text_is_not_presented_as_a_definition(self) -> None:
+        self.page.fill("#q", "Mogelijke waarden")
+        self.page.wait_for_timeout(150)
+        first = self.page.eval_on_selector("#results .hit", "el => el.innerText")
+        self.assertIn("Ruwe brontekst", first)
+        self.assertIn("Toon de brontekst", first)
 
     def test_the_question_words_do_not_end_up_in_the_search(self) -> None:
         """'wat is een X' must find X, not whatever matches 'wat'."""

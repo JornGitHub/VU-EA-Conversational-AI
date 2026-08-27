@@ -232,6 +232,14 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
   }
   .offline { font-size: 0.85rem; color: var(--text-soft); margin-top: 4px; }
+  /* Ruwe brontekst: wel te vinden, maar niet iets om als definitie te lezen. */
+  .hit .rawnote {
+    font-size: 0.85rem; color: var(--warn); margin: 0 0 8px;
+    border-left: 3px solid var(--warn); padding-left: 10px;
+  }
+  .hit details { border: 0; border-top: 1px solid var(--border); padding: 8px 0 0; margin: 0 0 8px; }
+  .hit details summary { font-size: 0.9rem; font-weight: 600; color: var(--text-soft); }
+  .hit details p { margin: 8px 0 0; }
   /* Antwoordkaart: bovenaan, want dat is waar de vraag om ging. */
   .answer {
     background: var(--surface); border: 1px solid var(--accent);
@@ -827,13 +835,32 @@
       var parts = ['<article class="hit">'];
       parts.push('<h3>' + highlight(entry.name, queryTokens) +
                  '<span class="kind">' + (entry.kind === 'field' ? 'veld ' + (entry.number || '') : 'begrip') + '</span></h3>');
-      parts.push('<p>' + highlight(entry.text, queryTokens) + '</p>');
+      if (entry.answerable === false) {
+        // Deze tekst is een tabel of een kopje uit het document, geen definitie.
+        // Verbergen zou het wegpoetsen zijn; als lopende definitie tonen zou
+        // hem laten doorgaan voor iets wat hij niet is. Dus: dichtgeklapt, met
+        // erbij waarom.
+        parts.push('<p class="rawnote">Ruwe brontekst uit het document, geen definitie — ' +
+                   'daarom bouwt deze pagina er geen antwoord uit.</p>');
+        parts.push('<details><summary>Toon de brontekst (' + entry.text.length +
+                   ' tekens)</summary><p>' + highlight(entry.text, queryTokens) + '</p></details>');
+      } else if (entry.text) {
+        parts.push('<p>' + highlight(entry.text, queryTokens) + '</p>');
+      }
       if (entry.codes && entry.codes.length) {
+        // In de resultatenlijst scan je namen. Zeven treffers met elk veertien
+        // codes eronder is 18.000 pixels scrollen; dichtgeklapt is het een regel.
+        // In de antwoordkaart staat de lijst wél open: daar is hij het antwoord.
+        var long = entry.codes.length > 5;
+        if (long) {
+          parts.push('<details><summary>' + entry.codes.length + ' mogelijke waarden</summary>');
+        }
         parts.push('<ul class="codes">');
         entry.codes.forEach(function (code) {
           parts.push('<li><code>' + escapeHtml(code.code) + '</code><span>' + highlight(code.meaning, queryTokens) + '</span></li>');
         });
         parts.push('</ul>');
+        if (long) { parts.push('</details>'); }
       }
       var links = relatedNames(entry);
       if (links.length) {

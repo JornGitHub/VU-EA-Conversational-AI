@@ -182,10 +182,37 @@ documentatie; de pagina kiest en ordent, ze formuleert niet. Dat is precies waar
 draaien: er is geen model te laden, geen server te bereiken, geen wachttijd. Een test controleert de claim
 door voor vijftien vragen elk feit uit elk antwoord terug te zoeken in de gepubliceerde data.
 
-Waar de bron onbruikbaar is, zegt de pagina dat. Een deel van de documentatie is bij het extraheren midden
-in een tabel afgeknipt; zulke items blijven vindbaar, maar `scripts/build_pages_data.py` markeert ze
-(`"answerable": false`) en de antwoordlaag weigert er een definitie van te maken. Onzin levert geen
-antwoord op, en een vervolgvraag erft geen oud onderwerp.
+Waar de bron onbruikbaar is, zegt de pagina dat. Onzin levert geen antwoord op, en een vervolgvraag erft
+geen oud onderwerp.
+
+#### De begrippen zijn geknipt waar de bron zelf zegt dat ze ophouden
+
+Alle 42 begrippen in `data/ho_definities_curated.json` staan op `generated_by: automatic_ingestion`. De 23
+met `confidence 0.99` zijn met de hand ingevoerd, kort en schoon. De 19 daaronder komen rechtstreeks uit de
+brondocumenten en hebben vier mechanische mankementen. `src/definitions/curated_cleanup.py` herstelt ze —
+en knipt alleen, het herschrijft nooit. Een test controleert dat: elk overgebleven stuk tekst moet letterlijk
+in de brontekst terug te vinden zijn.
+
+| Wat er misging | Waaraan de bron het zelf verraadt |
+|----------------|-----------------------------------|
+| De volgende paragraaf liep mee | Een kopje heeft een rij streepjes eronder; daar wordt geknipt |
+| De codelijst stond als proza in de tekst | `Mogelijke waarden:` — daarna is het een lijst, dus wordt het er een |
+| De laatste code slokte de volgende sectie op | Die staart begint met de náám van een ander begrip, met hoofdletter, gevolgd door een nieuwe zin |
+| Er stond eerst een blok afleidingsregels | De tekst begint met `o Als …` of een vergelijking; de definitie is wat na de laatste regel komt |
+
+Het effect, gemeten: **30.480 → 15.224 tekens proza**, en zeven muren van 2000+ tekens werden een definitie
+van ± 100 tekens plus een codelijst van veertien regels. `Sleutel domein actuele opleiding` ging van 2407
+tekens naar 295 tekens tekst plus 14 waarden.
+
+Wat daarna nog een tabel of een kopje is, blijft vindbaar maar wordt gemarkeerd (`"answerable": false`).
+De antwoordlaag weigert er een definitie van te maken, en in de resultatenlijst staat zo'n item dichtgeklapt
+met de reden erbij in plaats van als muur tekst. Een uitgeschreven layouttabel herkent
+`looks_like_layout_dump()` — dezelfde functie die de app daarvoor al gebruikte.
+
+**En de bronvermelding zegt nu iets.** Elke definitie toonde `Bron: 1cHO-documentatie`, want geen enkel
+begrip heeft een `note` en dat was de terugvalwaarde. Ondertussen stond het echte document in
+`source_documents`, ongebruikt. Twintig van de 42 noemen nu hun eigen bestand; de rest houdt het generieke
+label, want daar ís geen document bekend.
 
 Wat hier niet zit is de taalmodel-laag: vrij formuleren, doorvragen over meerdere beurten, nuances
 combineren. Die draait lokaal en heeft een computer nodig. Bouwen doe je met `python scripts/build_pages_data.py`,
