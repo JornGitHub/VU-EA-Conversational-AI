@@ -232,6 +232,16 @@
     border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
   }
   .offline { font-size: 0.85rem; color: var(--text-soft); margin-top: 4px; }
+  /* Terug naar de startpagina. Relatief, dus de link volgt vanzelf de plek waar
+     deze pagina staat: GitHub Pages onder welke eigenaar dan ook, een eigen
+     server, of file:// vanaf een USB-stick. */
+  .backlink {
+    display: inline-flex; align-items: center; gap: 7px;
+    min-height: 44px; margin: -6px 0 6px; padding: 4px 0;
+    color: var(--text-soft); text-decoration: none; font-size: 0.92rem; font-weight: 600;
+  }
+  .backlink:hover, .backlink:focus-visible { color: var(--accent); }
+  .backlink span[aria-hidden] { font-size: 1.05em; line-height: 1; }
   /* Ruwe brontekst: wel te vinden, maar niet iets om als definitie te lezen. */
   .hit .rawnote {
     font-size: 0.85rem; color: var(--warn); margin: 0 0 8px;
@@ -271,6 +281,8 @@
 
 <body>
 <div class="wrap">
+
+  <a class="backlink" href="./"><span aria-hidden="true">&larr;</span> Startpagina</a>
 
   <header>
     <h1>Definities opzoeken</h1>

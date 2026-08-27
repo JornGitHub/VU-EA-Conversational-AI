@@ -180,6 +180,11 @@ Dat is meteen het antwoord op kantoornetwerken die verkeer tussen apparaten blok
 laptop een publiek adres (`130.37.x.x`) en staat clientisolatie aan: je telefoon kan de laptop niet bereiken,
 hoe goed de firewall ook staat. Deze route heeft de laptop niet nodig, dus er valt niets te blokkeren.
 
+Bovenaan staat **← Startpagina**, terug naar de installatiepagina. Die link is relatief (`href="./"`), dus
+hij volgt vanzelf de plek waar de pagina staat — onder welke GitHub-eigenaar dan ook, op een eigen server of
+vanaf `file://`. De startpagina zit ook in de offline-cache: een terugknop die alleen mét netwerk werkt is
+precies verkeerd om voor een app die juist voor de situatie zónder netwerk bestaat.
+
 Verwante velden zijn aantikbaar: een verwijzing in de documentatie brengt je naar dat veld, wat op een
 telefoon een stuk prettiger is dan een naam overtypen.
 

@@ -124,6 +124,14 @@ class PageTests(unittest.TestCase):
         self.assertIn("taalmodel", PAGE_TEXT)
         self.assertIn("geen studentdata", PAGE_TEXT)
 
+    def test_there_is_a_way_back_to_the_start_page(self) -> None:
+        self.assertIn('<a class="backlink" href="./">', PAGE_TEXT)
+
+    def test_the_way_back_is_relative_so_it_follows_the_host(self) -> None:
+        """The same file is served from two hosts; hardcoding one breaks the other."""
+        self.assertNotIn("github.io", PAGE_TEXT,
+                         "een eigen pagina hoort niet via een vaste host aangeroepen te worden")
+
     def test_the_page_answers_questions_and_not_only_lists_hits(self) -> None:
         self.assertIn("function compose(raw)", PAGE_TEXT)
         self.assertIn("function renderAnswer", PAGE_TEXT)
@@ -204,6 +212,12 @@ class OfflineTests(unittest.TestCase):
         worker = (DOCS / "sw.js").read_text(encoding="utf-8")
         for asset in ("./zoek.html", "./data/definities.json"):
             self.assertIn(asset, worker, f"{asset} wordt niet gecachet, dus offline is het weg")
+
+    def test_the_start_page_is_cached_too_so_the_way_back_survives(self) -> None:
+        """A back link that only works with a network is the wrong way round."""
+        worker = (DOCS / "sw.js").read_text(encoding="utf-8")
+        self.assertIn("'./index.html'", worker)
+        self.assertIn("'./',", worker, "een navigatie naar de map zelf is een eigen cachesleutel")
 
     def test_the_service_worker_answers_from_cache_when_the_network_fails(self) -> None:
         worker = (DOCS / "sw.js").read_text(encoding="utf-8")
