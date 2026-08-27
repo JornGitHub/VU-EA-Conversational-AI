@@ -94,15 +94,22 @@ class StartCommandTests(unittest.TestCase):
     def test_every_panel_leads_with_a_route_that_installs_everything(self) -> None:
         """Whatever comes first must be the route that needs no manual steps."""
         for panel, expected in (
-            # The tester's laptop blocks browser-downloaded executables outright
-            # while the pasted script runs fine, so Windows leads with the script.
-            ("panel-windows", "start-windows.ps1"),
+            ("panel-windows", "start-windows.bat"),
             ("panel-macos", "start-macos.command"),
             ("panel-linux", "start.sh"),
         ):
             section = PAGE_TEXT.split(f'id="{panel}"')[1].split("</section>")[0]
             primary = section.split("<details")[0]
             self.assertIn(expected, primary, f"{panel} leidt niet met de automatische route")
+
+    def test_windows_leads_with_download_and_collapses_powershell(self) -> None:
+        """Windows follows the same download-first layout as macOS and Linux."""
+        windows = PAGE_TEXT.split('id="panel-windows"')[1].split("</section>")[0]
+        primary, first_details = windows.split("<details", 1)
+        self.assertIn('href="start-windows.bat" download', primary)
+        self.assertNotIn('id="code-windows-script"', primary)
+        self.assertIn("PowerShell-regels kopiëren en plakken?", first_details)
+        self.assertIn('id="code-windows-script"', first_details)
 
     def test_every_panel_still_offers_the_double_click_launcher(self) -> None:
         """Not everyone wants a terminal; the launcher stays one click away."""
