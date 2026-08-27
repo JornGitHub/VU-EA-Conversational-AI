@@ -78,7 +78,7 @@ Zie je bij `python main.py` de melding *"No run option selected; use --all for t
 
 Collega's die de repo niet kennen, kunnen starten via de projectpagina:
 
-**<https://jorngithub.github.io/VU-EA-Conversational-AI/>**
+**<https://vusaverse.github.io/VU-EA-Conversational-AI/>**
 
 Die pagina herkent hun besturingssysteem en geeft één knop: **⬇ Starter voor Windows / macOS /
 Linux**. Dat bestand downloaden en dubbelklikken is de hele instructie. De starter regelt de rest:
@@ -95,11 +95,11 @@ Linux**. Dat bestand downloaden en dubbelklikken is de hele instructie. De start
 Wie liever plakt dan klikt, vindt op dezelfde pagina één commando:
 
 ```powershell
-irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+irm https://vusaverse.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
 powershell -ExecutionPolicy Bypass -File .\start.ps1
 ```
 ```bash
-curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash    # macOS/Linux
+curl -fsSL https://vusaverse.github.io/VU-EA-Conversational-AI/start.sh | bash    # macOS/Linux
 ```
 
 **Niets laten installeren?** Zet `VUEA_NO_INSTALL=1`; de starter meldt dan alleen wat er ontbreekt.
@@ -113,7 +113,7 @@ bestand. De pagina houdt daarvoor een handmatige route achter de hand:
 
 ```powershell
 python --version          # eerst controleren; zie de tabel hieronder als dit faalt
-git clone https://github.com/JornGitHub/VU-EA-Conversational-AI.git
+git clone https://github.com/vusaverse/VU-EA-Conversational-AI.git
 cd VU-EA-Conversational-AI
 python -m venv .venv
 .\.venv\Scripts\python.exe main.py
@@ -150,7 +150,7 @@ over een paar honderd definities, klein genoeg om in de browser te draaien. Daar
 bovenop die de vraag leest en er een antwoord met bron van maakt. Samen staan ze als losse pagina op
 GitHub Pages:
 
-**<https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html>**
+**<https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html>**
 
 Zet hem op je beginscherm (op een iPhone: **Deel → Zet op beginscherm**) en hij werkt daarna **offline**. Een
 service worker bewaart de pagina en de definities op het toestel; er is daarna geen verbinding meer nodig,
@@ -371,7 +371,7 @@ app en scan de nieuwe QR-code. De telefoon is dan zelf het netwerk, dus er zit g
 `AllowInboundRules` uit. Dan negeert Windows álle inkomende toestaan-regels, hoe correct ze ook zijn. De
 diagnose leest dat uit en zegt het: de firewallroute is dan dicht en blijft dicht. Wat overblijft is de
 hotspot van je telefoon, of de
-[vraagpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html), die je vraag op het toestel
+[vraagpagina](https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html), die je vraag op het toestel
 zelf beantwoordt en daarvoor helemaal geen verbinding met je laptop nodig heeft.
 
 **Eén ding kan geen enkele test vanaf deze machine vaststellen:** of het wifi-netwerk verkeer tussen apparaten

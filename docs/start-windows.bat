@@ -9,15 +9,15 @@ REM Windows toont de eerste keer een SmartScreen-waarschuwing: klik op
 REM "Meer informatie" en daarna op "Toch uitvoeren".
 REM
 REM Werkt dit niet? Gebruik dan de losse commando's op de projectpagina:
-REM https://jorngithub.github.io/VU-EA-Conversational-AI/
+REM https://vusaverse.github.io/VU-EA-Conversational-AI/
 title VU EA Conversational AI
 set "SCRIPT=%TEMP%\vu-ea-start.ps1"
 echo Startscript ophalen...
-powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri 'https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1' -OutFile '%SCRIPT%' -UseBasicParsing } catch { Write-Host $_.Exception.Message -ForegroundColor Red; exit 1 }"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "try { Invoke-WebRequest -Uri 'https://vusaverse.github.io/VU-EA-Conversational-AI/start-windows.ps1' -OutFile '%SCRIPT%' -UseBasicParsing } catch { Write-Host $_.Exception.Message -ForegroundColor Red; exit 1 }"
 if errorlevel 1 (
   echo.
   echo Het startscript kon niet worden gedownload.
-  echo Gebruik de losse commando's op https://jorngithub.github.io/VU-EA-Conversational-AI/
+  echo Gebruik de losse commando's op https://vusaverse.github.io/VU-EA-Conversational-AI/
   pause
   exit /b 1
 )

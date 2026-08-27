@@ -724,7 +724,7 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "firewallregel toevoegen verandert dus niets, hoe vaak je het ook probeert. Twee routes "
             "blijven over: zet deze laptop op de hotspot van je telefoon, of gebruik voor opzoekwerk de "
             "zoekpagina die geen verbinding met deze laptop nodig heeft "
-            "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
+            "(https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html)."
         )
     elif has_block_rule:
         result.conclusion = (
@@ -768,7 +768,7 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "orde lijkt en er tóch niets doorkomt. Zie de bevinding hierboven; de app kan daar niets aan "
             "veranderen. Tot dat geregeld is: gebruik de hotspot van je telefoon, of de zoekpagina die "
             "geen verbinding met deze laptop nodig heeft "
-            "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
+            "(https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html)."
         )
     elif broad_blocks:
         result.conclusion = (
@@ -784,7 +784,7 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "firewallregel tegen — de blokkade zit in het netwerk, voordat het verkeer hier is. Twee "
             "routes blijven over: zet deze laptop op de hotspot van je telefoon, of gebruik de "
             "zoekpagina, die je vraag op de telefoon zelf beantwoordt en deze laptop niet nodig heeft "
-            "(https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html)."
+            "(https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html)."
         )
     elif on_hotspot:
         # Op een hotspot is clientisolatie geen verklaring meer, dus die mag hier
@@ -804,7 +804,7 @@ def diagnose(port: int = 8501, address: str | None = None) -> Diagnosis:
             "(clientisolatie). Test dat door deze computer op de hotspot van je telefoon te zetten - "
             "werkt het daar wel, dan was dit de oorzaak. Gaat het je alleen om opzoeken, dan werkt de "
             "zoekpagina op elke telefoon zonder verbinding met deze laptop: "
-            "https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html"
+            "https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html"
         )
     else:
         result.conclusion = (

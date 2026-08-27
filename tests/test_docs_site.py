@@ -14,9 +14,59 @@ from pathlib import Path
 DOCS = Path("docs")
 PAGE = DOCS / "index.html"
 PAGE_TEXT = PAGE.read_text(encoding="utf-8")
-BASE_URL = "https://jorngithub.github.io/VU-EA-Conversational-AI"
-REPO_URL = "https://github.com/JornGitHub/VU-EA-Conversational-AI"
+BASE_URL = "https://vusaverse.github.io/VU-EA-Conversational-AI"
+REPO_URL = "https://github.com/vusaverse/VU-EA-Conversational-AI"
 README_TEXT = Path("README.md").read_text(encoding="utf-8")
+
+
+class PublishedHostTests(unittest.TestCase):
+    """Where the published links point, and whether anything is there.
+
+    Every URL in this project pointed at jorngithub.github.io, which returns
+    404 for every path: the one-line installers, the phone page, the fallback
+    the network diagnosis hands out when nothing else works. The suite did not
+    notice, because BASE_URL in this file was the only place the host was
+    written down and the tests compared it with itself.
+    """
+
+    SOURCES = (
+        "README.md", "app_streamlit.py", "src/network_diagnosis.py",
+        "docs/index.html", "docs/zoek.html", "docs/start.sh",
+        "docs/start-windows.ps1", "docs/start-windows.bat", "docs/start-macos.command",
+    )
+
+    def test_every_published_link_uses_the_same_owner(self) -> None:
+        """A half-finished rename leaves some links dead and looks fine."""
+        wrong: list[str] = []
+        for name in self.SOURCES:
+            text = Path(name).read_text(encoding="utf-8")
+            for url in re.findall(r"https://[\w.-]*github[\w.-]*/[\w./-]*", text):
+                if "VU-EA-Conversational-AI" not in url:
+                    continue
+                if not url.startswith((BASE_URL, REPO_URL)):
+                    wrong.append(f"{name}: {url}")
+        self.assertEqual([], wrong, "links wijzen niet allemaal naar dezelfde eigenaar")
+
+    def test_the_old_dead_host_is_gone(self) -> None:
+        for name in self.SOURCES:
+            self.assertNotIn(
+                "jorngithub.github.io", Path(name).read_text(encoding="utf-8").lower(), name
+            )
+
+    def test_the_published_site_actually_answers(self) -> None:
+        """The check that would have caught this. Skips without a network."""
+        import urllib.error
+        import urllib.request
+
+        for path in ("", "/zoek.html", "/start.sh"):
+            url = BASE_URL + path
+            try:
+                with urllib.request.urlopen(url, timeout=15) as response:
+                    self.assertEqual(200, response.status, url)
+            except urllib.error.HTTPError as error:
+                self.fail(f"{url} geeft HTTP {error.code} - de gepubliceerde site is er niet")
+            except OSError as error:  # geen netwerk, proxy, DNS: niets over te zeggen
+                self.skipTest(f"geen netwerk om {url} te controleren ({error})")
 
 
 class SiteFilesTests(unittest.TestCase):
