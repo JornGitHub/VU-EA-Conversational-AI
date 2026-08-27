@@ -2,7 +2,7 @@
 # VU EA Conversational AI - startscript voor macOS en Linux.
 #
 # Gebruik:
-#   curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash
+#   curl -fsSL https://vusaverse.github.io/VU-EA-Conversational-AI/start.sh | bash
 #
 # Dit script doet alles zelf: het zoekt Python, installeert Python en git als ze
 # ontbreken, haalt de code op (of werkt een bestaande kopie bij), maakt een
@@ -21,7 +21,7 @@
 
 set -euo pipefail
 
-REPO_URL="${VUEA_REPO_URL:-https://github.com/JornGitHub/VU-EA-Conversational-AI.git}"
+REPO_URL="${VUEA_REPO_URL:-https://github.com/vusaverse/VU-EA-Conversational-AI.git}"
 TARGET_DIR="${VUEA_DIR:-$HOME/VU-EA-Conversational-AI}"
 BRANCH="${VUEA_BRANCH:-main}"
 MAY_INSTALL=1

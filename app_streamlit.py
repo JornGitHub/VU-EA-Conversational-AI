@@ -472,7 +472,7 @@ Let op je databundel: de app zelf verstuurt niets naar buiten, maar je telefoon 
             )
         st.caption(
             "Wil je alleen iets opzoeken, dan hoeft dit allemaal niet: "
-            "[de zoekpagina](https://jorngithub.github.io/VU-EA-Conversational-AI/zoek.html) werkt op elke "
+            "[de zoekpagina](https://vusaverse.github.io/VU-EA-Conversational-AI/zoek.html) werkt op elke "
             "telefoon zonder verbinding met deze laptop. Zet hem op je beginscherm en hij werkt ook zonder "
             "netwerk — op een netwerk met clientisolatie is dat de enige route die altijd doet wat hij belooft."
         )

@@ -9,7 +9,7 @@
 # Gebruik (download eerst, draai daarna - dat voorkomt dat virusscanners een
 # script blokkeren dat rechtstreeks vanaf internet wordt uitgevoerd):
 #
-#   irm https://jorngithub.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+#   irm https://vusaverse.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
 #   powershell -ExecutionPolicy Bypass -File .\start.ps1
 #
 # Werkt dit niet, gebruik dan de losse commando's op de projectpagina. Die
@@ -26,7 +26,7 @@
 
 $ErrorActionPreference = 'Stop'
 
-$RepoUrl   = if ($env:VUEA_REPO_URL) { $env:VUEA_REPO_URL } else { 'https://github.com/JornGitHub/VU-EA-Conversational-AI.git' }
+$RepoUrl   = if ($env:VUEA_REPO_URL) { $env:VUEA_REPO_URL } else { 'https://github.com/vusaverse/VU-EA-Conversational-AI.git' }
 $TargetDir = if ($env:VUEA_DIR)      { $env:VUEA_DIR }      else { Join-Path $env:USERPROFILE 'VU-EA-Conversational-AI' }
 $Branch    = if ($env:VUEA_BRANCH)   { $env:VUEA_BRANCH }   else { 'main' }
 $ZipUrl    = ($RepoUrl -replace '\.git$', '') + "/archive/refs/heads/$Branch.zip"

@@ -5,4 +5,4 @@
 # van een niet-geverifieerde ontwikkelaar komt"): klik met de rechtermuisknop op
 # dit bestand > Open > Open. Daarna volstaat dubbelklikken.
 set -euo pipefail
-curl -fsSL https://jorngithub.github.io/VU-EA-Conversational-AI/start.sh | bash
+curl -fsSL https://vusaverse.github.io/VU-EA-Conversational-AI/start.sh | bash
