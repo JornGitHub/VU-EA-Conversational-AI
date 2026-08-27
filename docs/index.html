@@ -167,6 +167,19 @@
   }
   .downloads a:hover { border-color: var(--accent); color: var(--accent); }
   footer { margin-top: 48px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--text-soft); font-size: 0.9rem; }
+  /* Ontwikkelstatus: onderaan, klein, en pas iets ophalen als iemand hem opent. */
+  .devstatus { margin-top: 28px; font-size: 0.85rem; color: var(--text-soft); }
+  .devstatus > details { border: 0; border-top: 1px solid var(--border); padding: 10px 0 0; }
+  .devstatus summary { cursor: pointer; font-weight: 600; color: var(--text-soft); }
+  .devstatus dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 16px; margin: 12px 0 0; }
+  .devstatus dt { color: var(--text-soft); }
+  .devstatus dd { margin: 0; overflow-wrap: anywhere; }
+  .devstatus .sha { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .devstatus .fresh { color: var(--ok); font-weight: 600; }
+  .devstatus .stale { color: var(--warn); font-weight: 600; }
+  .devstatus .when { display: block; }
+  @media (max-width: 520px) { .devstatus dl { grid-template-columns: 1fr; gap: 2px; } 
+    .devstatus dt { margin-top: 8px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; } }
   [hidden] { display: none !important; }
 </style>
 </head>
@@ -580,9 +593,211 @@ python3 -m venv .venv
       <a href="https://github.com/vusaverse/VU-EA-Conversational-AI">GitHub-repository</a>.
     </p>
   </footer>
+
+  <section class="devstatus">
+    <details id="devstatus">
+      <summary>Ontwikkelstatus — laatste merge en of deze site bij is</summary>
+      <div id="devstatus-body" aria-live="polite">
+        <p>Openklappen haalt de gegevens op bij GitHub.</p>
+      </div>
+    </details>
+  </section>
 </div>
 
 <script>
+  // ------------------------------------------------ ontwikkelstatus ----
+  // Voor wie aan het project werkt: welke pull request het laatst is gemerged,
+  // en of wat hier live staat gelijk is aan main.
+  //
+  // Pas ophalen als iemand het paneel openklapt. De GitHub-API staat voor
+  // niet-ingelogde verzoeken 60 per uur per IP toe, en op een universiteits-
+  // netwerk delen honderden mensen één adres. Een gewone bezoeker, die alleen
+  // de app wil starten, hoort dat budget niet op te maken voor iets wat hij
+  // nooit openklapt.
+  (function () {
+    var OWNER = 'vusaverse';
+    var REPO = 'VU-EA-Conversational-AI';
+    var API = 'https://api.github.com/repos/' + OWNER + '/' + REPO;
+    var CACHE_KEY = 'vuea-devstatus';
+    var CACHE_MS = 5 * 60 * 1000;
+
+    var panel = document.getElementById('devstatus');
+    var body = document.getElementById('devstatus-body');
+    if (!panel || !body) { return; }
+    var loaded = false;
+
+    function say(text) {
+      body.textContent = '';
+      var paragraph = document.createElement('p');
+      paragraph.textContent = text;
+      body.appendChild(paragraph);
+    }
+
+    function shortSha(sha) { return String(sha || '').slice(0, 7); }
+
+    function when(value) {
+      if (!value) { return ''; }
+      var moment = new Date(value);
+      if (isNaN(moment.getTime())) { return ''; }
+      return moment.toLocaleString('nl-NL', {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      });
+    }
+
+    // Alles hieronder komt van de API - dus titels van pull requests, door
+    // mensen getypt. Met textContent kan daar geen opmaak uit ontsnappen.
+    function row(list, label, parts) {
+      var term = document.createElement('dt');
+      term.textContent = label;
+      var value = document.createElement('dd');
+      parts.forEach(function (part) {
+        if (typeof part === 'string') {
+          value.appendChild(document.createTextNode(part));
+          return;
+        }
+        var node = document.createElement(part.tag || 'span');
+        if (part.className) { node.className = part.className; }
+        if (part.href) { node.setAttribute('href', part.href); }
+        node.textContent = part.text;
+        value.appendChild(node);
+      });
+      list.appendChild(term);
+      list.appendChild(value);
+    }
+
+    function get(path) {
+      return fetch(API + path, { headers: { Accept: 'application/vnd.github+json' } })
+        .then(function (response) {
+          if (response.status === 403 || response.status === 429) {
+            throw new Error('limiet');
+          }
+          if (!response.ok) { throw new Error('HTTP ' + response.status); }
+          return response.json();
+        });
+    }
+
+    function collect() {
+      return Promise.all([
+        get('/commits/main'),
+        get('/pulls?state=closed&sort=updated&direction=desc&per_page=20'),
+        get('/deployments?environment=github-pages&per_page=1').catch(function () { return []; })
+      ]).then(function (results) {
+        var head = results[0];
+        var merged = (results[1] || []).filter(function (pull) { return pull.merged_at; })
+          .sort(function (a, b) { return new Date(b.merged_at) - new Date(a.merged_at); })[0] || null;
+        var deployment = (results[2] || [])[0] || null;
+        var status = {
+          mainSha: head.sha,
+          mainDate: ((head.commit || {}).committer || {}).date,
+          mainMessage: String(((head.commit || {}).message) || '').split('\n')[0],
+          pull: merged && {
+            number: merged.number,
+            title: merged.title,
+            url: merged.html_url,
+            mergedAt: merged.merged_at,
+            author: (merged.user || {}).login
+          },
+          deployedSha: deployment && deployment.sha,
+          deployedAt: deployment && deployment.created_at
+        };
+        if (!status.deployedSha || status.deployedSha === status.mainSha) {
+          return status;
+        }
+        return get('/compare/' + status.deployedSha + '...' + status.mainSha)
+          .then(function (diff) {
+            status.behind = diff.ahead_by;
+            return status;
+          })
+          .catch(function () { return status; });
+      });
+    }
+
+    function render(status) {
+      body.textContent = '';
+      var list = document.createElement('dl');
+
+      if (status.pull) {
+        row(list, 'Laatste merge', [
+          {tag: 'a', text: '#' + status.pull.number, href: status.pull.url},
+          ' ' + status.pull.title,
+          {tag: 'span', className: 'when', text:
+            'gemerged door ' + status.pull.author + ' op ' + when(status.pull.mergedAt)}
+        ]);
+      } else {
+        row(list, 'Laatste merge', ['geen gemergede pull request gevonden']);
+      }
+
+      row(list, 'main', [
+        {tag: 'code', className: 'sha', text: shortSha(status.mainSha)},
+        ' ' + status.mainMessage,
+        {tag: 'span', className: 'when', text: when(status.mainDate)}
+      ]);
+
+      if (!status.deployedSha) {
+        row(list, 'Deze site', [
+          'GitHub geeft geen deployment voor deze pagina vrij, dus welke commit hier ' +
+          'live staat is van buitenaf niet vast te stellen.'
+        ]);
+      } else if (status.deployedSha === status.mainSha) {
+        row(list, 'Deze site', [
+          {tag: 'code', className: 'sha', text: shortSha(status.deployedSha)},
+          ' ',
+          {tag: 'span', className: 'fresh', text: 'bij met main'},
+          {tag: 'span', className: 'when', text: 'gepubliceerd ' + when(status.deployedAt)}
+        ]);
+      } else {
+        var achter = typeof status.behind === 'number'
+          ? status.behind + (status.behind === 1 ? ' commit achter' : ' commits achter')
+          : 'niet gelijk aan main';
+        row(list, 'Deze site', [
+          {tag: 'code', className: 'sha', text: shortSha(status.deployedSha)},
+          ' ',
+          {tag: 'span', className: 'stale', text: achter},
+          {tag: 'span', className: 'when', text: 'gepubliceerd ' + when(status.deployedAt)}
+        ]);
+      }
+
+      body.appendChild(list);
+    }
+
+    function cached() {
+      try {
+        var raw = sessionStorage.getItem(CACHE_KEY);
+        if (!raw) { return null; }
+        var entry = JSON.parse(raw);
+        return (Date.now() - entry.at < CACHE_MS) ? entry.status : null;
+      } catch (error) { return null; }
+    }
+
+    function remember(status) {
+      try {
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify({at: Date.now(), status: status}));
+      } catch (error) { /* privémodus: dan gewoon elke keer opnieuw */ }
+    }
+
+    panel.addEventListener('toggle', function () {
+      if (!panel.open || loaded) { return; }
+      loaded = true;
+
+      var hit = cached();
+      if (hit) { render(hit); return; }
+
+      say('Bezig met ophalen bij GitHub…');
+      collect().then(function (status) {
+        remember(status);
+        render(status);
+      }).catch(function (error) {
+        loaded = false;  // opnieuw openklappen mag het opnieuw proberen
+        if (String(error.message) === 'limiet') {
+          say('De GitHub-API laat niet-ingelogde verzoeken 60 keer per uur per IP toe, ' +
+              'en die limiet is nu bereikt. Probeer het later opnieuw.');
+        } else {
+          say('Kon de status niet ophalen (' + error.message + ').');
+        }
+      });
+    });
+  })();
+
   (function () {
     var panels = { windows: 'panel-windows', macos: 'panel-macos', linux: 'panel-linux' };
     var labels = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
