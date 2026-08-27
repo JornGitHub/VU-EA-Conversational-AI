@@ -8,9 +8,13 @@
  * de achtergrond. De documentatie verandert zelden; wachten op het netwerk
  * voor iets dat al op het toestel staat is verspilde tijd.
  */
-var CACHE = 'vu-ea-definities-v2';
+var CACHE = 'vu-ea-definities-v3';
 var ASSETS = [
   './zoek.html',
+  // De startpagina hoort erbij: de zoekpagina linkt ernaar terug, en een
+  // terugknop die alleen mét netwerk werkt is precies verkeerd om.
+  './',
+  './index.html',
   './data/definities.json',
   './manifest.webmanifest',
   './icons/icon-192.png',

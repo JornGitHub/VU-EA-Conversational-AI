@@ -330,5 +330,88 @@ class AnswerTests(unittest.TestCase):
             self.page.context.set_offline(False)
 
 
+class BackToLauncherTests(unittest.TestCase):
+    """Getting back to the start page, on whatever host this is served from.
+
+    The link is relative, so it follows the host by itself - jorngithub,
+    vusaverse or file://. The part that needs proving is that it still works
+    with the network off, because that is the situation this whole page exists
+    for: an installed app on a phone that cannot reach anything.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        try:
+            from playwright.sync_api import sync_playwright
+        except ImportError:
+            raise unittest.SkipTest("playwright ontbreekt: pip install playwright && playwright install chromium")
+        cls.playwright = sync_playwright().start()
+        try:
+            cls.browser = cls.playwright.chromium.launch(executable_path=_chromium_path())
+        except Exception as exc:  # noqa: BLE001
+            cls.playwright.stop()
+            raise unittest.SkipTest(f"geen Chromium beschikbaar: {exc}")
+        cls.server = _Server()
+
+    @classmethod
+    def tearDownClass(cls) -> None:
+        cls.server.stop()
+        cls.browser.close()
+        cls.playwright.stop()
+
+    def setUp(self) -> None:
+        self.page = self.browser.new_page()
+        self.page.goto(self.server.url)
+        self.page.wait_for_function("window.__vuea !== undefined")
+
+    def tearDown(self) -> None:
+        self.page.close()
+
+    def test_the_link_sits_above_the_page_title(self) -> None:
+        """In the footer it was 9.000 pixels below a phone-sized result list."""
+        order = self.page.evaluate(
+            "() => {\n"
+            "  const link = document.querySelector('.backlink');\n"
+            "  const title = document.querySelector('h1');\n"
+            "  return link.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING ? 'ervoor' : 'erna';\n"
+            "}"
+        )
+        self.assertEqual("ervoor", order)
+
+    def test_the_link_is_relative_so_it_follows_the_host(self) -> None:
+        href = self.page.eval_on_selector(".backlink", "el => el.getAttribute('href')")
+        self.assertEqual("./", href)
+        resolved = self.page.eval_on_selector(".backlink", "el => el.href")
+        self.assertTrue(resolved.startswith(f"http://127.0.0.1:{self.server.httpd.server_address[1]}/"), resolved)
+        self.assertNotIn("github.io", resolved)
+
+    def test_it_is_a_comfortable_tap_target(self) -> None:
+        height = self.page.eval_on_selector(".backlink", "el => el.getBoundingClientRect().height")
+        self.assertGreaterEqual(height, 44, "te klein om op een telefoon te raken")
+
+    def test_clicking_it_opens_the_start_page(self) -> None:
+        self.page.click(".backlink")
+        self.page.wait_for_load_state()
+        self.assertIn("VU EA Conversational AI", self.page.eval_on_selector("h1", "el => el.textContent"))
+
+    def test_it_still_works_with_the_network_off(self) -> None:
+        """An installed app on a phone with no signal must not hit a dead end."""
+        self.page.evaluate("() => navigator.serviceWorker.ready.then(() => true)")
+        self.page.wait_for_function("() => navigator.serviceWorker.controller !== null")
+        # De cache wordt bij install gevuld; even wachten tot de startpagina er staat.
+        self.page.wait_for_function(
+            "() => caches.keys()"
+            ".then(names => Promise.all(names.map(n => caches.open(n).then(c => c.match('./index.html')))))"
+            ".then(hits => hits.some(Boolean))"
+        )
+        self.page.context.set_offline(True)
+        try:
+            self.page.click(".backlink")
+            self.page.wait_for_load_state()
+            self.assertIn("VU EA Conversational AI", self.page.eval_on_selector("h1", "el => el.textContent"))
+        finally:
+            self.page.context.set_offline(False)
+
+
 if __name__ == "__main__":
     unittest.main()
