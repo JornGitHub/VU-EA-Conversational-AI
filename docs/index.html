@@ -213,34 +213,32 @@
 
     <section id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" hidden>
       <p>
-        Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak deze twee regels. Ze
-        zoeken Python (ook als je PATH stuk is), installeren Python, git en Ollama als die ontbreken,
-        halen de code op en openen de app. Je hoeft verder niets.
+        Download het startbestand, zet het op je bureaublad en dubbelklik het voortaan. Het zoekt Python
+        (ook als je PATH stuk is), installeert Python, git en Ollama als die ontbreken, haalt de code op en
+        opent de app. Je hoeft verder niets.
       </p>
-      <div class="cmd">
-        <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows-script">Kopieer</button></div>
-        <pre id="code-windows-script">irm https://vusaverse.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
-powershell -ExecutionPolicy Bypass -File .\start.ps1</pre>
+      <div class="actions">
+        <a class="btn-primary" href="start-windows.bat" download>⬇ Starter voor Windows <span class="sz">start-windows.bat</span></a>
       </div>
       <p class="hint">
-        Dit is op VU-laptops de betrouwbaarste route: er wordt niets via de browser gedownload, en daar
-        struikelt Windows Security meestal over.
+        Windows toont de eerste keer SmartScreen: <em>“Meer informatie”</em> → <em>“Toch uitvoeren”</em>.
+        Verschijnt die keuze niet en wordt het bestand meteen geweigerd, dan verbiedt het beleid van je
+        organisatie het uitvoeren van gedownloade bestanden. Gebruik dan de PowerShell-regels hieronder.
       </p>
 
       <details style="margin-top:18px">
-        <summary>Liever dubbelklikken? (werkt niet op elke beheerde laptop)</summary>
+        <summary>Liever PowerShell-regels kopiëren en plakken?</summary>
         <p>
-          Download het startbestand, zet het op je bureaublad en dubbelklik het voortaan. Het doet precies
-          hetzelfde als de commando's hierboven.
+          Open <strong>PowerShell</strong> (Windows-toets, typ “PowerShell”) en plak deze twee regels. Dit is
+          op beheerde VU-laptops vaak de betrouwbaarste route, omdat er niets via de browser wordt gedownload.
         </p>
-        <div class="actions">
-          <a class="btn-primary" href="start-windows.bat" download>⬇ Starter voor Windows <span class="sz">start-windows.bat</span></a>
+        <div class="cmd">
+          <div class="cmd-bar"><span>PowerShell</span><button class="copy" type="button" data-copy="code-windows-script">Kopieer</button></div>
+          <pre id="code-windows-script">irm https://vusaverse.github.io/VU-EA-Conversational-AI/start-windows.ps1 -OutFile start.ps1
+powershell -ExecutionPolicy Bypass -File .\start.ps1</pre>
         </div>
         <p class="hint">
-          Windows toont de eerste keer SmartScreen: <em>“Meer informatie”</em> → <em>“Toch uitvoeren”</em>.
-          Verschijnt die keuze niet en wordt het bestand meteen geweigerd, dan verbiedt het beleid van je
-          organisatie het uitvoeren van gedownloade bestanden. Dat is niet te omzeilen en ook niet nodig:
-          gebruik de commando's hierboven.
+          Deze regels doen precies hetzelfde als het startbestand hierboven.
         </p>
       </details>
 
